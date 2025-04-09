@@ -982,6 +982,16 @@ U32 Parser9x::toLocalCP( U32 globalCP ) const
     return globalCP;
 }
 
+void Parser9x::realFC( U32& fc, bool& unicode ) const
+{
+    if ( fc & 0x40000000 ) {
+        fc = ( fc & 0xbfffffff ) >> 1;
+        unicode = false;
+    }
+    else
+        unicode = m_fib.nFib >= Word8nFib;
+}
+
 int Parser9x::accumulativeLength( int len, const Parser9x::Chunk& chunk )
 {
     return len + chunk.m_text.length();

@@ -239,7 +239,7 @@ namespace wvWare
         // coordinate space of the corresponding sub document
         U32 toLocalCP( U32 globalCP ) const;
         // Calculates the real FC and tells us whether it was unicode or not
-        inline void realFC( U32& fc, bool& unicode ) const;
+        void realFC( U32& fc, bool& unicode ) const;
         // Helper method to use std::accumulate in the table handling code
         static int accumulativeLength( int len, const Chunk& chunk );
 
@@ -295,16 +295,6 @@ namespace wvWare
 
         std::stack<ParsingState> oldParsingStates;
     };
-
-    inline void Parser9x::realFC( U32& fc, bool& unicode ) const
-    {
-        if ( fc & 0x40000000 ) {
-            fc = ( fc & 0xbfffffff ) >> 1;
-            unicode = false;
-        }
-        else
-            unicode = m_fib.nFib >= Word8nFib;
-    }
 
 } // namespace wvWare
 
