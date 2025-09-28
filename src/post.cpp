@@ -107,7 +107,7 @@ try
 	}
 	else
 	{
-		throw make_error("Unsupported protocol: " + protocol, errors::program_logic{});
+		throw make_error("Unsupported protocol", protocol, errors::program_logic{});
 	}
 
 	httplib::Headers headers;
