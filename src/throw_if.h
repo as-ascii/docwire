@@ -18,7 +18,7 @@
 	do { \
 		if (triggering_expression) \
 		{ \
-			constexpr const char* triggering_condition = #triggering_expression; \
+			const char* triggering_condition = #triggering_expression; \
 			throw DOCWIRE_MAKE_ERROR(triggering_condition __VA_OPT__(,) __VA_ARGS__); \
 		} \
 	} while(0)
