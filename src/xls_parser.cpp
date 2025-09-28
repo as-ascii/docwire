@@ -19,6 +19,7 @@
 #include <math.h>
 #include "misc.h"
 #include <mutex>
+#include "nested_exception.h"
 #include "oshared.h"
 #include <set>
 #include <stdio.h>

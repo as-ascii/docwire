@@ -29,6 +29,7 @@
 #include "make_error.h"
 #include "misc.h"
 #include <mutex>
+#include "nested_exception.h"
 #include <set>
 #include "pimpl.h"
 #include "scoped_stack_push.h"

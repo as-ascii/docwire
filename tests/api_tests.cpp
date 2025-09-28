@@ -41,6 +41,7 @@
 #include <magic_enum/magic_enum_iostream.hpp>
 #include "mail_parser.h"
 #include "meta_data_exporter.h"
+#include "nested_exception.h"
 #include "../src/standard_filter.h"
 #include <optional>
 #include <algorithm>
@@ -763,8 +764,8 @@ TEST (errors, throwing)
     }
     catch (const errors::base& e)
     {
-        ASSERT_EQ(e.context_type(), typeid(const char*));
-        ASSERT_EQ(e.context_string(), "test");
+        ASSERT_EQ(e.context_type(0), typeid(const char*));
+        ASSERT_EQ(e.context_string(0), "test");
     }
     try
     {
@@ -773,8 +774,8 @@ TEST (errors, throwing)
     }
     catch (const errors::base& e)
     {
-        ASSERT_EQ(e.context_type(), typeid(std::pair<std::string, std::string>));
-        ASSERT_EQ(e.context_string(), "s: test");
+        ASSERT_EQ(e.context_type(0), typeid(std::pair<std::string, std::string>));
+        ASSERT_EQ(e.context_string(0), "s: test");
     }
     try
     {
@@ -782,8 +783,8 @@ TEST (errors, throwing)
     }
     catch (const errors::base& e)
     {
-        ASSERT_EQ(e.context_type(), typeid(errors::network_failure));
-        ASSERT_EQ(e.context_string(), "network failure error tag");
+        ASSERT_EQ(e.context_type(0), typeid(errors::network_failure));
+        ASSERT_EQ(e.context_string(0), "network failure error tag");
     }
     try
     {
@@ -792,28 +793,13 @@ TEST (errors, throwing)
     }
     catch (const errors::base& e)
     {
-        ASSERT_EQ(e.context_type(), typeid(std::pair<std::string, std::string>));
-        ASSERT_EQ(e.context_string(), "s: test");
-        try
-        {
-            std::rethrow_if_nested(e);
-            FAIL() << "Expected nested exception";
-        }
-        catch (const errors::base& e)
-        {
-            ASSERT_EQ(e.context_type(), typeid(errors::file_encrypted));
-            ASSERT_EQ(e.context_string(), "file encrypted error tag");
-            try
-            {
-                std::rethrow_if_nested(e);
-                FAIL() << "Expected nested exception";
-            }
-            catch (const errors::base& e)
-            {
-                ASSERT_EQ(e.context_type(), typeid(std::pair<std::string, const char*>));
-                ASSERT_EQ(e.context_string(), "triggering_condition: 2 < 3");
-            }
-        }
+        ASSERT_EQ(e.context_count(), 3);
+        ASSERT_EQ(e.context_type(0), typeid(std::pair<std::string, const char *>));
+        ASSERT_EQ(e.context_string(0), "triggering_condition: 2 < 3");
+        ASSERT_EQ(e.context_type(1), typeid(errors::file_encrypted));
+        ASSERT_EQ(e.context_string(1), "file encrypted error tag");
+        ASSERT_EQ(e.context_type(2), typeid(std::pair<std::string, std::string>));
+        ASSERT_EQ(e.context_string(2), "s: test");
     }
 }
 
@@ -831,14 +817,17 @@ TEST(errors, diagnostic_message)
             }
             catch (const std::exception& e)
             {
+                std::string string_2{"string data 2"};
                 err2_loc = current_location();
-                std::throw_with_nested(make_error("level 2 exception"));
+                std::throw_with_nested(make_error("level 2 exception", string_2));
             }
         }
         catch (const std::exception& e)
         {
+            std::string string_3{"string data 3"};
+            int int_3 = 3;
             err3_loc = current_location();
-            std::throw_with_nested(make_error("level 3 exception"));
+            std::throw_with_nested(make_error("level 3 exception", string_3, int_3, errors::program_logic{}));
         }
     }
     catch (const std::exception& e)
@@ -846,14 +835,18 @@ TEST(errors, diagnostic_message)
         message = errors::diagnostic_message(e);
     }
 	ASSERT_EQ(message,
-        std::string{"Error \"level 1 exception\"\n"} +
-        "No location information available\n"
-        "with context \"level 2 exception\"\n"
-        "in " + err2_loc.function_name() + "\n"
-        "at " + err2_loc.file_name() + ":" + std::to_string(err2_loc.line() + 1) + "\n"
-        "with context \"level 3 exception\"\n"
-        "in " + err3_loc.function_name() + "\n"
-        "at " + + err3_loc.file_name() + ":" + std::to_string(err3_loc.line() + 1) + "\n"
+        std::string{"Error: \"level 1 exception\"\n"} +
+        "No location information available\n" +
+        "wrapping at: " + err2_loc.function_name() + "\n" +
+        "at " + err2_loc.file_name() + ":" + std::to_string(err2_loc.line() + 1) + "\n" +
+		"with context \"level 2 exception\"\n" +
+		"with context \"string_2: string data 2\"\n" +
+        "wrapping at: " + err3_loc.function_name() + "\n" +
+        "at " + err3_loc.file_name() + ":" + std::to_string(err3_loc.line() + 1) + "\n" +
+		"with context \"level 3 exception\"\n" +
+		"with context \"string_3: string data 3\"\n" +
+		"with context \"int_3: 3\"\n" +
+		"with context \"program logic error tag\"\n"
     );
 }
 

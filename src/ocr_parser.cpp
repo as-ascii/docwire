@@ -29,6 +29,7 @@
 #include "log.h"
 #include "lru_memory_cache.h"
 #include <mutex>
+#include "nested_exception.h"
 #include <numeric>
 #include "resource_path.h"
 #include "scoped_stack_push.h"

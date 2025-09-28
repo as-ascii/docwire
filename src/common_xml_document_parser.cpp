@@ -18,6 +18,7 @@
 #include "log.h"
 #include "make_error.h"
 #include "misc.h"
+#include "nested_exception.h"
 #include "xml_stream.h"
 #include "xml_fixer.h"
 #include "document_elements.h"

@@ -17,6 +17,7 @@
 #include "data_source.h"
 #include "document_elements.h"
 #include "make_error.h"
+#include "nested_exception.h"
 #include "ref_or_owned.h"
 
 /**

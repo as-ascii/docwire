@@ -20,8 +20,10 @@
 #include "error_tags.h"
 #include "log.h"
 #include <map>
+#include "make_error.h"
 #include "misc.h"
 #include <mutex>
+#include "nested_exception.h"
 #include <regex>
 #include <stdlib.h>
 #include <string.h>
@@ -538,7 +540,7 @@ void ODFOOXMLParser::parse(const data_source& data, XmlParseMode mode, const mes
 			}
 			catch (const std::exception& e)
 			{
-				std::throw_with_nested(errors::impl{std::make_pair("file_name", "ppt/slides/slide" + int_to_str(i) + ".xml")});
+				std::throw_with_nested(make_error(std::make_pair("file_name", "ppt/slides/slide" + int_to_str(i) + ".xml")));
 			}
 		}
 	}
@@ -582,7 +584,7 @@ void ODFOOXMLParser::parse(const data_source& data, XmlParseMode mode, const mes
 			}
 			catch (const std::exception& e)
 			{
-				std::throw_with_nested(errors::impl{std::make_pair("file_name", "xl/sharedStrings.xml")});
+				std::throw_with_nested(make_error(std::make_pair("file_name", "xl/sharedStrings.xml")));
 			}
 		}
 		for (int i = 1; zipfile.read("xl/worksheets/sheet" + int_to_str(i) + ".xml", &content); i++)
@@ -594,7 +596,7 @@ void ODFOOXMLParser::parse(const data_source& data, XmlParseMode mode, const mes
 			}
 			catch (const std::exception& e)
 			{
-				std::throw_with_nested(errors::impl{make_pair("file_name", "xl/worksheets/sheet" + int_to_str(i) + ".xml")});
+				std::throw_with_nested(make_error(std::make_pair("file_name", "xl/worksheets/sheet" + int_to_str(i) + ".xml")));
 			}
 		}
 	}
@@ -635,7 +637,7 @@ attributes::Metadata ODFOOXMLParser::metaData(ZipReader& zipfile) const
 		}
 		catch (const std::exception& e)
 		{
-			std::throw_with_nested(errors::impl{std::make_pair("file_name", "meta.xml")});
+			std::throw_with_nested(make_error(std::make_pair("file_name", "meta.xml")));
 		}
 	}
 	else if (zipfile.exists("docProps/core.xml"))
@@ -669,7 +671,7 @@ attributes::Metadata ODFOOXMLParser::metaData(ZipReader& zipfile) const
 		}
 		catch (const std::exception& e)
 		{
-			std::throw_with_nested(errors::impl{std::make_pair("file_name", "docProps/core.xml")});
+			std::throw_with_nested(make_error(std::make_pair("file_name", "docProps/core.xml")));
 		}
 
 		std::string app_xml;
@@ -689,7 +691,7 @@ attributes::Metadata ODFOOXMLParser::metaData(ZipReader& zipfile) const
 		}
 		catch (const std::exception& e)
 		{
-			std::throw_with_nested(errors::impl{std::make_pair("file_name", "docProps/app.xml")});
+			std::throw_with_nested(make_error(std::make_pair("file_name", "docProps/app.xml")));
 		}
 	}
 	if (!meta.page_count)

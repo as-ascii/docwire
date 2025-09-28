@@ -1151,9 +1151,9 @@ In addition to std::nested_exception and std::exception_ptr and std::throw_with_
 
 Context values are type-safe, meaning any type, including custom types, can be used in the context value. The context is built from original C++ types, and context objects can be accessed during the error handling process.
 
-[errors::impl](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1impl.html) structure template provides an implementation of the context value mechanism, including support for custom types: `throw errors::impl{custom_type_value}`.
+[errors::impl](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1impl.html) structure template provides an implementation of the context value mechanism, including support for custom types. It is recommended to use the `make_error` macro for construction: `throw make_error(custom_type_value);`.
 
-[errors::base](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1base.html) structure provides a base class for all error types for easy error handling: `catch (docwire::errors::base& e) { ... }`.
+[errors::base](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1base.html) structure provides a base class for all error types for easy error handling: `catch (const docwire::errors::base& e) { ... }`.
 
 ### Embedded context variable names and triggering expressions
 
@@ -1179,16 +1179,14 @@ Functions like [errors::diagnostic_message](https://docwire.readthedocs.io/en/la
 
 For example `std::cerr << docwire::errors::diagnostic_message(e) << std::endl;` can give the following results:
 ```
-[ERROR] Error "file encrypted error tag"
-in void docwire::XLSParser::Implementation::processRecord(int, const std::vector<unsigned char>&, std::string&)
-at /docwire/src/xls_parser.cpp:483
-with context "RC4 encryption"
-in void docwire::XLSParser::Implementation::processRecord(int, const std::vector<unsigned char>&, std::string&)
-at /docwire/src/xls_parser.cpp:483
-with context "Error parsing XLS document"
-in std::string docwire::XLSParser::parse(docwire::ThreadSafeOLEStorage&) const
-at /docwire/src/xls_parser.cpp:931
-processing file tests/password_protected.xls
+Error: "triggering_condition: impl().ArchiveFile == NULL"
+in void docwire::ZipReader::open()
+at /home/adrian/Work/docwire/src/zip_reader.cpp:146
+with context "Could not open zip archive"
+wrapping at: void docwire::pimpl_impl<docwire::XLSBParser>::parse(const docwire::data_source&, const docwire::message_callbacks&)
+at /home/adrian/Work/docwire/src/xlsb_parser.cpp:700
+with context "file encrypted error tag"
+with context "Microsoft Office Document Cryptography"
 ```
 
 ### Non-fatal errors and warnings

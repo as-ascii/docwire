@@ -16,6 +16,7 @@
 #include "document_elements.h"
 #include "log.h"
 #include "make_error.h"
+#include "nested_exception.h"
 #include "pimpl.h"
 #include <string.h>
 

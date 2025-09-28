@@ -28,6 +28,8 @@ namespace docwire::errors
  */
 inline std::string diagnostic_message(const std::exception& e)
 {
+	auto quote = [](const std::string& s) { return "\"" + s + "\""; };
+
 	std::string message;
 	try
 	{
@@ -41,19 +43,32 @@ inline std::string diagnostic_message(const std::exception& e)
 	{
 		message = "Unknown error\n";
 	}
-	message += std::string{message.empty() ? "Error" : "with context"} + " \"";
+
 	try
 	{
 		const errors::base& error = dynamic_cast<const errors::base&>(e);
-		message +=
-			error.context_string() + "\"\nin " +
-			error.source_location.function_name() + "\nat " +
-			error.source_location.file_name() + ":" +
-				std::to_string(error.source_location.line()) + "\n";
+		if (message.empty())
+		{
+			message += "Error: " + (error.context_count() > 0 ? quote(error.context_string(0)) : quote(e.what())) + "\n";
+			message += "in " + std::string{error.source_location.function_name()} + "\n";
+			message += "at " + std::string{error.source_location.file_name()} + ":" + std::to_string(error.source_location.line()) + "\n";
+			for (size_t i = 1; i < error.context_count(); ++i)
+			{
+				message += "with context " + quote(error.context_string(i)) + "\n";
+			}
+		}
+		else
+		{
+			message += "wrapping at: " + std::string{error.source_location.function_name()} + "\n";
+			message += "at " + std::string{error.source_location.file_name()} + ":" + std::to_string(error.source_location.line()) + "\n";
+			for (size_t i = 0; i < error.context_count(); ++i)
+				message += "with context " + quote(error.context_string(i)) + "\n";
+		}
 	}
 	catch (const std::bad_cast&)
 	{
-		message += std::string{e.what()} + "\"\nNo location information available\n";
+		message += "Error: " + quote(e.what()) + "\n";
+		message += "No location information available\n";
 	}
 	return message;
 }
@@ -98,8 +113,11 @@ bool contains_type(const std::exception& e)
 	try
 	{
 		const errors::base& error = dynamic_cast<const errors::base&>(e);
-		if (error.context_type() == typeid(T))
-			return true;
+		for (size_t i = 0; i < error.context_count(); ++i)
+		{
+			if (error.context_type(i) == typeid(T))
+				return true;
+		}
 	}
 	catch (const std::bad_cast&)
 	{

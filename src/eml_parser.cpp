@@ -24,6 +24,7 @@
 #include <mailio/message.hpp>
 #include <mailio/mime.hpp>
 #include "make_error.h"
+#include "nested_exception.h"
 #include "scoped_stack_push.h"
 
 namespace docwire

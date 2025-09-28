@@ -16,6 +16,7 @@
 #include "log.h"
 #include <math.h>
 #include "misc.h"
+#include "nested_exception.h"
 #include "oshared.h"
 #include <stdio.h>
 #include <stdlib.h>

@@ -519,7 +519,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 			}
 			catch (const std::exception& e)
 			{
-				std::throw_with_nested(errors::impl{std::make_pair("file_name", "xl/sharedStrings.bin")});
+				std::throw_with_nested(make_error(std::make_pair("file_name", "xl/sharedStrings.bin")));
 			}
 			try
 			{
@@ -527,7 +527,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 			}
 			catch (const std::exception& e)
 			{
-				std::throw_with_nested(errors::impl{std::make_pair("file_name", "xl/sharedStrings.bin")});
+				std::throw_with_nested(make_error(std::make_pair("file_name", "xl/sharedStrings.bin")));
 			}
 		}
 		unzip.closeReadingFileForChunks();
