@@ -60,7 +60,15 @@ try
 	const data_source& data = msg->get<data_source>();
 	std::shared_ptr<std::istream> in_stream = data.istream();
 
-	auto parse_url = [](const std::string& url_str) -> std::tuple<std::string, std::string, int, std::string> {
+	struct parsed_url
+	{
+		std::string protocol;
+		std::string host;
+		int port;
+		std::string path;
+	};
+
+	auto parse_url = [](const std::string& url_str) -> parsed_url {
 		const std::string proto_end("://");
 		auto proto_it = std::search(url_str.begin(), url_str.end(), proto_end.begin(), proto_end.end());
 		if (proto_it == url_str.end())
@@ -91,23 +99,23 @@ try
 		return {protocol, host, port, path};
 	};
 
-	auto [protocol, host, port, path] = parse_url(impl().m_url);
+	auto parsed_url = parse_url(impl().m_url);
 
 	std::unique_ptr<httplib::SSLClient> ssl_client;
 	std::unique_ptr<httplib::Client> client;
 
-	if (protocol == "https")
+	if (parsed_url.protocol == "https")
 	{
-		ssl_client = make_unique<httplib::SSLClient>(host, port == 0 ? 443 : port);
+		ssl_client = make_unique<httplib::SSLClient>(parsed_url.host, parsed_url.port == 0 ? 443 : parsed_url.port);
 		ssl_client->enable_server_certificate_verification(impl().m_ssl_verify_peer);
 	}
-	else if (protocol == "http")
+	else if (parsed_url.protocol == "http")
 	{
-		client = make_unique<httplib::Client>(host, port == 0 ? 80 : port);
+		client = make_unique<httplib::Client>(parsed_url.host, parsed_url.port == 0 ? 80 : parsed_url.port);
 	}
 	else
 	{
-		throw make_error("Unsupported protocol", protocol, errors::program_logic{});
+		throw make_error("Unsupported protocol", parsed_url.protocol, errors::program_logic{});
 	}
 
 	httplib::Headers headers;
@@ -143,9 +151,9 @@ try
 		std::filesystem::path file_name_path = !extension ? impl().m_default_file_name.v : std::filesystem::path{std::string{"file"} + extension->string()};
 		items.push_back({impl().m_pipe_field_name, body_str, file_name_path.string(), content_type});
 		if (ssl_client)
-			res = ssl_client->Post(path, headers, items);
+			res = ssl_client->Post(parsed_url.path, headers, items);
 		else
-			res = client->Post(path, headers, items);
+			res = client->Post(parsed_url.path, headers, items);
 	}
 	else
 	{
@@ -155,9 +163,9 @@ try
 			content_type = mt->v;
 		}
 		if (ssl_client)
-			res = ssl_client->Post(path, headers, body_str, content_type);
+			res = ssl_client->Post(parsed_url.path, headers, body_str, content_type);
 		else
-			res = client->Post(path, headers, body_str, content_type);
+			res = client->Post(parsed_url.path, headers, body_str, content_type);
 	}
 
 	if (!res)
