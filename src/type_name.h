@@ -9,25 +9,15 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOG_EMPTY_STRUCT_H
-#define DOCWIRE_LOG_EMPTY_STRUCT_H
+#ifndef DOCWIRE_TYPE_NAME_H
+#define DOCWIRE_TYPE_NAME_H
 
-#include "log.h"
-#include <type_traits>
+// IWYU pragma: begin_exports
+#include "type_name_base.h"
+#include "type_name_list.h"
+#include "type_name_map.h"
+#include "type_name_pair.h"
+#include "type_name_vector.h"
+// IWYU pragma: end_exports
 
-namespace docwire
-{
-
-template <typename T>
-concept EmptyStruct = std::is_empty_v<T>;
-
-template <EmptyStruct T>
-log_record_stream& operator<<(log_record_stream& log_stream, const T& variant)
-{
-    log_stream << "<empty_struct>";
-    return log_stream;
-}
-
-} // namespace docwire
-
-#endif // DOCWIRE_LOG_EMPTY_STRUCT_H
+#endif // DOCWIRE_TYPE_NAME_H

@@ -1,6 +1,6 @@
 /*********************************************************************************************************************************************/
 /*  DocWire SDK: Award-winning modern data processing in C++20. SourceForge Community Choice & Microsoft support. AI-driven processing.      */
-/*  Supports nearly 100 data formats, including email boxes and OCR. Boost efficiency in text extraction, web data extraction, data mining,  */
+/*  Supports nearly 100 data formats, including email boxes and OCR. Boost efficiency in text extraction, web data extraction, data mining,  */ 
 /*  document analysis. Offline processing possible for security and confidentiality                                                          */
 /*                                                                                                                                           */
 /*  Copyright (c) SILVERCODERS Ltd, http://silvercoders.com                                                                                  */
@@ -9,21 +9,21 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#include "input.h"
+#ifndef DOCWIRE_SERIALIZATION_H
+#define DOCWIRE_SERIALIZATION_H
 
-#include "parsing_chain.h"
-#include "log.h"
-#include "serialization_data_source.h" // IWYU pragma: keep
+// IWYU pragma: begin_exports
+#include "serialization_base.h"
+#include "serialization_enum.h"
+#include "serialization_data_source.h"
+#include "serialization_document_elements.h"
+#include "serialization_exception.h"
+#include "serialization_file_extension.h"
+#include "serialization_filesystem.h"
+#include "serialization_pair.h"
+#include "serialization_thread_id.h"
+#include "serialization_time.h"
+#include "serialization_typeindex.h"
+// IWYU pragma: end_exports
 
-using namespace docwire;
-
-continuation InputChainElement::operator()(message_ptr msg, const message_callbacks& emit_message)
-{
-  docwire_log_func();
-	if (msg->is<pipeline::start_processing>())
-	{
-		docwire_log_var(m_data.get());
-		return emit_message(std::move(m_data.get()));
-	}
-	return emit_message(std::move(msg));
-}
+#endif // DOCWIRE_SERIALIZATION_H

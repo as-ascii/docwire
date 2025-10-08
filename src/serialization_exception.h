@@ -9,21 +9,22 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#include "input.h"
+#ifndef DOCWIRE_SERIALIZATION_EXCEPTION_H
+#define DOCWIRE_SERIALIZATION_EXCEPTION_H
 
-#include "parsing_chain.h"
-#include "log.h"
-#include "serialization_data_source.h" // IWYU pragma: keep
+#include "serialization_base.h"
+#include <exception>
 
-using namespace docwire;
-
-continuation InputChainElement::operator()(message_ptr msg, const message_callbacks& emit_message)
+namespace docwire::serialization
 {
-  docwire_log_func();
-	if (msg->is<pipeline::start_processing>())
-	{
-		docwire_log_var(m_data.get());
-		return emit_message(std::move(m_data.get()));
-	}
-	return emit_message(std::move(msg));
-}
+
+template<typename T> requires std::is_base_of_v<std::exception, T>
+struct serializer<T>
+{
+    value full(const T& e) const { return object{{{"what", e.what()}}}; }
+    value typed_summary(const T& e) const { return decorate_with_typeid(full(e), type_name::pretty<T>()); }
+};
+
+} // namespace docwire::serialization
+
+#endif // DOCWIRE_SERIALIZATION_EXCEPTION_H

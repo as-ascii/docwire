@@ -24,6 +24,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "serialization_time.h"// IWYU pragma: keep
+#include "stringification.h"
 #include <time.h>
 #include "throw_if.h"
 #include "wv2/src/textconverter.h"
@@ -538,7 +540,7 @@ void parse_rtf_content(const data_source& data, const message_callbacks& emit_me
 					destination_type destination = state.groups.top().destination;
 					state.groups.pop();
 					if (destination == destination_type::annotation && state.groups.top().destination != destination_type::annotation)
-						emit_message(document::Comment{.author = state.author_of_next_annotation, .time = date_to_string(state.annotation_time), .comment = ustring_to_string(state.annotation_text)});
+						emit_message(document::Comment{.author = state.author_of_next_annotation, .time = stringify(state.annotation_time), .comment = ustring_to_string(state.annotation_text)});
 					else if (destination == destination_type::fldinst)
 					{
 					}

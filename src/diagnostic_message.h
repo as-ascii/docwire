@@ -9,24 +9,26 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOG_CTIME_H
-#define DOCWIRE_LOG_CTIME_H
+#ifndef DOCWIRE_DIAGNOSTIC_MESSAGE_H
+#define DOCWIRE_DIAGNOSTIC_MESSAGE_H
 
-#include <ctime>
-#include "log.h"
-#include <sstream>
+#include "core_export.h"
+#include <string>
+#include <exception>
 
-namespace docwire
+namespace docwire::errors
 {
 
-inline log_record_stream& operator<<(log_record_stream& log_stream, const tm& time)
-{
-    std::ostringstream date_stream;
-    date_stream << std::put_time(&time, "%Y-%m-%d %H:%M:%S");
-    log_stream << date_stream.str();
-    return log_stream;
-}
+/**
+ * @brief Generates a diagnostic message for the given nested exceptions chain.
+ */
+DOCWIRE_CORE_EXPORT std::string diagnostic_message(const std::exception& e);
 
-} // namespace docwire
+/**
+ * @brief Generates a diagnostic message for the given nested exceptions chain.
+ */
+DOCWIRE_CORE_EXPORT std::string diagnostic_message(std::exception_ptr eptr);
 
-#endif // DOCWIRE_LOG_CTIME_H
+} // namespace docwire::errors
+
+#endif // DOCWIRE_DIAGNOSTIC_MESSAGE_H

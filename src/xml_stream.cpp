@@ -12,7 +12,6 @@
 #include "xml_stream.h"
 
 #include <boost/algorithm/string/trim.hpp>
-#include "libxml/globals.h"
 #include <libxml/xmlreader.h>
 #include "log.h"
 #include <mutex>
@@ -22,11 +21,20 @@ namespace docwire
 {
 
 template <>
-std::string stringify(const xmlError& error)
+struct serialization::serializer<xmlError>
 {
-	return boost::trim_right_copy(std::string{error.message}) +
-		std::string(" (code: ") + std::to_string(error.code) + ")";
-}
+    value full(const xmlError& error) const
+    {
+        return serialization::object{{
+            {"message", error.message ? boost::trim_right_copy(std::string{error.message}) : std::string{}},
+            {"code", static_cast<std::int64_t>(error.code)}
+        }};
+    }
+
+    value typed_summary(const xmlError& error) const {
+        return serialization::decorate_with_typeid(full(error), type_name::pretty<xmlError>());
+    }
+};
 
 static size_t xml_parser_usage_counter = 0;
 

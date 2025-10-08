@@ -18,6 +18,7 @@
 #include <ctranslate2/translator.h>
 #include "error_tags.h"
 #include "log.h"
+#include "serialization_exception.h" // IWYU pragma: keep
 #include "throw_if.h"
 #include "tokenizer.h"
 #include <variant>

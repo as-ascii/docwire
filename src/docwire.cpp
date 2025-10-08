@@ -21,7 +21,6 @@
 #include "detect_sentiment.h"
 #include "embed.h"
 #include "local_ai_embed.h"
-#include "exception_utils.h"
 #include "extract_entities.h"
 #include "extract_keywords.h"
 #include "find.h"

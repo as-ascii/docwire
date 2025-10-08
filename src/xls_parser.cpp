@@ -435,7 +435,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 
 	void processRecord(int rec_type, const std::vector<unsigned char>& rec, std::string& text)
 	{
-		docwire_log(debug) << hex() << "record" << rec_type;
+		docwire_log(debug) << std::make_pair("record", rec_type);
 		if (rec_type != XLS_CONTINUE && m_context_stack.top().m_prev_rec_type == XLS_SST)
 			parseSharedStringTable(m_context_stack.top().m_shared_string_table_buf);
 		switch (rec_type)

@@ -9,21 +9,15 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#include "input.h"
+#include "serialization_typeindex.h"
+#include "type_name_base.h"
 
-#include "parsing_chain.h"
-#include "log.h"
-#include "serialization_data_source.h" // IWYU pragma: keep
-
-using namespace docwire;
-
-continuation InputChainElement::operator()(message_ptr msg, const message_callbacks& emit_message)
+namespace docwire::serialization
 {
-  docwire_log_func();
-	if (msg->is<pipeline::start_processing>())
-	{
-		docwire_log_var(m_data.get());
-		return emit_message(std::move(m_data.get()));
-	}
-	return emit_message(std::move(msg));
+
+value serializer<std::type_index>::full(const std::type_index& t) const
+{
+    return docwire::type_name::from_type_index(t);
 }
+
+} // namespace docwire::serialization

@@ -13,13 +13,11 @@
 #define DOCWIRE_LOG_H
 
 #include "core_export.h"
+#include "serialization.h"
 #include "pimpl.h"
-#include <filesystem>
 #include <functional>
 #include <memory>
 #include <string>
-#include <thread>
-#include <typeindex>
 
 namespace docwire
 {
@@ -45,93 +43,26 @@ DOCWIRE_CORE_EXPORT bool log_verbosity_includes(severity_level severity);
 
 DOCWIRE_CORE_EXPORT void set_log_stream(std::ostream* stream);
 
-struct DOCWIRE_CORE_EXPORT hex {};
-struct DOCWIRE_CORE_EXPORT begin_complex {};
-struct DOCWIRE_CORE_EXPORT end_complex {};
-struct DOCWIRE_CORE_EXPORT begin_pair { std::string key; };
-struct DOCWIRE_CORE_EXPORT end_pair {};
-struct DOCWIRE_CORE_EXPORT begin_array {};
-struct DOCWIRE_CORE_EXPORT end_array {};
-
 #define docwire_log_streamable_type_of(var) std::make_pair("typeid", std::type_index(typeid(var)))
-
-template <typename T, typename = void>
-struct is_iterable : std::false_type {};
-
-template <typename T>
-struct is_iterable<T, std::void_t<decltype(std::begin(std::declval<T>()), std::end(std::declval<T>()))>> : std::true_type {};
-
-template <typename T, typename = void>
-struct is_dereferenceable : std::false_type {};
-
-template <typename T>
-struct is_dereferenceable<T, std::void_t<decltype(*std::declval<T>()),
-                                         decltype(bool(!std::declval<T>()))>> : std::true_type {};
 
 class DOCWIRE_CORE_EXPORT log_record_stream : public with_pimpl<log_record_stream>
 {
 public:
 	log_record_stream(severity_level severity, source_location location);
 	~log_record_stream();
-	log_record_stream& operator<<(std::nullptr_t);
-	log_record_stream& operator<<(const char* msg);
-	log_record_stream& operator<<(std::int64_t val);
-	log_record_stream& operator<<(std::uint64_t val);
-	log_record_stream& operator<<(double val);
-	log_record_stream& operator<<(bool val);
-	template<typename T> typename std::enable_if<std::is_signed_v<T>, log_record_stream&>::type operator<<(T val)
-	{
-		*this << (std::int64_t)val;
-		return *this;
-	}
-	template<typename T> typename std::enable_if<std::is_unsigned_v<T>, log_record_stream&>::type operator<<(T val)
-	{
-		*this << (std::uint64_t)val;
-		return *this;
-	}
-	log_record_stream& operator<<(const std::string& str);
-	log_record_stream& operator<<(const hex& h);
-	log_record_stream& operator<<(const begin_complex&);
-	log_record_stream& operator<<(const end_complex&);
-	log_record_stream& operator<<(const std::type_index& t);
-	log_record_stream& operator<<(const std::thread::id& i);
-	log_record_stream& operator<<(const std::filesystem::path& p);
-	log_record_stream& operator<<(severity_level severity);
-	log_record_stream& operator<<(const begin_pair& b);
-	log_record_stream& operator<<(const end_pair&);
-	template<typename T1, typename T2, typename = std::enable_if_t<std::is_convertible_v<T1, std::string_view>>> log_record_stream& operator<<(const std::pair<T1, T2>& p)
-	{
-		*this << begin_pair{p.first} << p.second << end_pair();
-		return *this;
-	}
-	log_record_stream& operator<<(const std::exception& e);
-	log_record_stream& operator<<(const begin_array&);
-	log_record_stream& operator<<(const end_array&);
+	log_record_stream& operator<<(const serialization::value& val);
 
-	template<class T, typename std::enable_if_t<is_iterable<T>::value, bool> = true>
-	log_record_stream& operator<<(const T& v)
-	{
-		*this << begin_array();
-		for (auto i: v)
-			*this << i;
-		*this << end_array();
-		return *this;
-	}
+	// Special overload for serialization::object to avoid wrapping it in a typed_summary.
+	log_record_stream& operator<<(const serialization::object& obj);
+
+	template<typename T>
+	inline log_record_stream& operator<<(const T& value) { return *this << serialization::typed_summary(value); }
+
 	template<typename T>
 	typename std::enable_if<std::is_member_function_pointer_v<decltype(&T::log_to_record_stream)>, log_record_stream&>::type
 	operator<<(const T& v)
 	{
 		v.log_to_record_stream(*this);
-		return *this;
-	}
-
-	template<typename T, typename std::enable_if_t<is_dereferenceable<T>::value, bool> = true>
-	log_record_stream& operator<<(const T& dereferenceable)
-	{
-		if (dereferenceable)
-			*this << begin_complex() << docwire_log_streamable_type_of(dereferenceable) << std::make_pair("dereferenced", std::cref(*dereferenceable)) << end_complex();
-		else
-			*this << nullptr;
 		return *this;
 	}
 };

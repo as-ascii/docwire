@@ -11,7 +11,6 @@
 
 #include "http_server.h"
 #include "parsing_chain.h"
-#include "exception_utils.h"
 #include "data_source.h"
 #include "input.h"
 #include "output.h"

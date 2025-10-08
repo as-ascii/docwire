@@ -14,6 +14,7 @@
 
 #include "core_export.h"
 #include <exception>
+#include "serialization_pair.h" // IWYU pragma: keep
 #include <string>
 #include "stringification.h"
 #if __has_include(<source_location>) && (!defined(__clang__) || __clang_major__ >= 16) // https://github.com/llvm/llvm-project/issues/56379
@@ -29,32 +30,6 @@
 #endif
 #include <tuple>
 #include <utility>
-
-/**
- * @brief Specialization of the stringifier for std::pair.
- * @tparam T1 The type of the first element in the pair.
- * @tparam T2 The type of the second element in the pair.
- */
-template <typename T1, typename T2>
-struct docwire::stringifier<std::pair<T1, T2>>
-{
-	std::string operator()(const std::pair<T1, T2>& pair) const
-	{
-		return stringify(pair.first) + ": " + stringify(pair.second);
-	}
-};
-
-/**
- * @brief Specialization of the stringifier for std::exception.
- */
-template <>
-struct docwire::stringifier<std::exception>
-{
-	std::string operator()(const std::exception& e) const
-	{
-		return e.what();
-	}
-};
 
 /**
  * @brief Provides features for reporting and handling errors with context data using nested exceptions.

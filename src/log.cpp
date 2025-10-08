@@ -15,13 +15,17 @@
 #include <boost/core/demangle.hpp>
 #include <boost/date_time/c_local_time_adjustor.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/json.hpp>
 #include <ctime>
+#include <filesystem>
 #include <iomanip>
-#include <iostream>
-#include <magic_enum/magic_enum_iostream.hpp>
+#include "json_serialization.h"
+#include <magic_enum/magic_enum.hpp>
+#include "serialization_enum.h" // IWYU pragma: keep
+#include "serialization_filesystem.h" // IWYU pragma: keep
+#include "serialization_thread_id.h" // IWYU pragma: keep
+#include <mutex>
 #include <sstream>
-#include <stack>
+#include "type_name_base.h"
 
 namespace docwire
 {
@@ -58,45 +62,14 @@ void set_log_stream(std::ostream* stream)
 template<>
 struct pimpl_impl<log_record_stream> : pimpl_impl_base
 {
-	boost::json::value root;
-	std::stack<boost::json::value*> obj_stack;
-	bool hex_numbers = false;
-	pimpl_impl()
-	{
-		obj_stack.push(&root);
-	}
+	serialization::object metadata;
+	std::vector<serialization::value> log_values;
 
-	void insert_simple_value(const boost::json::value new_v)
+	void insert_value(serialization::value&& new_v)
 	{
-		boost::json::value& v = *obj_stack.top();
-		if (v.is_null())
-			v = new_v;
-		else if (v.is_array())
-			v.as_array().push_back(new_v);
-		else
-		{
-			v = boost::json::array({ v });
-			v.as_array().push_back(new_v);
-		}
+		log_values.push_back(std::move(new_v));
 	}
 };
-
-namespace
-{
-	std::string normalize_type_name(const std::string& type_name)
-	{
-		std::string normalized = type_name;
-		boost::algorithm::erase_all(normalized, "__cdecl ");
-		boost::algorithm::erase_all(normalized, "__1::");
-		boost::algorithm::erase_all(normalized, "virtual ");
-		boost::algorithm::erase_all(normalized, "class ");
-		boost::algorithm::erase_all(normalized, "struct ");
-		boost::algorithm::replace_all(normalized, "(void)", "()");
-		boost::algorithm::replace_all(normalized, ", ", ",");
-		boost::algorithm::replace_all(normalized, "> >", ">>");
-		return normalized;
-	}
-} // anonymous namespace
 
 log_record_stream::log_record_stream(severity_level severity, source_location location)
 {
@@ -116,211 +89,43 @@ log_record_stream::log_record_stream(severity_level severity, source_location lo
 	int timezone_offset_hours = timezone_offset_seconds / 3600;
 	int timezone_offset_minutes = (timezone_offset_seconds % 3600) / 60;
 	std::stringstream time_stream;
-	time_stream
-		<< boost::posix_time::to_iso_extended_string(local_time)
-		<< std::setw(5) << std::setfill('0') << std::internal << std::showpos << timezone_offset_hours * 100 + timezone_offset_minutes;
+	time_stream << boost::posix_time::to_iso_extended_string(local_time) << std::setw(5) << std::setfill('0')
+				<< std::internal << std::showpos << timezone_offset_hours * 100 + timezone_offset_minutes;
 
-	*this
-		<< std::make_pair("timestamp", time_stream.str())
-		<< std::make_pair("severity", severity)
-		<< std::make_pair("file", std::filesystem::path(location.file_name).filename())
-		<< std::make_pair("line", location.line)
-		<< std::make_pair("function", normalize_type_name(location.function_name))
-		<< std::make_pair("thread_id", std::this_thread::get_id())
-		<< begin_pair{"log"};
+	impl().metadata.v = {
+		{"timestamp", time_stream.str()},
+		{"severity", serialization::full(severity)},
+		{"file", serialization::full(std::filesystem::path(location.file_name).filename())},
+		{"line", static_cast<std::int64_t>(location.line)},
+		{"function", docwire::type_name::pretty_function(location.function_name)},
+		{"thread_id", serialization::full(std::this_thread::get_id())}
+	};
 }
 
 log_record_stream::~log_record_stream()
 {
-	*this << end_pair();
-	*log_stream << boost::json::serialize(impl().root);
-}
-
-log_record_stream& log_record_stream::operator<<(std::nullptr_t)
-{
-	boost::json::value new_v;
-	impl().insert_simple_value(new_v);
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(const char* msg)
-{
-	if (msg)
-		impl().insert_simple_value(msg);
-	else
-		*this << nullptr;
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(std::int64_t val)
-{
-	boost::json::value new_v;
-	if (impl().hex_numbers)
+	try
 	{
-		std::ostringstream s;
-		s << "0x" << std::hex << val;
-		new_v = s.str().c_str();
-	}
-	else
-		new_v = val;
-	impl().insert_simple_value(new_v);
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(std::uint64_t val)
-{
-	boost::json::value new_v;
-	if (impl().hex_numbers)
-	{
-		std::ostringstream s;
-		s << "0x" << std::hex << val;
-		new_v = s.str().c_str();
-	}
-	else
-		new_v = val;
-	impl().insert_simple_value(new_v);
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(double val)
-{
-	impl().insert_simple_value(val);
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(bool val)
-{
-	impl().insert_simple_value(val);
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(const std::string& str)
-{
-	impl().insert_simple_value(str.c_str());
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(const begin_complex&)
-{
-	boost::json::value new_v;
-	boost::json::value& v = *impl().obj_stack.top();
-	if (v.is_null())
-	{
-		v = new_v;
-		impl().obj_stack.push(impl().obj_stack.top());
-	}
-	else if (v.is_array())
-	{
-		v.as_array().push_back(new_v);
-		impl().obj_stack.push(&v.as_array()[v.as_array().size() - 1]);
-	}
-	else
-	{
-		v = boost::json::array({ v });
-		v.as_array().push_back(new_v);
-		impl().obj_stack.push(&v.as_array()[v.as_array().size() - 1]);
-	}
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(const end_complex&)
-{
-	impl().obj_stack.pop();
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(const hex& h)
-{
-	impl().hex_numbers = true;
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(const std::type_index& t)
-{
-	*this << normalize_type_name(boost::core::demangle(t.name()));
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(const std::thread::id& i)
-{
-	std::ostringstream s;
-	s << i;
-	*this << s.str();
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(const std::filesystem::path& p)
-{
-	*this << p.string();
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(severity_level severity)
-{
-	switch (severity)
-	{
-		case debug: *this << std::string("debug"); break;
-		case info: *this << std::string("info"); break;
-		case warning: *this << std::string("warning"); break;
-		case error: *this << std::string("error"); break;
-	}
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(const begin_pair& b)
-{
-	boost::json::value& v = *impl().obj_stack.top();
-	if (v.is_object())
-	{
-		v.as_object().emplace(b.key, boost::json::value());
-		impl().obj_stack.push(&(v.as_object()[b.key]));
-	}
-	else
-	{
-		boost::json::value new_v = boost::json::object{{ b.key, boost::json::value() }};
-		if (v.is_null())
-		{
-			v = new_v;
-			impl().obj_stack.push(&(v.as_object()[b.key]));
+		if (impl().log_values.size() == 1) {
+			impl().metadata.v["log"] = std::move(impl().log_values.front());
+		} else {
+			impl().metadata.v["log"] = serialization::array{std::move(impl().log_values)};
 		}
-		else if (v.is_array())
-		{
-			v.as_array().push_back(new_v);
-			impl().obj_stack.push(&(v.as_array()[v.as_array().size() - 1].as_object()[b.key]));
-		}
-		else
-		{
-			v = boost::json::array({ v });
-			v.as_array().push_back(new_v);
-			impl().obj_stack.push(&(v.as_array()[v.as_array().size() - 1].as_object()[b.key]));
-		}
+		*log_stream << serialization::to_json(impl().metadata);
+	} catch(...) {
+		// Don't let exceptions escape from a destructor
 	}
+}
+
+log_record_stream& log_record_stream::operator<<(const serialization::value& val)
+{
+	impl().insert_value(serialization::value{val});
 	return *this;
 }
 
-log_record_stream& log_record_stream::operator<<(const end_pair&)
+log_record_stream& log_record_stream::operator<<(const serialization::object& obj)
 {
-	*this << end_complex();
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(const std::exception& e)
-{
-	*this << docwire_log_streamable_obj(e, e.what());
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(const begin_array&)
-{
-	*this << begin_complex();
-	boost::json::value& v = *impl().obj_stack.top();
-	v = boost::json::array();
-	return *this;
-}
-
-log_record_stream& log_record_stream::operator<<(const end_array&)
-{
-	*this << end_complex();
+	impl().insert_value(serialization::value{obj});
 	return *this;
 }
 
@@ -394,7 +199,8 @@ void cerr_log_redirection::restore()
 		if (!redirected_cerr.empty())
 		{
 			std::unique_ptr<log_record_stream> log_record_stream = create_log_record_stream(debug, m_location);
-			*log_record_stream << docwire_log_streamable_var(redirected_cerr);
+			using map_value_type = std::pair<const std::string, serialization::value>;
+			*log_record_stream << serialization::object{{map_value_type{"redirected_cerr", redirected_cerr}}};
 		}
 	}
 	m_redirected = false;

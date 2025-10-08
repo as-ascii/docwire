@@ -9,22 +9,20 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOG_DATA_SOURCE_H
-#define DOCWIRE_LOG_DATA_SOURCE_H
+#include "serialization_time.h"
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
-#include "data_source.h"
-#include "log.h"
-#include "log_file_extension.h" // IWYU pragma: keep
-
-namespace docwire
+namespace docwire::serialization
 {
 
-inline log_record_stream& operator<<(log_record_stream& log_stream, const data_source& data)
+value serializer<struct tm>::full(const struct tm& t) const
 {
-	log_stream << docwire_log_streamable_obj(data, data.path(), data.file_extension());
-	return log_stream;
+    std::ostringstream oss;
+    oss.imbue(std::locale::classic());
+    oss << std::put_time(&t, "%Y-%m-%d %H:%M:%S");
+    return oss.str();
 }
 
-} // namespace docwire
-
-#endif // DOCWIRE_LOG_DATA_SOURCE_H
+} // namespace docwire::serialization

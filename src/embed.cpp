@@ -18,6 +18,7 @@
 #include "output.h"
 #include "post.h"
 #include "ai_elements.h"
+#include "serialization_enum.h" // IWYU pragma: keep
 #include "throw_if.h"
 #include <sstream>
 

@@ -26,7 +26,6 @@
 #include "archives_parser.h"
 #include "detect_sentiment.h"
 #include "embed.h"
-#include "exception_utils.h"
 #include "find.h"
 #include "fuzzy_match.h"
 #include "input.h"
@@ -41,11 +40,13 @@
 #include "plain_text_writer.h"
 #include "html_exporter.h"
 #include "parsing_chain.h"
+#include "serialization.h"
 #include "summarize.h"
 #include "text_to_speech.h"
 #include "transcribe.h"
 #include "transformer_func.h"
 #include "translate_to.h"
+#include "type_name.h"
 // IWYU pragma: end_exports
 
 /**

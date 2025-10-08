@@ -9,21 +9,23 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#include "input.h"
+#ifndef DOCWIRE_SERIALIZATION_TIME_H
+#define DOCWIRE_SERIALIZATION_TIME_H
 
-#include "parsing_chain.h"
-#include "log.h"
-#include "serialization_data_source.h" // IWYU pragma: keep
+#include "core_export.h"
+#include <ctime>
+#include "serialization_base.h"
 
-using namespace docwire;
-
-continuation InputChainElement::operator()(message_ptr msg, const message_callbacks& emit_message)
+namespace docwire::serialization
 {
-  docwire_log_func();
-	if (msg->is<pipeline::start_processing>())
-	{
-		docwire_log_var(m_data.get());
-		return emit_message(std::move(m_data.get()));
-	}
-	return emit_message(std::move(msg));
-}
+
+template <>
+struct serializer<struct tm>
+{
+    DOCWIRE_CORE_EXPORT value full(const struct tm& t) const;
+    value typed_summary(const struct tm& t) const { return decorate_with_typeid(this->full(t), type_name::pretty<struct tm>()); }
+};
+
+} // namespace docwire::serialization
+
+#endif // DOCWIRE_SERIALIZATION_TIME_H

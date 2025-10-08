@@ -15,11 +15,12 @@
 #include "base64.h"
 #include <boost/container/flat_map.hpp>
 #include "error_tags.h"
-#include "misc.h"
 #include "throw_if.h"
 #include <numeric>
 #include "document_elements.h"
 #include <sstream>
+#include "serialization_time.h" // IWYU pragma: keep
+#include "stringification.h"
 #include <typeindex>
 #include <functional>
 
@@ -224,15 +225,15 @@ struct pimpl_impl<HtmlWriter> : pimpl_impl_base
     if (metadata.author)
       meta += "<meta name=\"author\" content=\"" + encoded(*metadata.author) + "\">\n";
     if (metadata.creation_date)
-      meta += "<meta name=\"creation-date\" content=\"" + date_to_string(*metadata.creation_date) + "\">\n";
+      meta += "<meta name=\"creation-date\" content=\"" + stringify(*metadata.creation_date) + "\">\n";
     if (metadata.last_modified_by)
       meta += "<meta name=\"last-modified-by\" content=\"" + encoded(*metadata.last_modified_by) + "\">\n";
     if (metadata.last_modification_date)
-      meta += "<meta name=\"last-modification-date\" content=\"" + date_to_string(*metadata.last_modification_date) + "\">\n";
+      meta += "<meta name=\"last-modification-date\" content=\"" + stringify(*metadata.last_modification_date) + "\">\n";
     if (metadata.email_attrs)
     {
       meta += "<meta name=\"from\" content=\"" + encoded(metadata.email_attrs->from) + "\">\n";
-      meta += "<meta name=\"date\" content=\"" + date_to_string(metadata.email_attrs->date) + "\">\n";
+      meta += "<meta name=\"date\" content=\"" + stringify(metadata.email_attrs->date) + "\">\n";
       meta += "<meta name=\"to\" content=\"" + encoded(*metadata.email_attrs->to) + "\">\n";
       meta += "<meta name=\"subject\" content=\"" + encoded(*metadata.email_attrs->subject) + "\">\n";
       meta += "<meta name=\"reply-to\" content=\"" + encoded(*metadata.email_attrs->reply_to) + "\">\n";

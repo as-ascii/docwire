@@ -182,13 +182,6 @@ static bool string_to_int(const std::string& s, int& i)
 	return ss && ss.eof();
 }
 
-std::string uint_to_string(unsigned int value)
-{
-	std::ostringstream os;
-	os << value;
-	return os.str();
-}
-
 bool string_to_date(const std::string& s, tm& date)
 {
 	// %Y-%m-%dT%H:%M:%S
@@ -219,14 +212,6 @@ bool string_to_date(const std::string& s, tm& date)
 	}
 	date.tm_year = 2001 - 1900;
 	return false;
-}
-
-std::string date_to_string(const tm& date)
-{
-	throw_if (date.tm_year == 0, errors::uninterpretable_data{});
-	char buf[64];
-	strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &date);
-	return buf;
 }
 
 /*
@@ -293,13 +278,6 @@ UString utf8_to_ustring(const std::string& src)
 		}
 	}
 	return res;
-}
-
-std::string int_to_str(int i)
-{
-	std::ostringstream s;
-	s << i;
-	return s.str();
 }
 
 int str_to_int(const std::string& s)

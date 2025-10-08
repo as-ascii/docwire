@@ -9,21 +9,20 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#include "input.h"
+#ifndef DOCWIRE_TYPE_NAME_PAIR_H
+#define DOCWIRE_TYPE_NAME_PAIR_H
 
-#include "parsing_chain.h"
-#include "log.h"
-#include "serialization_data_source.h" // IWYU pragma: keep
+#include "type_name_base.h"
+#include <utility>
 
-using namespace docwire;
-
-continuation InputChainElement::operator()(message_ptr msg, const message_callbacks& emit_message)
+namespace docwire::type_name
 {
-  docwire_log_func();
-	if (msg->is<pipeline::start_processing>())
-	{
-		docwire_log_var(m_data.get());
-		return emit_message(std::move(m_data.get()));
-	}
-	return emit_message(std::move(msg));
-}
+
+template<typename T1, typename T2>
+struct pretty_impl<std::pair<T1, T2>> {
+	std::string operator()() const { return "std::pair<" + pretty<T1>() + "," + pretty<T2>() + ">"; }
+};
+
+} // namespace docwire::type_name
+
+#endif // DOCWIRE_TYPE_NAME_PAIR_H

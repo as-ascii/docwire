@@ -9,21 +9,35 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#include "input.h"
+#ifndef DOCWIRE_SERIALIZATION_DATA_SOURCE_H
+#define DOCWIRE_SERIALIZATION_DATA_SOURCE_H
 
-#include "parsing_chain.h"
-#include "log.h"
-#include "serialization_data_source.h" // IWYU pragma: keep
+#include "data_source.h"
+#include "serialization_base.h"
 
-using namespace docwire;
-
-continuation InputChainElement::operator()(message_ptr msg, const message_callbacks& emit_message)
+namespace docwire::serialization
 {
-  docwire_log_func();
-	if (msg->is<pipeline::start_processing>())
-	{
-		docwire_log_var(m_data.get());
-		return emit_message(std::move(m_data.get()));
-	}
-	return emit_message(std::move(msg));
-}
+
+template <>
+struct serializer<data_source>
+{
+    value full(const data_source& data) const
+    {
+        return object{{
+            {"path", serialization::full(data.path())},
+            {"file_extension", serialization::full(data.file_extension())}
+        }};
+    }
+
+    value typed_summary(const data_source& data) const
+    {
+        return decorate_with_typeid(object{{
+            {"path", serialization::typed_summary(data.path())},
+            {"file_extension", serialization::typed_summary(data.file_extension())}
+        }}, type_name::pretty<data_source>());
+    }
+};
+
+} // namespace docwire::serialization
+
+#endif // DOCWIRE_SERIALIZATION_DATA_SOURCE_H

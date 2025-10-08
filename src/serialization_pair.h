@@ -9,26 +9,35 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOG_FILE_EXTENSION_H
-#define DOCWIRE_LOG_FILE_EXTENSION_H
+#ifndef DOCWIRE_SERIALIZATION_PAIR_H
+#define DOCWIRE_SERIALIZATION_PAIR_H
 
-#include "file_extension.h"
-#include "log.h"
+#include "serialization_base.h"
+#include <utility>
 
-namespace docwire
+namespace docwire::serialization
 {
 
-/**
-* @brief Logs the file extension to a record stream.
-*
-* @param log_stream The record stream to log to.
-*/
-inline log_record_stream& operator<<(log_record_stream& log_stream, const file_extension& ext)
+template <typename T1, typename T2>
+struct serializer<std::pair<T1, T2>>
 {
-	log_stream << docwire_log_streamable_obj(ext, ext.string());
-	return log_stream;
-}
+    value full(const std::pair<T1, T2>& pair) const
+    {
+        return object{{
+            {"first", serialization::full(pair.first)},
+            {"second", serialization::full(pair.second)}
+        }};
+    }
 
-} // namespace docwire
+    value typed_summary(const std::pair<T1, T2>& pair) const
+    {
+        return decorate_with_typeid(object{{
+            {"first", serialization::typed_summary(pair.first)},
+            {"second", serialization::typed_summary(pair.second)}
+        }}, type_name::pretty<std::pair<T1, T2>>());
+    }
+};
 
-#endif // DOCWIRE_LOG_FILE_EXTENSION_H
+} // namespace docwire::serialization
+
+#endif // DOCWIRE_SERIALIZATION_PAIR_H

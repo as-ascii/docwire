@@ -9,21 +9,49 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#include "input.h"
+#include "json_serialization.h"
+#include <boost/json.hpp>
 
-#include "parsing_chain.h"
-#include "log.h"
-#include "serialization_data_source.h" // IWYU pragma: keep
-
-using namespace docwire;
-
-continuation InputChainElement::operator()(message_ptr msg, const message_callbacks& emit_message)
+namespace docwire::serialization
 {
-  docwire_log_func();
-	if (msg->is<pipeline::start_processing>())
-	{
-		docwire_log_var(m_data.get());
-		return emit_message(std::move(m_data.get()));
-	}
-	return emit_message(std::move(msg));
+
+namespace
+{
+
+boost::json::value to_json_value(const value& s_val)
+{
+    return std::visit(
+        [](auto&& arg) -> boost::json::value {
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, object>)
+            {
+                boost::json::object obj;
+                for (const auto& [key, val] : arg.v)
+                {
+                    obj[key] = to_json_value(val);
+                }
+                return obj;
+            }
+            else if constexpr (std::is_same_v<T, array>)
+            {
+                boost::json::array arr;
+                arr.reserve(arg.v.size());
+                for (const auto& val : arg.v)
+                {
+                    arr.push_back(to_json_value(val));
+                }
+                return arr;
+            }
+            else { return boost::json::value_from(arg); }
+        },
+        s_val);
 }
+
+} // anonymous namespace
+
+std::string to_json(const value& s_val)
+{
+    return boost::json::serialize(to_json_value(s_val));
+}
+
+} // namespace docwire::serialization

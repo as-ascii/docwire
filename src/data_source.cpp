@@ -14,6 +14,7 @@
 #include "error_tags.h"
 #include <fstream>
 #include "memorystream.h"
+#include "serialization_filesystem.h" // IWYU pragma: keep
 #include "throw_if.h"
 
 namespace docwire

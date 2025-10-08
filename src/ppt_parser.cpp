@@ -234,12 +234,7 @@ namespace
 			U32 rec_len = getU32LittleEndian(rec.begin() + 4);
 			if (log_verbosity_includes(debug))
 			{
-				while (!container_ends.empty() && pos+rec_len-1 > container_ends.top())
-					container_ends.pop();
-				std::string indend;
-				for (int i = 0; i < container_ends.size(); i++)
-					indend += "\t";
-				docwire_log(debug) << indend << "record" << hex() << rec_type << "begin" << pos << "end" << pos + rec_len - 1;
+				docwire_log(debug) << "PPT record" << std::make_pair("type", rec_type) << std::make_pair("begin", pos) << std::make_pair("end", pos + rec_len - 1);
 				container_ends.push(pos + rec_len - 1);
 			}
 			try

@@ -531,7 +531,7 @@ void ODFOOXMLParser::parse(const data_source& data, XmlParseMode mode, const mes
 	if (main_file_name == "ppt/presentation.xml")
 	{
 		throw_if (!zipfile.loadDirectory());
-		for (int i = 1; zipfile.read("ppt/slides/slide" + int_to_str(i) + ".xml", &content) && i < 2500; i++)
+		for (int i = 1; zipfile.read("ppt/slides/slide" + stringify(i) + ".xml", &content) && i < 2500; i++)
 		{
 			try
 			{
@@ -540,7 +540,7 @@ void ODFOOXMLParser::parse(const data_source& data, XmlParseMode mode, const mes
 			}
 			catch (const std::exception& e)
 			{
-				std::throw_with_nested(make_error(std::make_pair("file_name", "ppt/slides/slide" + int_to_str(i) + ".xml")));
+				std::throw_with_nested(make_error(std::make_pair("file_name", "ppt/slides/slide" + stringify(i) + ".xml")));
 			}
 		}
 	}
@@ -587,7 +587,7 @@ void ODFOOXMLParser::parse(const data_source& data, XmlParseMode mode, const mes
 				std::throw_with_nested(make_error(std::make_pair("file_name", "xl/sharedStrings.xml")));
 			}
 		}
-		for (int i = 1; zipfile.read("xl/worksheets/sheet" + int_to_str(i) + ".xml", &content); i++)
+		for (int i = 1; zipfile.read("xl/worksheets/sheet" + stringify(i) + ".xml", &content); i++)
 		{
 			try
 			{
@@ -596,7 +596,7 @@ void ODFOOXMLParser::parse(const data_source& data, XmlParseMode mode, const mes
 			}
 			catch (const std::exception& e)
 			{
-				std::throw_with_nested(make_error(std::make_pair("file_name", "xl/worksheets/sheet" + int_to_str(i) + ".xml")));
+				std::throw_with_nested(make_error(std::make_pair("file_name", "xl/worksheets/sheet" + stringify(i) + ".xml")));
 			}
 		}
 	}
@@ -700,7 +700,7 @@ attributes::Metadata ODFOOXMLParser::metaData(ZipReader& zipfile) const
 		if (zipfile.exists("ppt/presentation.xml"))
 		{
 			int page_count = 0;
-			for (int i = 1; zipfile.exists("ppt/slides/slide" + int_to_str(i) + ".xml"); i++)
+			for (int i = 1; zipfile.exists("ppt/slides/slide" + stringify(i) + ".xml"); i++)
 				page_count++;
 			meta.page_count = page_count;
 		}

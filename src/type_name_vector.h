@@ -9,21 +9,21 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#include "input.h"
+#ifndef DOCWIRE_TYPE_NAME_VECTOR_H
+#define DOCWIRE_TYPE_NAME_VECTOR_H
 
-#include "parsing_chain.h"
-#include "log.h"
-#include "serialization_data_source.h" // IWYU pragma: keep
+#include "type_name_base.h"
+#include <string>
+#include <vector>
 
-using namespace docwire;
-
-continuation InputChainElement::operator()(message_ptr msg, const message_callbacks& emit_message)
+namespace docwire::type_name
 {
-  docwire_log_func();
-	if (msg->is<pipeline::start_processing>())
-	{
-		docwire_log_var(m_data.get());
-		return emit_message(std::move(m_data.get()));
-	}
-	return emit_message(std::move(msg));
-}
+
+template<typename T, typename Alloc>
+struct pretty_impl<std::vector<T, Alloc>> {
+	std::string operator()() const { return "std::vector<" + pretty<T>() + ">"; }
+};
+
+} // namespace docwire::type_name
+
+#endif // DOCWIRE_TYPE_NAME_VECTOR_H

@@ -9,21 +9,48 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#include "input.h"
+#ifndef DOCWIRE_CONTAINS_TYPE_H
+#define DOCWIRE_CONTAINS_TYPE_H
 
-#include "parsing_chain.h"
-#include "log.h"
-#include "serialization_data_source.h" // IWYU pragma: keep
+#include "error.h"
+#include <exception>
 
-using namespace docwire;
-
-continuation InputChainElement::operator()(message_ptr msg, const message_callbacks& emit_message)
+namespace docwire::errors
 {
-  docwire_log_func();
-	if (msg->is<pipeline::start_processing>())
+
+/**
+ * @brief Checks if the given nested exceptions chain contains a specific type of context.
+ */
+template <typename T>
+bool contains_type(const std::exception& e)
+{
+	try
 	{
-		docwire_log_var(m_data.get());
-		return emit_message(std::move(m_data.get()));
+		const errors::base& error = dynamic_cast<const errors::base&>(e);
+		for (size_t i = 0; i < error.context_count(); ++i)
+		{
+			if (error.context_type(i) == typeid(T))
+				return true;
+		}
 	}
-	return emit_message(std::move(msg));
+	catch (const std::bad_cast&)
+	{
+		// e is not errors::base, but may still have nested exceptions
+	}
+
+	try
+	{
+		std::rethrow_if_nested(e);
+	}
+	catch (const std::exception& nested_ex)
+	{
+		return contains_type<T>(nested_ex);
+	}
+	catch (...) {}
+
+	return false;
 }
+
+} // namespace docwire::errors
+
+#endif // DOCWIRE_CONTAINS_TYPE_H

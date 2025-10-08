@@ -16,7 +16,6 @@
 #include "error_tags.h"
 #include "input.h"
 #include "log.h"
-#include "log_file_extension.h" // IWYU pragma: keep
 #include <magic_enum/magic_enum_iostream.hpp>
 #include "make_error.h"
 #include "output.h"

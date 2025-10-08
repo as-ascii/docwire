@@ -9,27 +9,22 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOG_EXCEPTION_H
-#define DOCWIRE_LOG_EXCEPTION_H
+#ifndef DOCWIRE_SERIALIZATION_ENUM_H
+#define DOCWIRE_SERIALIZATION_ENUM_H
 
-#include "log.h"
-#include "exception_utils.h"
+#include "serialization_base.h"
+#include <magic_enum/magic_enum.hpp>
 
-namespace docwire
+namespace docwire::serialization
 {
 
-inline log_record_stream& operator<<(log_record_stream& log_stream, const std::exception_ptr eptr)
+template <typename T> requires std::is_enum_v<T>
+struct serializer<T>
 {
-	if (eptr)
-		log_stream << begin_complex() <<
-            docwire_log_streamable_type_of(eptr) <<
-            std::make_pair("diagnostic_message", errors::diagnostic_message(eptr)) <<
-            end_complex();
-	else
-		log_stream << nullptr;
-	return log_stream;
-}
+    value full(const T& value) const { return std::string{magic_enum::enum_name(value)}; }
+    value typed_summary(const T& value) const { return decorate_with_typeid(full(value), type_name::pretty<T>()); }
+};
 
-} // namespace docwire
+} // namespace docwire::serialization
 
-#endif // DOCWIRE_LOG_EXCEPTION_H
+#endif // DOCWIRE_SERIALIZATION_ENUM_H
