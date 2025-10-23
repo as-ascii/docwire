@@ -14,7 +14,8 @@
 #include "error_tags.h"
 #include "misc.h"
 #include "nested_exception.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "throw_if.h"
 #include "wv2/src/utilities.h"
 #include <time.h>
@@ -28,6 +29,7 @@ using namespace wvWare;
 
 static std::string read_vt_string(ThreadSafeOLEStreamReader* reader)
 {
+	log_scope();
 	U16 string_type;
 	throw_if (!reader->readU16(string_type), reader->getLastError());
 	throw_if (string_type != 0x1E, "Incorrect string type.", errors::uninterpretable_data{});
@@ -49,6 +51,7 @@ static std::string read_vt_string(ThreadSafeOLEStreamReader* reader)
 
 static S32 read_vt_i4(ThreadSafeOLEStreamReader* reader)
 {
+	log_scope();
 	U16 string_type;
 	throw_if (!reader->readU16(string_type), reader->getLastError());
 	throw_if (string_type != 0x0003, "Incorrect value type.", errors::uninterpretable_data{});
@@ -61,6 +64,7 @@ static S32 read_vt_i4(ThreadSafeOLEStreamReader* reader)
 
 static S16 read_vt_i2(ThreadSafeOLEStreamReader* reader)
 {
+	log_scope();
 	U16 string_type;
 	throw_if (!reader->readU16(string_type));
 	throw_if (string_type != 0x0002, "Incorrect value type.", errors::uninterpretable_data{});
@@ -73,6 +77,7 @@ static S16 read_vt_i2(ThreadSafeOLEStreamReader* reader)
 
 static tm read_vt_filetime(ThreadSafeOLEStreamReader* reader)
 {
+	log_scope();
 	U16 type;
 	throw_if (!reader->readU16(type), reader->getLastError());
 	throw_if (type != 0x0040, "Incorrect variable type.", errors::uninterpretable_data{});
@@ -89,7 +94,7 @@ static tm read_vt_filetime(ThreadSafeOLEStreamReader* reader)
 	// Sometimes field exists, date is zero (1601-01-01) but time is not.
 	// Last modification time saved by LibreOffice 3.5 when document is created is an example.
 	throw_if (file_time < 864000000000LL, "Incorrect filetime value (1601-01-01).", errors::uninterpretable_data{});
-	docwire_log_vars(file_time, file_time_low, file_time_high);
+	log_entry(file_time, file_time_low, file_time_high);
 	time_t t = (time_t)(file_time / 10000000 - 11644473600LL);
   struct tm time_buffer;
   tm* res = thread_safe_gmtime(&t, time_buffer);
@@ -99,7 +104,7 @@ static tm read_vt_filetime(ThreadSafeOLEStreamReader* reader)
 
 void parse_oshared_summary_info(ThreadSafeOLEStorage& storage, attributes::Metadata& meta, const std::function<void(std::exception_ptr)>& non_fatal_error_handler)
 {
-	docwire_log(debug) << "Extracting metadata.";
+	log_scope();
 	throw_if (!storage.isValid(), storage.getLastError(), storage.name());
 	ThreadSafeOLEStreamReader* reader = NULL;
 	reader = (ThreadSafeOLEStreamReader*)storage.createStreamReader("\005SummaryInformation");
@@ -236,6 +241,7 @@ void parse_oshared_summary_info(ThreadSafeOLEStorage& storage, attributes::Metad
 
 static ThreadSafeOLEStreamReader* open_oshared_document_summary_info(ThreadSafeOLEStorage& storage, size_t& field_set_stream_start)
 {
+	log_scope();
 	ThreadSafeOLEStreamReader* reader = NULL;
 	try
 	{
@@ -273,6 +279,7 @@ static ThreadSafeOLEStreamReader* open_oshared_document_summary_info(ThreadSafeO
 
 std::string get_codepage_from_document_summary_info(ThreadSafeOLEStorage& storage)
 {
+	log_scope();
 	size_t field_set_stream_start;
 	throw_if (!storage.isValid(), "Error opening storage as OLE file.", storage.name());
 	try
@@ -320,7 +327,7 @@ std::string get_codepage_from_document_summary_info(ThreadSafeOLEStorage& storag
 
 void parse_oshared_document_summary_info(ThreadSafeOLEStorage& storage, int& slide_count)
 {
-	docwire_log(debug) << "Extracting additional metadata.";
+	log_scope();
 	size_t field_set_stream_start;
 	ThreadSafeOLEStreamReader* reader = NULL;
 	try

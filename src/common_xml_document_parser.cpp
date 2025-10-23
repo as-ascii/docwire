@@ -15,7 +15,7 @@
 #include <functional>
 #include <type_traits>
 #include <stack>
-#include "log.h"
+#include "log_scope.h"
 #include "make_error.h"
 #include "misc.h"
 #include "nested_exception.h"
@@ -100,7 +100,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 	template <typename T>
 	continuation emit_message(T&& object) const
 	{
-        if (!m_context_stack.top().stop_emit_signals || std::is_same_v<std::decay_t<T>, std::exception_ptr>)
+		if (!m_context_stack.top().stop_emit_signals || std::is_same_v<std::decay_t<T>, std::exception_ptr>)
 			return m_context_stack.top().emit_message(std::forward<T>(object));
 		else
 			return continuation::proceed;
@@ -117,6 +117,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
            ZipReader* zipfile, std::string& text,
            bool& children_processed, std::string& level_suffix, bool first_on_level)
   {
+    log_scope();
     xml_stream.levelDown();
     text += owner().parseXmlData(xml_stream, mode, zipfile);
     xml_stream.levelUp();
@@ -141,6 +142,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 	           ZipReader* zipfile, std::string& text,
 	           bool& children_processed, std::string& level_suffix, bool first_on_level)
 	{
+		log_scope();
 		xml_stream.levelDown();
 		text += owner().parseXmlData(xml_stream, mode, zipfile);
 		xml_stream.levelUp();
@@ -165,6 +167,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
                       ZipReader* zipfile, std::string& text,
                       bool& children_processed, std::string& level_suffix, bool first_on_level)
   {
+    log_scope();
     reset_format();
     xml_stream.levelDown();
     owner().parseXmlData(xml_stream, mode, zipfile);
@@ -188,9 +191,9 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
                       ZipReader* zipfile, std::string& text,
                       bool& children_processed, std::string& level_suffix, bool first_on_level)
   {
+    log_scope();
     reset_format();
     emit_message(document::Paragraph{});
-    docwire_log(debug) << "ODFOOXML_PARA command.";
     xml_stream.levelDown();
     text += owner().parseXmlData(xml_stream, mode, zipfile) + '\n';
     xml_stream.levelUp();
@@ -202,15 +205,14 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
                         const ZipReader* zipfile, std::string& text,
                         bool& children_processed, std::string& level_suffix, bool first_on_level)
   {
+    log_scope();
     if (m_context_stack.top().m_disabled_text == false && xml_stream.name() == "#text")
     {
-      char* content = xml_stream.content();
-      if (content != NULL)
-        text += content;
+      std::string content = xml_stream.content();
+	  text += content;
       children_processed = true;
-      std::string s{content};
-      if (m_context_stack.top().space_preserve || !std::all_of(s.begin(), s.end(), [](auto c){return isspace(static_cast<unsigned char>(c));}))
-        emit_message(document::Text{.text = s});
+      if (m_context_stack.top().space_preserve || !std::all_of(content.begin(), content.end(), [](auto c){return isspace(static_cast<unsigned char>(c));}))
+        emit_message(document::Text{.text = content});
     }
   }
 
@@ -218,9 +220,9 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
                       ZipReader* zipfile, std::string& text,
                       bool& children_processed, std::string& level_suffix, bool first_on_level)
   {
+	log_scope();
     reset_format();
     emit_message(document::Table{});
-    docwire_log(debug) << "onOOXMLTable command.";
     xml_stream.levelDown();
     text += owner().parseXmlData(xml_stream, mode, zipfile);
     xml_stream.levelUp();
@@ -232,9 +234,9 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
                        ZipReader* zipfile, std::string& text,
                        bool& children_processed, std::string& level_suffix, bool first_on_level)
   {
+	log_scope();
     reset_format();
     emit_message(document::TableRow{});
-    docwire_log(debug) << "onOOXMLTableRow command.";
     xml_stream.levelDown();
     text += owner().parseXmlData(xml_stream, mode, zipfile);
     xml_stream.levelUp();
@@ -246,9 +248,9 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
                        ZipReader* zipfile, std::string& text,
                        bool& children_processed, std::string& level_suffix, bool first_on_level)
   {
+	log_scope();
     reset_format();
     emit_message(document::TableCell{});
-    docwire_log(debug) << "onODFOOXMLTableColumn command.";
     xml_stream.levelDown();
     text += owner().parseXmlData(xml_stream, mode, zipfile);
     xml_stream.levelUp();
@@ -260,7 +262,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
                       ZipReader* zipfile, std::string& text,
                       bool& children_processed, std::string& level_suffix, bool first_on_level)
   {
-    docwire_log(debug) << "onODFOOXMLTextTag command.";
+    log_scope();
     xml_stream.levelDown();
     text += owner().parseXmlData(xml_stream, mode, zipfile);
     xml_stream.levelUp();
@@ -271,6 +273,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
                       const ZipReader* zipfile, std::string& text,
                       bool& children_processed, std::string& level_suffix, bool first_on_level)
   {
+    log_scope();
     m_context_stack.top().is_bold = xml_stream.attribute("val") != "false";
   }
 
@@ -278,6 +281,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
                       const ZipReader* zipfile, std::string& text,
                       bool& children_processed, std::string& level_suffix, bool first_on_level)
   {
+    log_scope();
     m_context_stack.top().is_italic = xml_stream.attribute("val") != "false";
   }
 
@@ -285,6 +289,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
                       const ZipReader* zipfile, std::string& text,
                       bool& children_processed, std::string& level_suffix, bool first_on_level)
   {
+    log_scope();
     m_context_stack.top().is_underline = xml_stream.attribute("val") != "none";
   }
 
@@ -292,11 +297,10 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 								const ZipReader* zipfile, std::string& text,
 								bool& children_processed, std::string& level_suffix, bool first_on_level)
 	{
+		log_scope();
 		if (m_context_stack.top().m_disabled_text == false && xml_stream.name() == "#text")
 		{
-			char* content = xml_stream.content();
-			if (content != NULL)
-				text += content;
+			text += xml_stream.content();
 			children_processed = true;
 		}
 	}
@@ -305,6 +309,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 						ZipReader* zipfile, std::string& text,
 						bool& children_processed, std::string& level_suffix, bool first_on_level)
 	{
+		log_scope(command);
 		children_processed = false;
 		std::map<std::string, CommonXMLDocumentParser::CommandHandler>::iterator it = m_command_handlers.find(command);
 		if (it != m_command_handlers.end())
@@ -317,17 +322,15 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 								   const ZipReader* zipfile, std::string& text,
 								   bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "ODF_TEXT command.";
-			char* content = xml_stream.content();
-			if (content != NULL)
-				text += content;
+			log_scope();
+			text += xml_stream.content();
 		}
 
 	void onODFOOXMLTab(XmlStream& xml_stream, XmlParseMode mode,
 								  const ZipReader* zipfile, std::string& text,
 								  bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "ODFOOXML_TAB command.";
+			log_scope();
 			text += "\t"; 
 			emit_message(document::Text{.text = "\t"});
 		}
@@ -336,7 +339,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 								  const ZipReader* zipfile, std::string& text,
 								  bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "ODFOOXML_SPACE command.";
+			log_scope();
 			std::string count_attr = xml_stream.attribute("c");
 			int count = 1;
 			if (!count_attr.empty())
@@ -352,7 +355,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 								  ZipReader* zipfile, std::string& text,
 								  bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "ODF_URL command.";
+			log_scope();
 			std::string mlink = xml_stream.attribute("href");
 			emit_message(document::Link{.url = mlink});
 			xml_stream.levelDown();
@@ -367,7 +370,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 										const ZipReader* zipfile, std::string& text,
 										bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "ODFOOXML_LIST_STYLE command.";
+			log_scope();
 			std::string style_code = xml_stream.attribute("name");
 			if (!style_code.empty())
 			{
@@ -396,8 +399,8 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 								   ZipReader* zipfile, std::string& text,
 								   bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
+			log_scope();
 			std::vector<std::string> list_vector;
-			docwire_log(debug) << "ODFOOXML_LIST command.";
 			owner().getListDepth()++;
 			std::string header;
 			CommonXMLDocumentParser::ODFOOXMLListStyle list_style = CommonXMLDocumentParser::bullet;
@@ -451,9 +454,9 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 									ZipReader* zipfile, std::string& text,
 									bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
+			log_scope();
 			svector cell_vector;
 			std::vector<svector> row_vector;
-			docwire_log(debug) << "ODF_TABLE command."; 
 			emit_message(document::Table{});
 			xml_stream.levelDown();
 			while (xml_stream)
@@ -491,21 +494,21 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 									   const ZipReader* zipfile, std::string& text,
 									   bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "ODF_ROW command.";
+			log_scope();
 		}
 
 		void onODFTableCell(XmlStream& xml_stream, XmlParseMode mode,
 								   const ZipReader* zipfile, std::string& text,
 								   bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "ODF_CELL command.";
+			log_scope();
 		}
 
 	void onODFAnnotation(XmlStream& xml_stream, XmlParseMode mode,
 									ZipReader* zipfile, std::string& text,
 									bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "ODF_ANNOTATION command.";
+			log_scope();
 			std::string creator;
 			std::string date;
 			std::string content;
@@ -538,7 +541,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 								   const ZipReader* zipfile, std::string& text,
 								   bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "ODF_LINE_BREAK command.";
+			log_scope();
 			text += "\n";
 			emit_message(document::BreakLine{});
 		}
@@ -547,7 +550,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 								 ZipReader* zipfile, std::string& text,
 								 bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "ODF_HEADING command.";
+			log_scope();
 			xml_stream.levelDown();
 			text += owner().parseXmlData(xml_stream, mode, zipfile) + '\n';
 			xml_stream.levelUp();
@@ -558,7 +561,7 @@ struct pimpl_impl<CommonXMLDocumentParser> : with_pimpl_owner<CommonXMLDocumentP
 								ZipReader* zipfile, std::string& text,
 								bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "ODF_OBJECT command.";
+			log_scope();
 			std::string href = xml_stream.attribute("href");
 			std::string content_fn = (href.substr(0, 2) == "./" ? href.substr(2) : href) + "/content.xml";
 			std::string content;
@@ -593,6 +596,7 @@ void CommonXMLDocumentParser::registerODFOOXMLCommandHandler(const std::string& 
 std::string CommonXMLDocumentParser::parseXmlData(
   XmlStream& xml_stream, XmlParseMode mode, ZipReader* zipfile)
 {
+	log_scope();
 	std::string text;
 	std::string level_suffix;
 	bool first_on_level = true;
@@ -630,6 +634,7 @@ std::string CommonXMLDocumentParser::parseXmlData(
 void CommonXMLDocumentParser::extractText(const std::string& xml_contents, XmlParseMode mode, ZipReader* zipfile,
 	std::string& text)
 {
+	log_scope();
 	if (mode == STRIP_XML)
 	{
 		text = "";
@@ -667,6 +672,7 @@ void CommonXMLDocumentParser::extractText(const std::string& xml_contents, XmlPa
 
 void CommonXMLDocumentParser::parseODFMetadata(const std::string &xml_content, attributes::Metadata& metadata) const
 {
+	log_scope();
 	try
 	{
 		XmlStream xml_stream(xml_content, XmlStream::no_blanks{true});
@@ -722,6 +728,7 @@ void CommonXMLDocumentParser::parseODFMetadata(const std::string &xml_content, a
 
 const std::string CommonXMLDocumentParser::formatComment(const std::string& author, const std::string& time, const std::string& text)
 {
+	log_scope(author, time, text);
 	std::string comment = "\n[[[COMMENT BY " + author + " (" + time + ")]]]\n" + text;
 	if (text.empty() || *text.rbegin() != '\n')
 		comment += "\n";
@@ -781,11 +788,13 @@ XmlStream::no_blanks CommonXMLDocumentParser::no_blanks() const
 CommonXMLDocumentParser::scoped_context_stack_push::scoped_context_stack_push(CommonXMLDocumentParser& parser, const message_callbacks& emit_message)
 	: m_parser{parser}
 {
+	log_scope();
 	m_parser.impl().m_context_stack.push({emit_message});
 }
 
 CommonXMLDocumentParser::scoped_context_stack_push::~scoped_context_stack_push()
 {
+	log_scope();
 	m_parser.impl().m_context_stack.pop();
 }
 

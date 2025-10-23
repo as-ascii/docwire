@@ -14,10 +14,12 @@
 #include <boost/json.hpp>
 #include "document_elements.h"
 #include "input.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "make_error.h"
 #include "output.h"
 #include "post.h"
+#include "serialization_enum.h" // IWYU pragma: keep
 #include <sstream>
 
 namespace docwire
@@ -38,7 +40,7 @@ namespace openai
 Transcribe::Transcribe(const std::string& api_key, Model model)
 	: with_pimpl<Transcribe>(api_key, model)
 {
-	docwire_log_func();
+	log_scope(model);
 }
 
 namespace
@@ -59,10 +61,10 @@ std::string model_to_string(Transcribe::Model model)
 
 continuation Transcribe::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
-	docwire_log_func();
+	log_scope();
 	if (!msg->is<data_source>())
 		return emit_message(std::move(msg));
-	docwire_log(debug) << "data_source received";
+	log_entry();
 	const data_source& data = msg->get<data_source>();
 	std::shared_ptr<std::istream> in_stream = data.istream();
 	auto response_stream = std::make_shared<std::ostringstream>();

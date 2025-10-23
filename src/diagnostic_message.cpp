@@ -39,8 +39,8 @@ std::string diagnostic_message(const std::exception& e)
 		if (message.empty())
 		{
 			message += "Error: " + (error.context_count() > 0 ? quote(error.context_string(0)) : quote(e.what())) + "\n";
-			message += "in " + std::string{error.source_location.function_name()} + "\n";
-			message += "at " + std::string{error.source_location.file_name()} + ":" + std::to_string(error.source_location.line()) + "\n";
+			message += "in " + std::string{error.location.function_name()} + "\n";
+			message += "at " + std::string{error.location.file_name()} + ":" + std::to_string(error.location.line()) + "\n";
 			for (size_t i = 1; i < error.context_count(); ++i)
 			{
 				message += "with context " + quote(error.context_string(i)) + "\n";
@@ -48,8 +48,8 @@ std::string diagnostic_message(const std::exception& e)
 		}
 		else
 		{
-			message += "wrapping at: " + std::string{error.source_location.function_name()} + "\n";
-			message += "at " + std::string{error.source_location.file_name()} + ":" + std::to_string(error.source_location.line()) + "\n";
+			message += "wrapping at: " + std::string{error.location.function_name()} + "\n";
+			message += "at " + std::string{error.location.file_name()} + ":" + std::to_string(error.location.line()) + "\n";
 			for (size_t i = 0; i < error.context_count(); ++i)
 				message += "with context " + quote(error.context_string(i)) + "\n";
 		}

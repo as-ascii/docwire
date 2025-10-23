@@ -14,7 +14,6 @@
 
 #include "attributes.h"
 #include "document_elements.h"
-#include "mail_elements.h"
 #include "serialization_base.h"
 #include "serialization_filesystem.h" // IWYU pragma: keep
 
@@ -90,29 +89,17 @@ template <> struct serializer<document::List>
     value typed_summary(const document::List& list) const { return decorate_with_typeid(serialization::full(list), type_name::pretty<document::List>()); }
 };
 
-template <> struct serializer<mail::Mail>
+template <> struct serializer<document::Comment>
 {
-    value full(const mail::Mail& mail) const
+    value full(const document::Comment& comment) const
     {
         return object{{
-            {"subject", serialization::full(mail.subject)},
-            {"date", serialization::full(mail.date)},
-            {"level", serialization::full(mail.level)}
+            {"author", serialization::full(comment.author)},
+            {"time", serialization::full(comment.time)},
+            {"comment", serialization::full(comment.comment)}
         }};
     }
-    value typed_summary(const mail::Mail& mail) const { return decorate_with_typeid(serialization::full(mail), type_name::pretty<mail::Mail>()); }
-};
-
-template <> struct serializer<mail::Folder>
-{
-    value full(const mail::Folder& folder) const
-    {
-        return object{{
-            {"name", serialization::full(folder.name)},
-            {"level", serialization::full(folder.level)}
-        }};
-    }
-    value typed_summary(const mail::Folder& folder) const { return decorate_with_typeid(serialization::full(folder), type_name::pretty<mail::Folder>()); }
+    value typed_summary(const document::Comment& comment) const { return decorate_with_typeid(full(comment), type_name::pretty<document::Comment>()); }
 };
 
 template <>

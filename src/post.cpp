@@ -13,7 +13,10 @@
 
 #include "content_type_by_file_extension.h"
 #include "error_tags.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
+#include "serialization_filesystem.h" // IWYU pragma: keep
+#include "serialization_message.h" // IWYU pragma: keep
 #include "throw_if.h"
 #define CPPHTTPLIB_OPENSSL_SUPPORT
 #include <httplib.h>
@@ -43,20 +46,22 @@ namespace http
 Post::Post(const std::string& url, const std::string& oauth2_bearer_token, ssl_verify_peer ssl_verify_peer_v)
 	: with_pimpl<Post>(url, std::nullopt, "", DefaultFileName{""}, oauth2_bearer_token, ssl_verify_peer_v)
 {
+	log_scope(url, oauth2_bearer_token, ssl_verify_peer_v);
 }
 
 Post::Post(const std::string& url, const std::map<std::string, std::string>& form, const std::string& pipe_field_name, const DefaultFileName& default_file_name, const std::string& oauth2_bearer_token, ssl_verify_peer ssl_verify_peer_v)
 	: with_pimpl<Post>(url, form, pipe_field_name, default_file_name, oauth2_bearer_token, ssl_verify_peer_v)
 {
+	log_scope(url, form, pipe_field_name, default_file_name, oauth2_bearer_token, ssl_verify_peer_v);
 }
 
 continuation Post::operator()(message_ptr msg, const message_callbacks& emit_message)
 try
 {
-	docwire_log_func();
+	log_scope(msg);
 	if (!msg->is<data_source>())
 		return emit_message(std::move(msg));
-	docwire_log(debug) << "data_source received";
+	log_entry();
 	const data_source& data = msg->get<data_source>();
 	std::shared_ptr<std::istream> in_stream = data.istream();
 

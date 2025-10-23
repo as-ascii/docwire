@@ -13,21 +13,11 @@
 #define DOCWIRE_ERROR_H
 
 #include "core_export.h"
+#include "diagnostic_context.h" // IWYU pragma: keep
 #include <exception>
 #include "serialization_pair.h" // IWYU pragma: keep
-#include <string>
 #include "stringification.h"
-#if __has_include(<source_location>) && (!defined(__clang__) || __clang_major__ >= 16) // https://github.com/llvm/llvm-project/issues/56379
-	#define USE_STD_SOURCE_LOCATION 1
-#else
-	#warning "Cannot use std::source_location"
-	#define USE_STD_SOURCE_LOCATION 0
-#endif
-#if USE_STD_SOURCE_LOCATION
-	#include <source_location>
-#else
-	#include <boost/assert/source_location.hpp>
-#endif
+#include "source_location.h"
 #include <tuple>
 #include <utility>
 
@@ -37,18 +27,6 @@
  */
 namespace docwire::errors
 {
-
-#if USE_STD_SOURCE_LOCATION
-	using source_location = std::source_location;
-	#define DOCWIRE_CURRENT_LOCATION() std::source_location::current()
-#else
-	using source_location = boost::source_location;
-	#if !defined(__clang__) // https://github.com/llvm/llvm-project/issues/56379
-		#define DOCWIRE_CURRENT_LOCATION() BOOST_CURRENT_LOCATION
-	#else
-		#define DOCWIRE_CURRENT_LOCATION() boost::source_location(__builtin_FILE(), __builtin_LINE(), __builtin_FUNCTION(), __builtin_COLUMN())
-	#endif
-#endif
 #ifdef DOCWIRE_ENABLE_SHORT_MACRO_NAMES
 	#define current_location DOCWIRE_CURRENT_LOCATION
 #endif
@@ -95,17 +73,15 @@ namespace docwire::errors
  */
 struct DOCWIRE_CORE_EXPORT base : public std::exception
 {
-	/**
-	 * @brief The source location where the exception was thrown.
-	 */
-	errors::source_location source_location;
+	/// @brief The source location where the exception was thrown.
+	source_location location;
 
 	/**
 	 * @brief Constructs a base object with the current source location.
 	 *
 	 * @param location The source location of the exception (initialized by current location by default).
 	 */
-	base(const errors::source_location& location);
+	base(const source_location& location = source_location::current());
 
 	/**
 	 * @brief Get the type information of the context.
@@ -210,7 +186,7 @@ public:
 	 * @param context_tuple A tuple containing the context to be stored.
 	 * @param location The source location of the exception (initialized by current location by default).
 	 */
-	explicit impl(const std::tuple<T...>& context_tuple, const errors::source_location& location = DOCWIRE_CURRENT_LOCATION())
+	explicit impl(const std::tuple<T...>& context_tuple, const source_location& location = source_location::current())
 		: base(location), context(context_tuple)
 	{
 	}
@@ -250,31 +226,6 @@ public:
 		return sizeof...(T);
 	}
 };
-
-/**
- * @brief A helper function for the make_error macro to convert a variable into a name-value pair.
- * @param name The stringified name of the variable.
- * @param v The value of the variable.
- * @return A std::pair containing the name and value.
- */
-template <typename T>
-std::pair<std::string, T> convert_to_context(const std::string& name, const T& v)
-{
-	return std::pair<std::string, T>{name, v};
-}
-
-/**
- * @brief An overload of convert_to_context for string literals.
- *
- * This overload ensures that when a string literal is passed to make_error, it is treated as a direct context item
- * rather than being wrapped in a name-value pair.
- * @return The original string literal.
- */
-template <size_t N>
-const char* convert_to_context(const std::string& name, const char (&v)[N])
-{
-	return v;
-}
 
 } // namespace docwire::errors
 

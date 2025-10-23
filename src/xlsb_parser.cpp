@@ -18,10 +18,12 @@
 #include "scoped_stack_push.h"
 #include "zip_reader.h"
 #include <iostream>
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "make_error.h"
 #include <map>
 #include "misc.h"
+#include "serialization_data_source.h" // IWYU pragma: keep
 #include <sstream>
 #include <stack>
 #include <stdint.h>
@@ -161,6 +163,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 			void readNum(uint32_t& value, int bytes)
 			{
+				log_scope(bytes);
 				value = 0;
 				throw_if (m_chunk_len - m_pointer < bytes, "Unexpected EOF", errors::uninterpretable_data{});
 				for (int i = 0; i < bytes; ++i)
@@ -169,21 +172,25 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 			void readUint8(uint32_t& value)
 			{
+				log_scope();
 				readNum(value, 1);
 			}
 
 			void readUint16(uint32_t& value)
 			{
+				log_scope();
 				readNum(value, 2);
 			}
 
 			void readUint32(uint32_t& value)
 			{
+				log_scope();
 				readNum(value, 4);
 			}
 
 			void readXnum(double& value)
 			{
+				log_scope();
 				uint8_t* val_ptr = (uint8_t*)&value;
 				throw_if (m_chunk_len - m_pointer < 8, "Unexpected EOF", errors::uninterpretable_data{});
 				for (int i = 0; i < 8; ++i)
@@ -192,6 +199,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 			void readRkNumber(double& value, bool& is_int)
 			{
+					log_scope();
 					value = 0;
 					uint32_t uvalue;
 					readNum(uvalue, 4);
@@ -220,6 +228,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 			void readXlWideString(std::string& str)
 			{
+				log_scope();
 				uint32_t str_size;
 					readNum(str_size, 4);
 					throw_if (str_size * 2 > m_chunk_len - m_pointer,
@@ -244,6 +253,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 			void readRichStr(std::string& str)
 			{
+					log_scope();
 					//skip first byte
 					throw_if (m_chunk_len == m_pointer, "Unexpected EOF", errors::uninterpretable_data{});
 					++m_pointer;
@@ -252,6 +262,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 			void readRecord(Record& record)
 			{
+				log_scope();
 				record.m_type = 0;
 				record.m_size = 0;
 				for (int i = 0; i < 2; ++i)	//read record type
@@ -276,12 +287,14 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 			void skipBytes(uint32_t bytes_to_skip)
 			{
+				log_scope(bytes_to_skip);
 				if (bytes_to_skip <= m_chunk_len - m_pointer)
 					m_pointer += bytes_to_skip;
 			}
 
 			void readChunk(uint32_t len)
 			{
+				log_scope(len);
 				if (len == 0)
 					return;
 				m_chunk.resize(len + 1);
@@ -294,6 +307,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 	void parseRecordForSharedStrings(XLSBReader& xlsb_reader, XLSBReader::Record& record)
 	{
+		log_scope(record.m_type);
 		switch (record.m_type)
 		{
 			case XLSBReader::BRT_BEGIN_SST:
@@ -330,6 +344,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 	void parseColumn(XLSBReader& xlsb_reader, std::string& text)
 	{
+		log_scope();
 		uint32_t column;
 		xlsb_reader.readUint32(column);
 		if (xlsb_content().m_current_column > 0)
@@ -345,6 +360,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 	void parseRecordForWorksheets(XLSBReader& xlsb_reader, XLSBReader::Record& record, std::string& text)
 	{
+		log_scope(record.m_type);
 		switch (record.m_type)
 		{
 			case XLSBReader::BRT_CELL_BLANK:
@@ -502,12 +518,13 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 	void parseSharedStrings(ZipReader& unzip)
 	{
+		log_scope();
 		XLSBReader::Record record;
 		std::string file_name = "xl/sharedStrings.bin";
 		if (!unzip.exists(file_name))
 		{
 			//file may not exist, nothing wrong is with that.
-			docwire_log(debug) << "File: " + file_name + " does not exist";
+			log_entry();
 			return;
 		}
 		XLSBReader xlsb_reader(unzip, file_name);
@@ -535,6 +552,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 	void parseWorksheets(ZipReader& unzip, std::string& text)
 	{
+		log_scope();
 		XLSBReader::Record record;
 		int sheet_index = 1;
 		std::string sheet_file_name = "xl/worksheets/sheet1.bin";
@@ -571,6 +589,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 	void parseXLSB(ZipReader& unzip, std::string& text)
 	{
+		log_scope();
 		text.reserve(1024 * 1024);
 		throw_if (!unzip.loadDirectory(), "Error loading zip directory");
 		try
@@ -593,7 +612,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 	void readMetadata(ZipReader& unzip, attributes::Metadata& metadata)
 	{
-		docwire_log(debug) << "Extracting metadata.";
+		log_scope();
 		std::string data;
 		throw_if (!unzip.read("docProps/app.xml", &data), "Error reading docProps/app.xml", errors::uninterpretable_data{});
 		if (data.find("<TitlesOfParts>") != std::string::npos && data.find("</TitlesOfParts>") != std::string::npos)
@@ -682,7 +701,7 @@ attributes::Metadata pimpl_impl<XLSBParser>::metaData(ZipReader& unzip)
 
 void pimpl_impl<XLSBParser>::parse(const data_source& data, const message_callbacks& emit_message)
 {
-	docwire_log(debug) << "Using XLSB parser.";
+	log_scope(data);
 	scoped::stack_push<pimpl_impl<XLSBParser>::context> context_guard{m_context_stack, {emit_message}};
 	std::string text;
 	ZipReader unzip{data};

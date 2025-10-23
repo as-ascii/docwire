@@ -26,7 +26,9 @@
 #include "find.h"
 #include "html_exporter.h"
 #include "language.h"
-#include "log.h"
+#include "log_json_stream_sink.h"
+#include "log_core.h"
+#include "log_entry.h"
 #include <magic_enum/magic_enum_iostream.hpp>
 #include "mail_parser.h"
 #include "meta_data_exporter.h"
@@ -105,6 +107,9 @@ std::string enum_names_str()
 
 int main(int argc, char* argv[])
 {
+	// Set the default sink to std::clog.
+	log::set_sink(log::json_stream_sink(std::clog));
+
 	bool local_processing;
 	bool use_stream;
 
@@ -112,8 +117,7 @@ int main(int argc, char* argv[])
 	po::options_description desc("Allowed options");
 	desc.add_options()
 		("help", "display help message")
-		("version", "display DocWire version")
-		("verbose", "enable verbose logging")
+		("version", "display DocWire version")		
 		("input-file", po::value<std::string>()->required(), "path to file to process")
 		("output_type", po::value<OutputType>()->default_value(OutputType::plain_text), enum_names_str<OutputType>().c_str())
 		("http-post", po::value<std::string>(), "url to process data via http post")
@@ -155,6 +159,8 @@ int main(int argc, char* argv[])
 		("folder_name", po::value<std::string>(), "filter emails by folder name")
 		("attachment_extension", po::value<std::string>(), "filter by attachment type")
 		("log_file", po::value<std::string>(), "set path to log file")
+		("log-filter", po::value<std::string>(), "Set a custom log filter. Filters are comma-separated and can include tags (e.g., 'audit'), function names (e.g., '@func:my_func'), and file names (e.g., '@file:*_parser.cpp'). Prepend '-' to exclude.")
+		("verbose,v", "Enable verbose logging (equivalent to --log-filter='*').")
 	;
 
 	po::positional_options_description pos_desc;
@@ -196,19 +202,27 @@ int main(int argc, char* argv[])
 
 	if (vm.count("verbose"))
 	{
-		set_log_verbosity(debug);
+		log::set_filter("*");
+	}
+	if (vm.count("log-filter"))
+	{
+		log::set_filter(vm["log-filter"].as<std::string>());
 	}
 
-	std::unique_ptr<std::ostream> log_stream;
 	if (vm.count("log_file"))
 	{
-		log_stream = std::make_unique<std::ofstream>(vm["log_file"].as<std::string>());
-		set_log_stream(log_stream.get());
+		std::ofstream log_file(vm["log_file"].as<std::string>());
+		if (!log_file.is_open())
+		{
+			std::cerr << "Error: Unable to open log file: " << vm["log_file"].as<std::string>() << std::endl;
+			return 1;
+		}
+		log::set_sink(log::json_stream_sink(std::move(log_file)));
 	}
 
 	std::string file_name = vm["input-file"].as<std::string>();
 
-	docwire_log_vars(use_stream, file_name);
+	log_entry(use_stream, file_name);
 	auto chain = use_stream ?
 		(std::ifstream{file_name, std::ios_base::binary} | content_type::detector{}) :
 		(std::filesystem::path{file_name} | content_type::detector{});

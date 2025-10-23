@@ -11,8 +11,10 @@
 
 #include "base64.h"
 #include <boost/algorithm/string.hpp>
+#include <boost/config.hpp>
 #include <boost/json.hpp>
 #include "chaining.h"
+#include "concepts.h"
 #include "contains_type.h"
 #include "content_type.h"
 #include "content_type_by_file_extension.h"
@@ -60,6 +62,8 @@
 #include "txt_parser.h"
 #include "input.h"
 #include "log.h"
+#include "log_json_stream_sink.h"
+#include "log_state_saver.h"
 #include "lru_memory_cache.h"
 #include "http_server.h"
 
@@ -478,7 +482,7 @@ TEST_P(MultithreadedTest, ReadFromFileTests)
     for (auto& thread : threads)
     {
         thread.get();
-        docwire_log(info) << "Thread finished successfully.";
+        log_entry(log::audit{}, "Thread finished successfully.");
     }
 }
 
@@ -809,7 +813,7 @@ TEST (errors, throwing)
 TEST(errors, diagnostic_message)
 {
     std::string message;
-    errors::source_location err2_loc, err3_loc;
+    source_location err2_loc, err3_loc;
     try
     {
         try
@@ -821,7 +825,7 @@ TEST(errors, diagnostic_message)
             catch (const std::exception& e)
             {
                 std::string string_2{"string data 2"};
-                err2_loc = current_location();
+                err2_loc = source_location::current();
                 std::throw_with_nested(make_error("level 2 exception", string_2));
             }
         }
@@ -829,7 +833,7 @@ TEST(errors, diagnostic_message)
         {
             std::string string_3{"string data 3"};
             int int_3 = 3;
-            err3_loc = current_location();
+            err3_loc = source_location::current();
             std::throw_with_nested(make_error("level 3 exception", string_3, int_3, errors::program_logic{}));
         }
     }
@@ -931,11 +935,48 @@ TEST(errors, hashing)
     ASSERT_EQ(hasher(n2), hasher(n2));
 }
 
+namespace
+{
+    void check_caller_location(const docwire::basic_source_location& loc, int expected_line, const char* expected_func_substr)
+    {
+        // `file_name()` may return a full path, so we check the ending.
+        EXPECT_TRUE(std::string(loc.file_name()).ends_with("api_tests.cpp"));
+        // `function_name()` may be decorated, so we check for a substring.
+        EXPECT_THAT(std::string(loc.function_name()), testing::HasSubstr(expected_func_substr));
+        // The line number must be the one passed from the call site.
+        EXPECT_EQ(loc.line(), expected_line);
+    }
+
+    BOOST_NOINLINE void get_location_and_check()
+    {
+        check_caller_location(docwire::basic_source_location::current(), __LINE__, "get_location_and_check");
+    }
+}
+
+TEST(SourceLocation, CustomImplementation)
+{
+    get_location_and_check();
+}
+
+TEST(DiagnosticContext, Concepts)
+{
+    static_assert(context_tag<log::audit>);
+    static_assert(context_tag<log::stderr_redirect>);
+    static_assert(context_tag<errors::program_logic>);
+    static_assert(!context_tag<std::filesystem::path>);
+    static_assert(!context_tag<int>);
+    struct empty_struct {};
+    static_assert(!context_tag<empty_struct>);
+}
+
 std::string sanitize_log_text(const std::string& orig_log_text)
 {
     using namespace boost::json;
+	if (orig_log_text.empty()) {
+		return "[\n]\n";
+	}
 	std::string log_text = "[\n";
-	value log_val = parse(orig_log_text + "]");
+	value log_val = parse(orig_log_text);
 	for (int i = 0; i < log_val.as_array().size(); i++)
 	{
 		if (i > 0)
@@ -952,120 +993,355 @@ std::string sanitize_log_text(const std::string& orig_log_text)
 TEST(Logging, Dereferenceable)
 {
 	std::stringstream log_stream;
-	set_log_stream(&log_stream);
-	set_log_verbosity(debug);
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
 
-	docwire_log(debug) << std::optional<int>(1);
-	docwire_log(debug) << std::optional<int>();
-	docwire_log(debug) << std::make_unique<int>(1);
-	docwire_log(debug) << std::unique_ptr<int>();
-	docwire_log(debug) << std::make_shared<int>(1);
-	docwire_log(debug) << std::shared_ptr<int>();
-
-	set_log_verbosity(info);
-	set_log_stream(&std::clog);
+        log_entry(std::optional<int>(1));
+        log_entry(std::optional<int>());
+        log_entry(std::make_unique<int>(1));
+        log_entry(std::unique_ptr<int>());
+        log_entry(std::make_shared<int>(1));
+        log_entry(std::shared_ptr<int>());
+    }
 
     std::string log_text = sanitize_log_text(log_stream.str());
-	ASSERT_EQ(read_test_file("logging_dereferenceable.out.json"), log_text);
+#ifdef NDEBUG
+	ASSERT_EQ("[\n]\n", log_text);
+#else
+    ASSERT_EQ(read_test_file("logging_dereferenceable.out.json"), log_text);
+#endif
 }
 
-TEST(Serialization, ConceptChecks)
+TEST(Concepts, Basics)
+{
+    // container: Should be true for standard containers, false for others.
+    static_assert(container<std::vector<int>>);
+    static_assert(container<std::list<std::string>>);
+    static_assert(container<std::map<int, double>>); // map is a container of pairs
+    static_assert(container<std::set<char>>);
+    static_assert(container<std::string>); // A string is a container of chars, but should be serialized as a value.
+    static_assert(container<char[10]>); // A C-style array is a container of chars
+
+    static_assert(!container<int>);
+    static_assert(!container<const char*>); // A pointer is not a container
+    static_assert(!container<std::optional<int>>);
+    static_assert(!container<std::unique_ptr<int>>);
+    static_assert(!container<std::filesystem::path>); // Correctly avoids self-recursion
+
+    // dereferenceable: Should be true for pointer-like types.
+    static_assert(dereferenceable<int*>);
+    static_assert(dereferenceable<const int*>);
+    static_assert(dereferenceable<std::unique_ptr<int>>);
+    static_assert(dereferenceable<std::shared_ptr<std::string>>);
+    static_assert(dereferenceable<std::optional<double>>);
+
+    static_assert(!dereferenceable<int>);
+    static_assert(!dereferenceable<std::string>);
+    static_assert(!dereferenceable<std::vector<int>>); // It's a container, not pointer-like
+    static_assert(!dereferenceable<std::filesystem::path>);
+
+    // string_like: Should be true for string types and literals.
+    static_assert(string_like<std::string>);
+    static_assert(string_like<const std::string>);
+    static_assert(string_like<std::string_view>);
+    static_assert(string_like<const char*>);
+    static_assert(string_like<char*>);
+    static_assert(string_like<const char[10]>);
+    static_assert(string_like<char[10]>);
+
+    static_assert(!string_like<int>);
+    static_assert(!string_like<std::vector<char>>);
+}
+
+TEST(Serialization, SpecializationLogic)
 {
     using namespace docwire::serialization;
 
-    // is_container: Should be true for standard containers, false for others.
-    static_assert(is_container<std::vector<int>>);
-    static_assert(is_container<std::list<std::string>>);
-    static_assert(is_container<std::map<int, double>>); // map is a container of pairs
-    static_assert(is_container<std::set<char>>);
-    static_assert(is_container<std::string>); // A string is a container of chars, but should be serialized as a value.
-    static_assert(is_container<char[10]>); // A C-style array is a container of chars
-
-    static_assert(!is_container<int>);
-    static_assert(!is_container<const char*>); // A pointer is not a container
-    static_assert(!is_container<std::optional<int>>);
-    static_assert(!is_container<std::unique_ptr<int>>);
-    static_assert(!is_container<std::filesystem::path>); // Correctly avoids self-recursion
-
-    // is_dereferenceable: Should be true for pointer-like types.
-    static_assert(is_dereferenceable<int*>);
-    static_assert(is_dereferenceable<const int*>);
-    static_assert(is_dereferenceable<std::unique_ptr<int>>);
-    static_assert(is_dereferenceable<std::shared_ptr<std::string>>);
-    static_assert(is_dereferenceable<std::optional<double>>);
-
-    static_assert(!is_dereferenceable<int>);
-    static_assert(!is_dereferenceable<std::string>);
-    static_assert(!is_dereferenceable<std::vector<int>>); // It's a container, not pointer-like
-    static_assert(!is_dereferenceable<std::filesystem::path>);
-
-    // StringLike: Should be true for string types and literals.
-    static_assert(StringLike<std::string>);
-    static_assert(StringLike<const std::string>);
-    static_assert(StringLike<std::string_view>);
-    static_assert(StringLike<const char*>);
-    static_assert(StringLike<char*>);
-    static_assert(StringLike<const char[10]>);
-    static_assert(StringLike<char[10]>);
-
-    static_assert(!StringLike<int>);
-    static_assert(!StringLike<std::vector<char>>);
-
-    // --- Serializer Specialization Logic ---
     // The combination of concepts should route types to the correct serializer.
     // We verify this by checking the `kind` of the resolved serializer specialization.
 
     // Primitives should use the Arithmetic or ValueAlternative serializers.
-    static_assert(serializer<int>::kind == serializer_kind::Arithmetic);
-    static_assert(serializer<bool>::kind == serializer_kind::ValueAlternative);
+    static_assert(serializer<int>::kind == serializer_kind::arithmetic);
+    static_assert(serializer<bool>::kind == serializer_kind::value_alternative);
 
-    // std::string is a direct value alternative. Other string-like types use the StringLike serializer.
-    static_assert(serializer<std::string>::kind == serializer_kind::ValueAlternative);
-    static_assert(serializer<const char*>::kind == serializer_kind::StringLike);
+    // std::string is a direct value alternative. Other string-like types use the string_like serializer.
+    static_assert(serializer<std::string>::kind == serializer_kind::value_alternative);
+    static_assert(serializer<const char*>::kind == serializer_kind::string_like);
 
     // Containers should use the Container serializer.
-    static_assert(serializer<std::vector<int>>::kind == serializer_kind::Container);
+    static_assert(serializer<std::vector<int>>::kind == serializer_kind::container);
 
     // Pointer-like types should use the Dereferenceable serializer.
-    static_assert(serializer<std::optional<int>>::kind == serializer_kind::Dereferenceable);
-    static_assert(serializer<std::unique_ptr<int>>::kind == serializer_kind::Dereferenceable);
+    static_assert(serializer<std::optional<int>>::kind == serializer_kind::dereferenceable);
+    static_assert(serializer<std::unique_ptr<int>>::kind == serializer_kind::dereferenceable);
 }
 
 TEST(Logging, Iterable)
 {
 	std::stringstream log_stream;
-	set_log_stream(&log_stream);
-	set_log_verbosity(debug);
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
 
-	docwire_log(debug) << std::vector<int>{1, 2, 3};
-	docwire_log(debug) << std::list<std::string>{"a", "b", "c"};
-	std::vector<std::pair<std::string, int>> vec_of_pairs = {{"one", 1}, {"two", 2}};
-	docwire_log(debug) << vec_of_pairs;
-
-
-	set_log_verbosity(info);
-	set_log_stream(&std::clog);
+        log_entry((std::vector<int>{1, 2, 3}));
+        log_entry((std::list<std::string>{"a", "b", "c"}));
+        std::vector<std::pair<std::string, int>> vec_of_pairs = {{"one", 1}, {"two", 2}};
+        log_entry(vec_of_pairs);
+    }
 
     std::string log_text = sanitize_log_text(log_stream.str());
-	ASSERT_EQ(read_test_file("logging_iterable.out.json"), log_text);
+#ifdef NDEBUG
+    // In release mode, none of these logs should be generated.
+	ASSERT_EQ("[\n]\n", log_text);
+#else
+    ASSERT_EQ(read_test_file("logging_iterable.out.json"), log_text);
+#endif
+}
+
+TEST(Logging, MemberVariable)
+{
+    struct Point { int x; int y; };
+    struct Rect { Point top_left; Point bottom_right; };
+
+    Rect r1 = {{1, 2}, {3, 4}};
+    Rect r2 = {{5, 6}, {7, 8}};
+
+	std::stringstream log_stream;
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
+
+        log_entry(r1.top_left.x, r2.top_left.x);
+    }
+
+    std::string log_text = sanitize_log_text(log_stream.str());
+#ifdef NDEBUG
+    ASSERT_EQ("[\n]\n", log_text);
+#else
+    ASSERT_EQ(read_test_file("logging_member_variable.out.json"), log_text);
+#endif
 }
 
 TEST(Logging, CerrLogRedirection)
 {
 	std::stringstream log_stream;
-	set_log_stream(&log_stream);
-	set_log_verbosity(debug);
+    std::stringstream captured_cerr_stream;
+    {
+        log::state_saver saver;
+	    log::set_sink(log::json_stream_sink(log_stream));
+	    log::set_filter("*");
+ 
+        // Redirect cerr to a stringstream to verify that nothing is written to it.
+        std::streambuf* original_cerr_buf = std::cerr.rdbuf(captured_cerr_stream.rdbuf());
 
-    cerr_log_redirection cerr_redirection(docwire_current_source_location());
-	std::cerr << "Cerr test log message line 1" << std::endl;
-    std::cerr << "Cerr test log message line 2" << std::endl;
-	cerr_redirection.restore();
+        {
+            log::cerr_redirection cerr_redirection;
+            std::cerr << "Cerr test log message line 1" << std::endl;
+            std::cerr << "Cerr test log message line 2" << std::endl;
+            // cerr_redirection's destructor will call restore()
+        }
 
-    set_log_verbosity(info);
-	set_log_stream(&std::clog);
+        // Restore original cerr
+        std::cerr.rdbuf(original_cerr_buf);
+    }
+
+	std::string log_text = sanitize_log_text(log_stream.str());
+#ifdef NDEBUG
+	// In release mode, the log entry is compiled out, and cerr output is suppressed.
+	ASSERT_EQ("[\n]\n", log_text);
+	ASSERT_TRUE(captured_cerr_stream.str().empty()) << "stderr should be empty in release mode as it's redirected to a null stream.";
+#else
+	ASSERT_EQ(read_test_file("logging_cerr_log_redirection.out.json"), log_text);
+	ASSERT_TRUE(captured_cerr_stream.str().empty()) << "stderr should be empty in debug mode as it's redirected to the log.";
+#endif
+}
+
+TEST(Logging, Basics)
+{
+	std::stringstream log_stream;
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
+
+        int my_var = 123;
+        const char* my_cstr = "a c-string";
+        log_entry("A literal string", my_var, my_cstr);
+    }
 
     std::string log_text = sanitize_log_text(log_stream.str());
-    ASSERT_EQ(read_test_file("logging_cerr_log_redirection.out.json"), log_text);
+#ifdef NDEBUG
+    // In release mode, this log should be compiled out.
+    ASSERT_EQ("[\n]\n", log_text);
+#else
+    ASSERT_EQ(read_test_file("logging_basics.out.json"), log_text);
+#endif
+}
+
+TEST(Logging, Scope)
+{
+	std::stringstream log_stream;
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
+
+        int scope_var = 42;
+        {
+            log_scope(scope_var);
+            log_entry("inside scope");
+        }
+    }
+
+    std::string log_text = sanitize_log_text(log_stream.str());
+#ifdef NDEBUG
+    // In release mode, the scope and entry logs should be compiled out.
+    ASSERT_EQ("[\n]\n", log_text);
+#else
+    ASSERT_EQ(read_test_file("logging_scope.out.json"), log_text);
+#endif
+}
+
+int function_with_log_return()
+{
+    return log_forward(123, log::return_value{});
+}
+
+TEST(Logging, LogForward)
+{
+	std::stringstream log_stream;
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
+
+        int a = 10;
+        int b = 20;
+        int c = log_forward(a + b);
+        EXPECT_EQ(c, 30);
+
+        int d = log_forward(c * 2, log::audit{});
+        EXPECT_EQ(d, 60);
+
+        EXPECT_EQ(function_with_log_return(), 123);
+    }
+
+    std::string log_text = sanitize_log_text(log_stream.str());
+#ifdef NDEBUG
+    ASSERT_EQ(read_test_file("logging_log_forward.release.out.json"), log_text);
+#else
+    ASSERT_EQ(read_test_file("logging_log_forward.out.json"), log_text);
+#endif
+}
+
+namespace
+{
+void function_for_log_test()
+{
+    log_entry(log::audit{}, "from function_for_log_test");
+}
+}
+
+TEST(Logging, FilteringByFileAndFunction)
+{
+    log::state_saver saver;
+    std::stringstream log_stream;
+    log::set_sink(log::json_stream_sink(log_stream));
+
+    // Test filename filtering
+    log::set_filter("@file:api_tests.cpp");
+    log_entry(log::audit{}, "file_exact_match");
+    ASSERT_THAT(log_stream.str(), testing::HasSubstr("file_exact_match"));
+    log_stream.str("");
+
+    log::set_filter("@file:*_tests.cpp");
+    log_entry(log::audit{}, "file_suffix_wildcard");
+    ASSERT_THAT(log_stream.str(), testing::HasSubstr("file_suffix_wildcard"));
+    log_stream.str("");
+
+    log::set_filter("@file:api_t?sts.cpp");
+    log_entry(log::audit{}, "file_char_wildcard");
+    ASSERT_THAT(log_stream.str(), testing::HasSubstr("file_char_wildcard"));
+    log_stream.str("");
+
+    log::set_filter("-@file:api_tests.cpp");
+    log_entry(log::audit{}, "file_negative_filter");
+    ASSERT_TRUE(log_stream.str().empty());
+    log_stream.str("");
+
+    // Test function name filtering
+    // Note: The exact function name can vary between compilers. Wildcards are essential.
+    log::set_filter("@func:*function_for_log_test*");
+    function_for_log_test();
+    ASSERT_THAT(log_stream.str(), testing::HasSubstr("from function_for_log_test"));
+    log_stream.str("");
+
+    log::set_filter("@func:*FilteringByFile*");
+    log_entry(log::audit{}, "func_wildcard_on_test_name");
+    ASSERT_THAT(log_stream.str(), testing::HasSubstr("func_wildcard_on_test_name"));
+    log_stream.str("");
+
+    log::set_filter("-@func:*function_for_log_test*");
+    function_for_log_test();
+    ASSERT_TRUE(log_stream.str().empty());
+    log_stream.str("");
+
+}
+
+
+struct include_me { static constexpr std::string_view string() { return "include_me"; } };
+struct special { static constexpr std::string_view string() { return "special"; } };
+
+TEST(Logging, Filtering)
+{
+	std::stringstream log_stream;
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        
+        // Filter to only include 'include_me' and 'scope_exit' tags, but exclude 'special'.
+        log::set_filter("include_me,scope_exit,-special");
+        log_entry("this is excluded");
+        log_entry(log::audit{}, "this is also excluded by filter");
+        log_entry(log::return_value{}, "excluded by tag");
+        log_entry(include_me{}, "this is included");
+        {
+            log_scope(); // scope_enter is excluded by filter
+            log_entry(include_me{}, "another included entry");
+            log_entry(include_me{}, special{}, "this is excluded by negative filter");
+        } // scope_exit is included
+    }
+
+    std::string log_text = sanitize_log_text(log_stream.str());
+#ifdef NDEBUG
+    ASSERT_EQ("[\n]\n", log_text);
+#else
+    ASSERT_EQ(read_test_file("logging_filtering.out.json"), log_text);
+#endif
+}
+
+TEST(Logging, AuditInRelease)
+{
+	std::stringstream log_stream;
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
+
+        log_entry("A regular debug log");
+        log_entry(log::audit{}, "An important audit event");
+    }
+
+    std::string log_text = sanitize_log_text(log_stream.str());
+#ifdef NDEBUG
+    ASSERT_EQ(read_test_file("logging_audit.release.out.json"), log_text);
+#else
+    ASSERT_EQ(read_test_file("logging_audit.out.json"), log_text);
+#endif
 }
 
 TEST(unique_identifier, generation_uniqueness_copying_and_hashing)
@@ -2467,6 +2743,24 @@ TEST(Serialization, PointersAndOptionals)
     ASSERT_TRUE(std::holds_alternative<std::nullptr_t>(v_uniq_empty));
 }
 
+TEST(Serialization, StringLike)
+{
+    using namespace docwire::serialization;
+
+    const char* null_str = nullptr;
+    value result_null = full(null_str);
+    ASSERT_TRUE(std::holds_alternative<std::nullptr_t>(result_null));
+
+    const char* non_null_str = "hello";
+    value result_non_null = full(non_null_str);
+    ASSERT_TRUE(std::holds_alternative<std::string>(result_non_null));
+    EXPECT_EQ(std::get<std::string>(result_non_null), "hello");
+
+    value result_sv = full(std::string_view{"world"});
+    ASSERT_TRUE(std::holds_alternative<std::string>(result_sv));
+    EXPECT_EQ(std::get<std::string>(result_sv), "world");
+}
+
 TEST(Serialization, StdTypes)
 {
     using namespace docwire::serialization;
@@ -2603,28 +2897,28 @@ TEST(Serialization, Concepts)
 {
     using namespace docwire::serialization;
 
-    // Test is_value_alternative for types that ARE in the variant
-    static_assert(is_value_alternative<std::nullptr_t>);
-    static_assert(is_value_alternative<bool>);
-    static_assert(is_value_alternative<std::int64_t>);
-    static_assert(is_value_alternative<std::uint64_t>);
-    static_assert(is_value_alternative<double>);
-    static_assert(is_value_alternative<std::string>);
-    static_assert(is_value_alternative<array>);
-    static_assert(is_value_alternative<object>);
+    // Test value_alternative for types that ARE in the variant
+    static_assert(value_alternative<std::nullptr_t>);
+    static_assert(value_alternative<bool>);
+    static_assert(value_alternative<std::int64_t>);
+    static_assert(value_alternative<std::uint64_t>);
+    static_assert(value_alternative<double>);
+    static_assert(value_alternative<std::string>);
+    static_assert(value_alternative<array>);
+    static_assert(value_alternative<object>);
 
-    // Test is_value_alternative for types that are NOT in the variant
-    static_assert(!is_value_alternative<int>);
-    static_assert(!is_value_alternative<float>);
-    static_assert(!is_value_alternative<char>);
-    static_assert(!is_value_alternative<const char*>);
-    static_assert(!is_value_alternative<std::vector<int>>);
-    static_assert(!is_value_alternative<docwire::severity_level>);
+    // Test value_alternative for types that are NOT in the variant
+    static_assert(!value_alternative<int>);
+    static_assert(!value_alternative<float>);
+    static_assert(!value_alternative<char>);
+    static_assert(!value_alternative<const char*>);
+    static_assert(!value_alternative<std::vector<int>>);
+    static_assert(!value_alternative<docwire::data_source>);
 
-    // Test the general is_variant_alternative with a custom variant
-    using MyVariant = std::variant<int, float, std::string>;
-    static_assert(is_variant_alternative<int, MyVariant>);
-    static_assert(!is_variant_alternative<double, MyVariant>);
+    // Test the general variant_alternative with a custom variant
+    using my_variant = std::variant<int, float, std::string>;
+    static_assert(variant_alternative<int, my_variant>);
+    static_assert(!variant_alternative<double, my_variant>);
 }
 
 TEST(Serialization, PrettyName)
@@ -2635,7 +2929,29 @@ TEST(Serialization, PrettyName)
     EXPECT_EQ(type_name::pretty<const std::string>(), "const std::string");
     EXPECT_EQ((type_name::pretty<std::pair<int, float>>()), "std::pair<int,float>");
     EXPECT_EQ((type_name::pretty<std::pair<std::string, docwire::data_source&&>>()), "std::pair<std::string,docwire::data_source&&>");
+    EXPECT_EQ(type_name::pretty<const char*>(), "const char*");
     EXPECT_EQ((type_name::pretty<std::pair<int, std::pair<double, std::string>>>()), "std::pair<int,std::pair<double,std::string>>");
+}
+
+struct int_alias { int v; };
+struct string_alias { std::string v; };
+
+TEST(Serialization, StrongTypeAlias)
+{
+    using namespace docwire::serialization;
+
+    // Test pure serialization (full)
+    int_alias my_int{123};
+    value v_full = full(my_int);
+    ASSERT_TRUE(std::holds_alternative<std::int64_t>(v_full));
+    EXPECT_EQ(std::get<std::int64_t>(v_full), 123);
+
+    // Test typed summary
+    value v_typed = typed_summary(my_int);
+    ASSERT_TRUE(std::holds_alternative<object>(v_typed));
+    const auto& obj_typed = std::get<object>(v_typed);
+    EXPECT_EQ(std::get<std::string>(obj_typed.v.at("typeid")), "int_alias");
+    EXPECT_EQ(std::get<std::int64_t>(obj_typed.v.at("value")), 123);
 }
 
 /*
@@ -2653,8 +2969,23 @@ TEST(Serialization, StaticAssertForMissingSerializer)
 }
 */
 
+TEST(Stringification, StrongTypeAlias)
+{
+    int_alias my_int{123};
+    EXPECT_EQ(stringify(my_int), "123");
+
+    string_alias my_str{"hello"};
+    EXPECT_EQ(stringify(my_str), "hello");
+}
+
 int main(int argc, char* argv[])
 {
+    if (const char* env_p = std::getenv("DOCWIRE_TESTS_CONSOLE_LOGGING"); env_p != nullptr && std::string_view(env_p) == "1")
+    {
+        log::set_sink(log::json_stream_sink(std::clog));
+        log::set_filter("*");
+    }
+
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }

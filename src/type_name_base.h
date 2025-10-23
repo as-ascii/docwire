@@ -45,6 +45,13 @@ struct pretty_impl<const T> {
 };
 
 template<typename T>
+struct pretty_impl<T*> {
+	std::string operator()() const {
+		return pretty<T>() + "*";
+	}
+};
+
+template<typename T>
 struct pretty_impl<T&> {
 	std::string operator()() const {
 		return pretty<std::remove_reference_t<T>>() + "&";

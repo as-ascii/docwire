@@ -20,11 +20,14 @@
 #include "data_source.h"
 #include "document_elements.h"
 #include <iostream>
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include <mailio/message.hpp>
 #include <mailio/mime.hpp>
 #include "make_error.h"
 #include "nested_exception.h"
+#include "serialization_data_source.h" // IWYU pragma: keep
+#include "serialization_message.h" // IWYU pragma: keep
 #include "scoped_stack_push.h"
 
 namespace docwire
@@ -62,6 +65,7 @@ struct pimpl_impl<EMLParser> : pimpl_impl_base
 
 	void convertToUtf8(const std::string& charset, std::string& text) const
 	{
+		log_scope(charset);
 		try
 		{
 			charset_converter converter(charset, "UTF-8");
@@ -75,6 +79,7 @@ struct pimpl_impl<EMLParser> : pimpl_impl_base
 
 	mime_type mime_type_from_mime_entity(const mime& mime_entity) const
 	{
+		log_scope();
 		class mime_wrapper : public mailio::mime
 		{
 		public:
@@ -88,23 +93,23 @@ struct pimpl_impl<EMLParser> : pimpl_impl_base
 
 	void extractPlainText(const mime& mime_entity) const
 	{
-		docwire_log(debug) << "Extracting plain text from mime entity";
+		log_scope();
 		if (mime_entity.content_disposition() != mime::content_disposition_t::ATTACHMENT && mime_entity.content_type().type == mime::media_type_t::TEXT)
 		{
-			docwire_log(debug) << "Text content type detected with inline or none content disposition";
+			log_scope();
 			std::string plain = mime_entity.content();
 			plain.erase(std::remove(plain.begin(), plain.end(), '\r'), plain.end());
 
 			bool skip_charset_decoding = false;
 			if (!mime_entity.content_type().charset.empty())
 			{
-				docwire_log(debug) << "Charset is specified";
+				log_scope();
 				convertToUtf8(mime_entity.content_type().charset, plain);
 				skip_charset_decoding = true;
 			}
 			if (mime_entity.content_type().subtype == "html" || mime_entity.content_type().subtype == "xhtml")
 			{
-				docwire_log(debug) << "HTML content subtype detected";
+				log_scope();
 				emit_message_back(data_source {
 					plain, mime_type{"text/html"}, confidence::very_high});
 			}
@@ -112,12 +117,12 @@ struct pimpl_impl<EMLParser> : pimpl_impl_base
 			{
 				if (skip_charset_decoding)
 				{
-					docwire_log(debug) << "Charset is specified and decoding is skipped";
+					log_scope();
 					emit_message(document::Text{.text = plain});
 				}
 				else
 				{
-					docwire_log(debug) << "Charset is not specified";
+					log_scope();
 					emit_message_back(data_source {
 						plain, mime_type{"text/plain"}, confidence::very_high});
 				}
@@ -127,10 +132,10 @@ struct pimpl_impl<EMLParser> : pimpl_impl_base
 		}
 		else if (mime_entity.content_type().type != mime::media_type_t::MULTIPART)
 		{
-			docwire_log(debug) << "It is not a multipart message. It's attachment probably.";
+			log_scope();
 			std::string plain = mime_entity.content();
 			std::string file_name = mime_entity.name();
-			docwire_log(debug) << "File name: " << file_name;
+			log_entry(file_name);
 			file_extension extension { std::filesystem::path{file_name} };
 			auto result = emit_message(mail::Attachment{.name = file_name, .size = plain.length(), .extension = extension});
 			if (result != continuation::skip)
@@ -142,7 +147,7 @@ struct pimpl_impl<EMLParser> : pimpl_impl_base
 		}
 		if (mime_entity.content_type().subtype == "alternative")
 		{
-			docwire_log(debug) << "Alternative content subtype detected";
+			log_scope();
 			bool html_found = false;
 			for (const mime& m: mime_entity.parts())
 				if (m.content_type().subtype == "html" || m.content_type().subtype == "xhtml")
@@ -155,8 +160,7 @@ struct pimpl_impl<EMLParser> : pimpl_impl_base
 		}
 		else
 		{
-			docwire_log(debug) << "Multipart but not alternative";
-			docwire_log(debug) << mime_entity.parts().size() << " mime parts found";
+			log_scope(mime_entity.parts().size());
 			for (const mime& m: mime_entity.parts())
 				extractPlainText(m);
 		}
@@ -170,13 +174,14 @@ namespace
 
 void normalize_line(std::string& line)
 {
-	docwire_log_func_with_args(line);
+	log_scope(line);
 	if (!line.empty() && line.back() == '\r')
 		line.pop_back();
 }
 
 mailio::message parse_message(const data_source& data, const std::function<void(std::exception_ptr)>& non_fatal_error_handler)
 {
+	log_scope(data);
 	std::shared_ptr<std::istream> stream = data.istream();
 	mailio::message mime_entity;
 	mime_entity.line_policy(codec::line_len_policy_t::NONE);
@@ -185,7 +190,7 @@ mailio::message parse_message(const data_source& data, const std::function<void(
 		while (getline(*stream, line))
 		{
 			normalize_line(line);
-			docwire_log_var(line);
+			log_entry(line);
 			mime_entity.parse_by_line(line);
 		}
 		mime_entity.parse_by_line("\r\n");
@@ -212,7 +217,7 @@ attributes::Metadata metaData(const mailio::message& mime_entity);
 
 continuation EMLParser::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
-	docwire_log_func();
+	log_scope(msg);
 	if (!msg->is<data_source>())
 		return emit_message(std::move(msg));
 
@@ -222,7 +227,7 @@ continuation EMLParser::operator()(message_ptr msg, const message_callbacks& emi
 	if (!data.has_highest_confidence_mime_type_in(supported_mime_types))
 		return emit_message(std::move(msg));
 
-	docwire_log(debug) << "Using EML parser.";
+	log_entry();
 	try
 	{
 		scoped::stack_push<context> context_guard{impl().m_context_stack, context{emit_message}};
@@ -249,6 +254,7 @@ namespace
 
 attributes::Metadata metaData(const mailio::message& mime_entity)
 {
+	log_scope();
 	attributes::Metadata metadata;
 	metadata.author = mime_entity.from_to_string();
 	metadata.creation_date = to_tm(mime_entity.date_time());

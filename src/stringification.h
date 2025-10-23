@@ -12,6 +12,9 @@
 #ifndef DOCWIRE_STRINGIFICATION_H
 #define DOCWIRE_STRINGIFICATION_H
 
+#include "concepts_misc.h"
+#include "concepts_stream.h"
+#include "concepts_string.h"
 #include "diagnostic_message.h"
 #include "serialization_base.h"
 #include <string>
@@ -31,30 +34,6 @@ struct stringifier;
 template <typename T>
 std::string stringify(const T& value);
 
-template <typename T>
-concept strong_type_alias = requires(T value) { value.v; };
-
-/**
- * @brief Concept for types that have a `string()` member method.
- */
-template <typename T>
-concept string_method_equipped = requires { std::declval<T>().string(); };
-
-/**
- * @brief Specialization for types with a `string()` method.
- */
-template <string_method_equipped T>
-struct stringifier<T>
-{
-	std::string operator()(const T& value) const { return value.string(); }
-};
-
-/**
- * @brief Concept for types that are streamable to `std::ostream`.
- */
-template <typename T>
-concept streamable = requires (std::ostream& os, const T& value) { os << value; };
-
 /**
  * @brief Specialization for types that are streamable to `std::ostream`.
  */
@@ -68,6 +47,15 @@ struct stringifier<T>
 		s << value;
 		return s.str();
 	}
+};
+
+/**
+ * @brief Specialization for types with a `string()` method.
+ */
+template <string_method_equipped T>
+struct stringifier<T>
+{
+	std::string operator()(const T& value) const { return std::string(value.string()); }
 };
 
 /**

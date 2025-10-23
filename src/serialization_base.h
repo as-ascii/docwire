@@ -12,6 +12,10 @@
 #ifndef DOCWIRE_SERIALIZATION_BASE_H
 #define DOCWIRE_SERIALIZATION_BASE_H
 
+#include "concepts_container.h"
+#include "concepts_misc.h"
+#include "concepts_string.h"
+#include "concepts_variant.h"
 #include <cstdint>
 #include <map>
 #include <string>
@@ -22,6 +26,22 @@
 
 namespace docwire
 {
+
+/**
+ * @brief Provides a generic, concept-based serialization framework.
+ *
+ * This namespace contains the tools to convert arbitrary C++ types into a structured,
+ * serializable representation. The core of the framework is the `docwire::serialization::value`
+ * type, a `std::variant` that can hold primitive types, arrays, or objects.
+ *
+ * The framework is designed to be non-intrusive. To add serialization support for a new type,
+ * you specialize the `docwire::serialization::serializer` struct for that type. The framework
+ * already provides specializations for many standard library types, primitives, and common
+ * patterns like containers and pointers.
+ *
+ * This serialization mechanism is used extensively by the logging framework and error framework.
+ * to capture the state of variables and objects for diagnostic purposes.
+ */
 
 namespace serialization
 {
@@ -54,13 +74,13 @@ struct array { std::vector<value> v; };
 struct object { std::map<std::string, value> v; };
 
 /// @brief An enum to identify the kind of serializer specialization.
-enum class serializer_kind {
-    Default,
-    ValueAlternative,
-    Arithmetic,
-    StringLike,
-    Container,
-    Dereferenceable
+enum class serializer_kind
+{
+    value_alternative,
+    arithmetic,
+    string_like,
+    container,
+    dereferenceable
 };
 
 /// @brief Helper to decorate a serialized value with a typeid string.
@@ -101,31 +121,19 @@ value typed_summary(const T& value)
 }
 
 /**
- * @brief A general concept to check if a type `T` is one of the alternatives in a given `std::variant` type.
- */
-template <typename T, typename Variant>
-struct is_variant_alternative_helper : std::false_type {};
-
-template <typename T, typename... Us>
-struct is_variant_alternative_helper<T, std::variant<Us...>> : std::bool_constant<(std::is_same_v<T, Us> || ...)> {};
-
-template <typename T, typename Variant>
-concept is_variant_alternative = is_variant_alternative_helper<T, Variant>::value;
-
-/**
  * @brief A specific concept to check if a type `T` is one of the alternatives in `docwire::serialization::value`.
  */
 template <typename T>
-concept is_value_alternative = is_variant_alternative<T, value>;
+concept value_alternative = variant_alternative<T, value>;
 
 /**
  * @brief Specialization for types that are direct alternatives in `docwire::serialization::value`.
  * This handles `bool`, `std::int64_t`, `std::uint64_t`, `double`, `std::string`, etc.
  */
-template <typename T> requires is_value_alternative<T>
+template <value_alternative T>
 struct serializer<T>
 {
-    static constexpr serializer_kind kind = serializer_kind::ValueAlternative;
+    static constexpr serializer_kind kind = serializer_kind::value_alternative;
 	value full(const T& value) const { return value; }
 
     value typed_summary(const T& value) const {
@@ -139,10 +147,10 @@ struct serializer<T>
  * This converts various integer and floating-point types to the types
  * supported by the `docwire::serialization::value` variant.
  */
-template <typename T> requires(std::is_arithmetic_v<T> && !is_value_alternative<T>)
+template <typename T> requires(std::is_arithmetic_v<T> && !value_alternative<T>)
 struct serializer<T>
 {
-    static constexpr serializer_kind kind = serializer_kind::Arithmetic;
+    static constexpr serializer_kind kind = serializer_kind::arithmetic;
     value full(const T& value) const
     {
         if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
@@ -159,32 +167,38 @@ struct serializer<T>
 };
 
 /**
- * @brief Concept for string-like types that can be converted to a string view.
- */
-template<typename T>
-concept StringLike = std::is_convertible_v<T, std::string_view>;
-
-/**
  * @brief Specialization for string-like types (e.g., const char*, std::string_view).
  */
-template <typename T> requires StringLike<T> && (!is_value_alternative<T>)
+template <typename T> requires string_like<T> && (!value_alternative<T>)
 struct serializer<T>
 {
-    static constexpr serializer_kind kind = serializer_kind::StringLike;
-    value full(const T& val) const { return std::string(val); }
+    static constexpr serializer_kind kind = serializer_kind::string_like;
+    value full(const T& val) const
+    {
+        if constexpr (std::is_pointer_v<std::decay_t<T>>) {
+            if (val == nullptr) {
+                return nullptr;
+            }
+        }
+        return std::string(val);
+    }
     value typed_summary(const T& val) const { return decorate_with_typeid(this->full(val), type_name::pretty<T>()); }
 };
 
 /**
- * @brief Concept for empty structs.
+ * @brief Specialization for strong type aliases.
  */
-template<typename T>
-concept EmptyStruct = std::is_empty_v<T>;
+template <strong_type_alias T>
+struct serializer<T>
+{
+    value full(const T& value) const { return serialization::full(value.v); }
+    value typed_summary(const T& value) const { return decorate_with_typeid(full(value), type_name::pretty<T>()); }
+};
 
 /**
  * @brief Specialization for empty structs.
  */
-template <typename T> requires EmptyStruct<T>
+template <empty T>
 struct serializer<T>
 {
     value full(const T& val) const { return object{}; }
@@ -192,35 +206,15 @@ struct serializer<T>
 };
 
 /**
- * @brief Concept to detect if a type is a container (iterable and not self-recursive).
- */
-template<typename T>
-concept is_container = requires(const T& t) {
-    { std::begin(t) } -> std::input_iterator;
-    { std::end(t) } -> std::input_iterator;
-    // This check prevents self-recursive types like std::filesystem::path from being treated as containers.
-    requires !std::is_same_v<std::remove_cvref_t<T>, std::remove_cvref_t<typename std::iterator_traits<decltype(std::begin(t))>::value_type>>;
-};
-
-/**
- * @brief Concept to detect if a type is dereferenceable like a pointer.
- */
- template<typename T>
- concept is_dereferenceable = requires(const T& t) {
-     *t;
-     !t; // Check for contextual conversion to bool
- };
-
-/**
  * @brief Specialization for dereferenceable types (e.g., pointers, smart pointers).
  *
  * Serializes to `nullptr` if the pointer is null, otherwise serializes the dereferenced object.
  */
 template <typename T>
-requires (is_dereferenceable<T> && !is_container<T> && !StringLike<T> && !is_value_alternative<T>)
+requires (dereferenceable<T> && !container<T> && !string_like<T> && !value_alternative<T>)
 struct serializer<T>
 {
-    static constexpr serializer_kind kind = serializer_kind::Dereferenceable;
+    static constexpr serializer_kind kind = serializer_kind::dereferenceable;
 
     value full(const T& dereferenceable) const
     {
@@ -247,10 +241,10 @@ struct serializer<T>
  * Serializes the container into a `docwire::serialization::array`.
  * It excludes std::string, which is iterable but should be treated as a single value.
  */
-template <typename T> requires (is_container<T> && !StringLike<T> && !is_value_alternative<T>)
+template <typename T> requires (container<T> && !string_like<T> && !value_alternative<T>)
 struct serializer<T>
 {
-    static constexpr serializer_kind kind = serializer_kind::Container;
+    static constexpr serializer_kind kind = serializer_kind::container;
     value full(const T& container) const
     {
         array arr;

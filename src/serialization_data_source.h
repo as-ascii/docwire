@@ -14,6 +14,8 @@
 
 #include "data_source.h"
 #include "serialization_base.h"
+#include "serialization_file_extension.h" // IWYU pragma: keep
+#include "serialization_filesystem.h" // IWYU pragma: keep
 
 namespace docwire::serialization
 {

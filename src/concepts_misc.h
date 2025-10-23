@@ -9,19 +9,32 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#include "error_tags.h"
+#ifndef DOCWIRE_CONCEPTS_MISC_H
+#define DOCWIRE_CONCEPTS_MISC_H
 
-namespace docwire::errors
+#include <type_traits>
+
+namespace docwire
 {
 
-std::string program_logic::string() const { return "program logic error tag"; }
+/**
+ * @brief Concept for strong type aliases that wrap a single public member `v`.
+ */
+template <typename T>
+concept strong_type_alias = requires(T value) { value.v; };
 
-std::string program_corrupted::string() const { return "program corrupted error tag"; }
+/**
+ * @brief Concept to detect if a type is dereferenceable like a pointer.
+ */
+ template<typename T>
+ concept dereferenceable = requires(const T& t) { *t; !t; };
 
-std::string uninterpretable_data::string() const { return "uninterpretable data error tag"; }
+/**
+ * @brief Concept for empty structs.
+ */
+template<typename T>
+concept empty = std::is_empty_v<T>;
 
-std::string network_failure::string() const { return "network failure error tag"; }
+} // namespace docwire
 
-std::string file_encrypted::string() const { return "file encrypted error tag"; }
-
-} // namespace docwire::errors
+#endif // DOCWIRE_CONCEPTS_MISC_H

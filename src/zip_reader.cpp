@@ -11,7 +11,9 @@
 
 #include "zip_reader.h"
 
+#include "log_scope.h"
 #include <map>
+#include "serialization_data_source.h" // IWYU pragma: keep
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,11 +37,13 @@ struct ZippedBuffer
 
 static voidpf buffer_open(voidpf opaque, const char* filename, int mode)
 {
+	log_scope(filename, mode);
 	return (voidpf)1;	//if NULL, unzip library will consider this function has failed
 }
 
 static uLong buffer_read(voidpf opaque, voidpf stream, void* buf, uLong size)
 {
+	log_scope(size);
 	ZippedBuffer* buffer = (ZippedBuffer*)opaque;
 	if (buffer->m_span.size() < buffer->m_pointer + size)
 	{
@@ -59,16 +63,19 @@ static uLong buffer_read(voidpf opaque, voidpf stream, void* buf, uLong size)
 
 static uLong buffer_write(voidpf opaque, voidpf stream, const void* buf, uLong size)
 {
+	log_scope(size);
 	return 0;	//unimplemented, we dont need this
 }
 
 static long buffer_tell(voidpf opaque, voidpf stream)
 {
+	log_scope();
 	return ((ZippedBuffer*)opaque)->m_pointer;
 }
 
 static long buffer_seek(voidpf opaque, voidpf stream, uLong offset, int origin)
 {
+	log_scope(offset, origin);
 	ZippedBuffer* buffer = (ZippedBuffer*)opaque;
 	size_t position;
 	switch (origin)
@@ -93,11 +100,13 @@ static long buffer_seek(voidpf opaque, voidpf stream, uLong offset, int origin)
 
 static int buffer_close(voidpf opaque, voidpf stream)
 {
+	log_scope();
 	return 0;
 }
 
 static int buffer_error(voidpf opaque, voidpf stream)
 {
+	log_scope();
 	return 0;	//no errors at all?
 }
 
@@ -113,6 +122,7 @@ struct pimpl_impl<ZipReader> : pimpl_impl_base
 
 ZipReader::ZipReader(const data_source& data)
 {
+		log_scope(data);
 		impl().m_opened_for_chunks = false;
 		impl().m_span = data.span();
 		impl().ArchiveFile = NULL;
@@ -121,6 +131,7 @@ ZipReader::ZipReader(const data_source& data)
 
 ZipReader::~ZipReader()
 {
+	log_scope();
 	if (impl().ArchiveFile != NULL)
 		unzClose(impl().ArchiveFile);
 	if (impl().m_zipped_buffer != NULL)
@@ -129,6 +140,7 @@ ZipReader::~ZipReader()
 
 void ZipReader::open()
 {
+		log_scope();
 		impl().m_zipped_buffer = new ZippedBuffer;
 		impl().m_zipped_buffer->m_span = impl().m_span;
 		impl().m_zipped_buffer->m_pointer = 0;
@@ -148,11 +160,13 @@ void ZipReader::open()
 
 bool ZipReader::exists(const std::string& file_name) const
 {
+	log_scope(file_name);
 	return (unzLocateFile(impl().ArchiveFile, file_name.c_str(), CASESENSITIVITY) == UNZ_OK);
 }
 
 bool ZipReader::read(const std::string& file_name, std::string* contents, int num_of_chars)
 {
+	log_scope(file_name, num_of_chars);
 	int res;
 	if (impl().m_directory.size() > 0)
 	{
@@ -192,11 +206,13 @@ bool ZipReader::read(const std::string& file_name, std::string* contents, int nu
 
 void ZipReader::closeReadingFileForChunks()
 {
+	log_scope();
 	impl().m_opened_for_chunks = false;
 }
 
 bool ZipReader::readChunk(const std::string& file_name, char* contents, int num_of_chars, int& readed)
 {
+	log_scope(file_name, num_of_chars);
 	if (impl().m_opened_for_chunks == false)
 	{
 		int res;
@@ -235,6 +251,7 @@ bool ZipReader::readChunk(const std::string& file_name, char* contents, int num_
 
 bool ZipReader::readChunk(const std::string& file_name, std::string* contents, int num_of_chars)
 {
+	log_scope(file_name, num_of_chars);
 	std::vector<char> vcontents(num_of_chars + 1);
 	int readed;
 	if (!readChunk(file_name, &vcontents[0], num_of_chars, readed))
@@ -248,6 +265,7 @@ bool ZipReader::readChunk(const std::string& file_name, std::string* contents, i
 
 bool ZipReader::getFileSize(const std::string& file_name, unsigned long& file_size)
 {
+	log_scope(file_name);
 	int res;
 	unz_file_info file_info;
 	if (impl().m_directory.size() > 0)
@@ -269,6 +287,7 @@ bool ZipReader::getFileSize(const std::string& file_name, unsigned long& file_si
 
 bool ZipReader::loadDirectory()
 {
+	log_scope();
 	impl().m_directory.clear();
 	if (unzGoToFirstFile(impl().ArchiveFile) != UNZ_OK)
 		return false;

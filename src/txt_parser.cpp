@@ -14,10 +14,12 @@
 #include "charsetdetect.h"
 #include "charset_converter.h"
 #include "document_elements.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "make_error.h"
 #include "nested_exception.h"
 #include "pimpl.h"
+#include "serialization_data_source.h" // IWYU pragma: keep
 #include <string.h>
 
 namespace docwire
@@ -41,6 +43,7 @@ namespace
 
 std::string sequences_of_printable_characters(const std::string& text, size_t min_seq_len = 4, char seq_delim = '\n')
 {
+	log_scope(min_seq_len, seq_delim);
 	std::string result;
 	result.reserve(text.length());
 	std::string printable_field;
@@ -116,7 +119,7 @@ const std::vector<mime_type> supported_mime_types =
 
 void pimpl_impl<TXTParser>::parse(const data_source& data, const message_callbacks& emit_message)
 {
-	docwire_log(debug) << "Using TXT parser.";
+	log_scope(data);
 	std::string text;
 	csd_t charset_detector = NULL;
 	charset_converter* converter = NULL;
@@ -139,18 +142,18 @@ void pimpl_impl<TXTParser>::parse(const data_source& data, const message_callbac
 			if (res != NULL)
 			{
 				encoding = std::string(res);
-				docwire_log(debug) << "Estimated encoding: " + encoding;
+				log_entry(encoding);
 			}
 			else
 			{
-				encoding = "ASCII";
-				docwire_log(debug) << "Could not detect encoding. Document is assumed to be encoded in ASCII";
-				docwire_log(debug) << "But it can be also binary. Sequences of printable characters will be extracted.";
-				content = sequences_of_printable_characters(content);
+				log_scope();
+				encoding = "ASCII"; // Assume ASCII as a fallback
+				content = sequences_of_printable_characters(content); // Extract printable sequences
 			}
 		}
 		if (encoding != "utf-8" && encoding != "UTF-8")
 		{
+			log_scope(encoding);
 			try
 			{
 				converter = new charset_converter(encoding, "UTF-8");
@@ -165,6 +168,7 @@ void pimpl_impl<TXTParser>::parse(const data_source& data, const message_callbac
 		}
 		if (converter)
 		{
+			log_scope();
 			text = converter->convert(content);
 			delete converter;
 			converter = NULL;

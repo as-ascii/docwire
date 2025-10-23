@@ -15,6 +15,7 @@
 // IWYU pragma: begin_exports
 #include "ai_elements.h"
 #include "classify.h"
+#include "concepts.h"
 #include "content_type.h"
 #include "content_type_by_file_extension.h"
 #include "content_type_html.h"
@@ -30,6 +31,7 @@
 #include "fuzzy_match.h"
 #include "input.h"
 #include "local_ai_embed.h"
+#include "log.h"
 #include "output.h"
 #include "mail_elements.h"
 #include "mail_parser.h"
@@ -65,5 +67,10 @@
  * This example shows how to perform file type detection (with or without document processing)
  * by file extension or file signature or rely on provided mime-type
 */
+
+/**
+ * @namespace docwire
+ * @brief The main namespace for the DocWire SDK.
+ */
 
 #endif

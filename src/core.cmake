@@ -5,9 +5,10 @@ add_library(docwire_core SHARED
     diagnostic_message.cpp
     entities.cpp
     error.cpp
-    error_tags.cpp
     json_serialization.cpp
-    log.cpp
+    log_core.cpp
+    log_cerr_redirection.cpp
+    log_json_stream_sink.cpp
     misc.cpp
     thread_safe_ole_storage.cpp
     thread_safe_ole_stream_reader.cpp

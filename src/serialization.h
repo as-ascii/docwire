@@ -20,6 +20,7 @@
 #include "serialization_exception.h"
 #include "serialization_file_extension.h"
 #include "serialization_filesystem.h"
+#include "serialization_message.h"
 #include "serialization_pair.h"
 #include "serialization_thread_id.h"
 #include "serialization_time.h"

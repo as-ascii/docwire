@@ -11,8 +11,10 @@
 
 #include "chain_element.h"
 #include "pimpl.h"
+#include "log_scope.h"
 #include "message.h"
 #include "parsing_chain.h"
+#include "serialization_message.h"
 
 namespace docwire
 {
@@ -44,11 +46,17 @@ ParsingChain& ParsingChain::operator=(ParsingChain&& other)
 
 void ParsingChain::operator()(message_ptr msg)
 {
+  log_scope(msg);
   operator()(std::move(msg),
   {
-    [](message_ptr) { return continuation::proceed; },
+    [](message_ptr msg)
+    {
+      log_scope(msg);
+      return continuation::proceed;
+    },
     [this](message_ptr msg)
     {
+      log_scope(msg);
       operator()(std::move(msg));
       return continuation::proceed;
     }
@@ -57,14 +65,20 @@ void ParsingChain::operator()(message_ptr msg)
 
 continuation ParsingChain::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
+  log_scope(msg);
   auto lhs_callback = [this, &rhs_callbacks = emit_message](message_ptr msg)
   {
+    log_scope(msg);
     return impl().m_rhs_element.get()(std::move(msg), rhs_callbacks);
   };
   return impl().m_lhs_element.get()( std::move(msg),
     {
       lhs_callback,
-      [emit_message](message_ptr msg) { return emit_message.back(std::move(msg)); }
+      [emit_message](message_ptr msg)
+      {
+        log_scope(msg);
+        return emit_message.back(std::move(msg));
+      }
     });
 }
 

@@ -15,7 +15,8 @@
 #include "data_source.h"
 #include "document_elements.h"
 #include "error_tags.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "make_error.h"
 #include <leptonica/allheaders.h>
 #include <mutex>
@@ -27,6 +28,7 @@
 #include <pdfium/fpdfview.h>
 #include <pdfium/fpdf_text.h>
 #include <pdfium/fpdf_edit.h>
+#include "serialization_data_source.h" // IWYU pragma: keep
 #include <set>
 #include <stack>
 #include <stdlib.h>
@@ -46,6 +48,7 @@ namespace
 
 void parsePDFDate(tm& date, const std::string& str_date)
 {
+	log_scope(str_date);
 	if (str_date.length() < 14)
 		return;
 	std::string year = str_date.substr(0, 4);
@@ -69,7 +72,7 @@ using leptonica_data_ptr = std::unique_ptr<l_uint8, decltype(&lept_free)>;
 
 pix_unique_ptr create_pix_from_fpdf_bitmap(int width, int height, int stride, int format, const unsigned char* pixels, l_int32 horizontal_dpi, l_int32 vertical_dpi)
 {
-	docwire_log_func_with_args(width, height, stride, format);
+	log_scope(width, height, stride, format, horizontal_dpi, vertical_dpi);
 	pix_unique_ptr pix;
 
 	if (format == FPDFBitmap_Gray)
@@ -267,13 +270,13 @@ struct pimpl_impl<PDFParser> : pimpl_impl_base
 
 	void parseText()
 	{
-		docwire_log_func();
+		log_scope();
 		std::lock_guard<std::mutex> pdfium_mutex_lock(pdfium_mutex);
 		int page_count = FPDF_GetPageCount(pdf_document());
-		docwire_log_var(page_count);
+		log_entry(page_count);
 		for (size_t page_num = 0; page_num < page_count; page_num++)
 		{
-			docwire_log_var(page_num);
+			log_scope(page_num);
 			auto response = emit_message(document::Page{});
 			if (response == continuation::skip)
 			{
@@ -329,13 +332,12 @@ struct pimpl_impl<PDFParser> : pimpl_impl_base
 							FPDF_FONT font = FPDFTextObj_GetFont(object);
 							if (font)
 							{
+								log_scope();
 								if (!FPDFTextObj_GetFontSize(object, &font_size_val) || font_size_val <= 0) {
-            						docwire_log(warning) << "Failed to get font size for text object.";
+            						log_entry();
 									font_size_val = 10.0f; // Default if not found
 								}
     						}
-							else
-        						docwire_log(warning) << "Failed to get font for text object.";
 							page_elements.insert(document::Text{
 								.text = utf8_text,
 								.position = {
@@ -537,7 +539,6 @@ struct pimpl_impl<PDFParser> : pimpl_impl_base
 			{
 				std::throw_with_nested(make_error(page_num));
 			}
-			docwire_log(debug) << "Page processed" << docwire_log_streamable_var(page_num);
 		}
 	}
 
@@ -559,6 +560,7 @@ struct pimpl_impl<PDFParser> : pimpl_impl_base
 
 	void parseMetadata(attributes::Metadata& metadata)
 	{
+		log_scope();
 		std::string author_str = get_meta_text("Author");
 		if (!author_str.empty())
 			metadata.author = author_str;
@@ -615,7 +617,7 @@ struct pimpl_impl<PDFParser> : pimpl_impl_base
 
 	void loadDocument(const data_source& data)
 	{
-		docwire_log_func();
+		log_scope();
 		std::span<const std::byte> span = data.span();
 		init_pdfium_once();
 		std::lock_guard<std::mutex> pdfium_mutex_lock(pdfium_mutex);
@@ -652,7 +654,7 @@ attributes::Metadata pimpl_impl<PDFParser>::metaData(const data_source& data)
 
 void pimpl_impl<PDFParser>::parse(const data_source& data, const message_callbacks& emit_message)
 {
-	docwire_log(debug) << "Using PDF parser.";
+	log_scope(data);
 	scoped::stack_push<context> context_guard{m_context_stack, {.emit_message = emit_message}};
 	loadDocument(data);
 	emit_message(document::Document

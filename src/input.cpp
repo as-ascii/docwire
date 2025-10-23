@@ -12,17 +12,18 @@
 #include "input.h"
 
 #include "parsing_chain.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "serialization_data_source.h" // IWYU pragma: keep
 
 using namespace docwire;
 
 continuation InputChainElement::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
-  docwire_log_func();
+	log_scope();
 	if (msg->is<pipeline::start_processing>())
 	{
-		docwire_log_var(m_data.get());
+		log_entry(m_data.get());
 		return emit_message(std::move(m_data.get()));
 	}
 	return emit_message(std::move(msg));

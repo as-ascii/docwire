@@ -13,19 +13,20 @@
 
 #include <boost/algorithm/string.hpp>
 #include <iostream>
-#include "error_tags.h"
+#include "log_scope.h"
+#include "serialization_data_source.h" // IWYU pragma: keep
 #include <stdio.h>
 #include <string.h>
 #include <sstream>
 #include <time.h>
 #include "thread_safe_ole_storage.h"
-#include "throw_if.h"
 
 namespace docwire
 {
 
 std::string ustring_to_string(const UString& s)
 {
+	log_scope();
 	const UChar* src = s.data();
 	int length = s.length();
 	std::string r;
@@ -43,6 +44,7 @@ std::string ustring_to_string(const UString& s)
 
 std::string unichar_to_utf8(unsigned int unichar)
 {
+	log_scope(unichar);
 	//unichars which have only two bytes are represented by 1, 2 or 3 bytes in utf8.
 	char out[4];
 	if (unichar < 0x80)
@@ -80,6 +82,7 @@ std::string unichar_to_utf8(unsigned int unichar)
 
 int prepareTable(std::vector<svector> &p_table)
 {
+	log_scope();
 	if(p_table.empty())
 		return 0;
 	for(int i = 0 ; i < p_table.size() ; i ++)
@@ -100,6 +103,7 @@ int prepareTable(std::vector<svector> &p_table)
 
 int prepareList(std::vector<std::string> &p_list)
 {
+	log_scope();
 	if(p_list.empty())
 		return 0;
 	for(int i = 0 ; i < p_list.size() ; i ++)
@@ -117,6 +121,7 @@ int prepareList(std::vector<std::string> &p_list)
 
 std::string formatTable(std::vector<svector>& mcols)
 {
+	log_scope();
 	std::string table_out;
 
 	prepareTable(mcols);
@@ -139,6 +144,7 @@ std::string formatTable(std::vector<svector>& mcols)
 
 std::string formatUrl(const std::string& mlink_url, const std::string &mlink_text)
 {
+	log_scope(mlink_url, mlink_text);
 	std::string u_url;
 	if (mlink_url.length() > 0)
 	{
@@ -150,6 +156,7 @@ std::string formatUrl(const std::string& mlink_url, const std::string &mlink_tex
 
 std::string formatList(std::vector<std::string>& mlist)
 {
+	log_scope();
 	std::string list_out;
 	prepareList(mlist);
 
@@ -162,6 +169,7 @@ std::string formatList(std::vector<std::string>& mlist)
 
 std::string formatNumberedList(std::vector<std::string>& mlist)
 {
+	log_scope();
 	std::string list_out;
 	prepareList(mlist);
 	char count[100];
@@ -177,6 +185,7 @@ std::string formatNumberedList(std::vector<std::string>& mlist)
 
 static bool string_to_int(const std::string& s, int& i)
 {
+	log_scope(s);
 	std::istringstream ss(s);
 	ss >> i;
 	return ss && ss.eof();
@@ -184,6 +193,7 @@ static bool string_to_int(const std::string& s, int& i)
 
 bool string_to_date(const std::string& s, tm& date)
 {
+	log_scope(s);
 	// %Y-%m-%dT%H:%M:%S
 	if (s.length() >= 19 &&
 		string_to_int(s.substr(0, 4), date.tm_year) && s[4] == '-' &&
@@ -231,6 +241,7 @@ bool string_to_date(const std::string& s, tm& date)
 
 UString utf8_to_ustring(const std::string& src)
 {
+	log_scope(src);
 	UString res;
 	const char* str = src.data();
 	size_t str_size = src.length();
@@ -282,6 +293,7 @@ UString utf8_to_ustring(const std::string& src)
 
 int str_to_int(const std::string& s)
 {
+	log_scope(s);
 	std::istringstream ss(s);
 	int i;
 	ss >> i;
@@ -290,6 +302,7 @@ int str_to_int(const std::string& s)
 
 bool is_encrypted_with_ms_offcrypto(const data_source& data)
 {
+	log_scope(data);
 	ThreadSafeOLEStorage storage(data.span());
 	if (storage.isValid())
 	{
@@ -308,6 +321,7 @@ bool is_encrypted_with_ms_offcrypto(const data_source& data)
 
 tm *thread_safe_gmtime (const time_t *timer, struct tm &time_buffer)
 {
+	log_scope();
 #ifdef _WIN32
   return gmtime(timer);
 #else

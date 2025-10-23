@@ -18,13 +18,17 @@
 #include "xml_fixer.h"
 #include "zip_reader.h"
 #include "error_tags.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include <map>
 #include "make_error.h"
 #include "misc.h"
 #include <mutex>
 #include "nested_exception.h"
 #include <regex>
+#include "serialization_data_source.h" // IWYU pragma: keep
+#include "serialization_enum.h" // IWYU pragma: keep
+#include "serialization_message.h" // IWYU pragma: keep
 #include <stdlib.h>
 #include <string.h>
 #include "xml_stream.h"
@@ -99,7 +103,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
 									 const ZipReader* zipfile, std::string& text,
 									 bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "OOXML_ATTR command.";
+			log_scope();
 			children_processed = true;
 		}
 
@@ -107,6 +111,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
                            ZipReader* zipfile, std::string& text,
                            bool& children_processed, std::string& level_suffix, bool first_on_level)
     {
+		log_scope();
 		ODFOOXMLParser& p = owner();
 		p.setLastOOXMLColNum(0);
 		int expected_row_num = p.lastOOXMLRowNum() + 1;
@@ -141,6 +146,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
                          ZipReader* zipfile, std::string& text,
                          bool& children_processed, std::string& level_suffix, bool first_on_level)
   {
+	  log_scope();
 	  ODFOOXMLParser& p = owner();
 	  p.setLastOOXMLRowNum(0);
     emit_message(document::Table{});
@@ -154,7 +160,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
 								ZipReader* zipfile, std::string& text,
 								bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "OOXML_CELL command.";
+			log_scope();
 			if (!first_on_level)
       {
 				text += "\t";
@@ -223,7 +229,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
 										const ZipReader* zipfile, std::string& text,
 										bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "OOXML_HEADERFOOTER command.";
+			log_scope();
 			// Ignore headers and footers. They can contain some commands like font settings that can mess up output.
 			// warning TODO: Better headers and footers support
 			children_processed = true;
@@ -233,7 +239,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
 											const ZipReader* zipfile, std::string& text,
 											bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "OOXML_COMMENTREFERENCE command.";
+			log_scope();
 			int comment_id = str_to_int(xml_stream.attribute("id"));
 			if (owner().getComments().count(comment_id))
 			{
@@ -249,7 +255,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
 								  ZipReader* zipfile, std::string& text,
 								  bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "OOXML_HYPERLINK command.";
+			log_scope();
 			std::string rid = xml_stream.attribute("id");
 			if (owner().getRelationships().count(rid))
 			{
@@ -270,7 +276,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
 									 const ZipReader* zipfile, std::string& text,
 									 bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "OOXML_INSTRTEXT command.";
+			log_scope();
 			children_processed = true;
 		}
 
@@ -278,7 +284,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
 									 const ZipReader* zipfile, std::string& text,
 									 bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "OOXML_TABLESTYLEID command.";
+			log_scope();
 			// Ignore style identifier that is embedded as text inside this tag not to treat it as a document text.
 			children_processed = true;
 		}
@@ -288,6 +294,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
                                ZipReader* zipfile, std::string& text,
                                bool& children_processed, std::string& level_suffix, bool first_on_level)
   {
+    log_scope();
     xml_stream.levelDown();
     owner().activeEmittingSignals(false);
     text += owner().parseXmlData(xml_stream, mode, zipfile);
@@ -300,7 +307,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
 								const ZipReader* zipfile, std::string& text,
 								bool& children_processed, std::string& level_suffix, bool first_on_level) const
 	{
-		docwire_log(debug) << "OOXML_BREAK command.";
+		log_scope();
 		text += "\n";
 
 		emit_message(document::BreakLine{});
@@ -317,6 +324,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
 
 	void readOOXMLComments(ZipReader& zipfile, XmlParseMode mode)
 	{
+		log_scope(mode);
 		std::string content;
 		throw_if (!zipfile.read("word/comments.xml", &content), "Error reading word/comments.xml");
 		std::string xml;
@@ -357,6 +365,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
 
 	void readOOXMLRelationships(ZipReader& zipfile, XmlParseMode mode)
 	{
+		log_scope(mode);
 		std::string content;
 		throw_if (!zipfile.read("word/_rels/document.xml.rels", &content), "Error reading word/_rels/document.xml.rels");
 		std::string xml;
@@ -391,6 +400,7 @@ struct pimpl_impl<ODFOOXMLParser> : with_pimpl_owner<ODFOOXMLParser>
 
 	void readStyles(ZipReader& zipfile, XmlParseMode mode, const message_callbacks& emit_message)
 	{
+		log_scope(mode);
 		std::string content;
 		throw_if (!zipfile.read("styles.xml", &content), "Error reading styles.xml");
 		std::string xml;
@@ -483,6 +493,7 @@ void ODFOOXMLParser::setLastOOXMLColNum(int c)
 
 void ODFOOXMLParser::parse(const data_source& data, XmlParseMode mode, const message_callbacks& emit_message)
 {
+	log_scope(data, mode);
 	ZipReader zipfile{data};
 	try
 	{
@@ -549,7 +560,7 @@ void ODFOOXMLParser::parse(const data_source& data, XmlParseMode mode, const mes
 		if (!zipfile.read("xl/sharedStrings.xml", &content))
 		{
 			//file may not exist, but this is not reason to report an error.
-			docwire_log(debug) << "xl/sharedStrings.xml does not exist";
+			log_entry();
 		}
 		else
 		{
@@ -624,7 +635,7 @@ void ODFOOXMLParser::parse(const data_source& data, XmlParseMode mode, const mes
 
 attributes::Metadata ODFOOXMLParser::metaData(ZipReader& zipfile) const
 {
-	docwire_log(debug) << "Extracting metadata.";
+	log_scope();
 	attributes::Metadata meta;
 	if (zipfile.exists("meta.xml"))
 	{
@@ -728,7 +739,7 @@ attributes::Metadata ODFOOXMLParser::metaData(ZipReader& zipfile) const
 void
 ODFOOXMLParser::parse(const data_source& data, const message_callbacks& emit_message)
 {
-	docwire_log(debug) << "Using ODF/OOXML parser.";
+	log_scope(data);
 	CommonXMLDocumentParser::scoped_context_stack_push base_context_guard{*this, emit_message};
 	scoped::stack_push<context> context_guard{impl().m_context_stack, context{emit_message}};
 	parse(data, XmlParseMode::PARSE_XML, emit_message);
@@ -736,6 +747,7 @@ ODFOOXMLParser::parse(const data_source& data, const message_callbacks& emit_mes
 
 continuation ODFOOXMLParser::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
+	log_scope(msg);
 	if (!msg->is<data_source>())
 		return emit_message(std::move(msg));
 

@@ -11,7 +11,8 @@
 
 #include "analyze_data.h"
 
-#include "log.h"
+#include "log_scope.h"
+#include "serialization_enum.h" // IWYU pragma: keep
 
 namespace docwire
 {
@@ -22,7 +23,7 @@ AnalyzeData::AnalyzeData(const std::string& api_key, Model model, float temperat
 	: Chat("Your task is analyze data in every message and create a summary highlighting the most important insights, trends, key patterns, statistics, findings and other revelant information. Include conclusions that are usually made for type of data you will find in message.",
 		api_key, model, temperature, image_detail)
 {
-	docwire_log_func_with_args(temperature);
+	log_scope(model, temperature, image_detail);
 }
 
 } // namespace openai

@@ -1069,39 +1069,39 @@ To explore the possibilities of an LTS agreement or to discuss specific requirem
 <a name="logging"></a>
 ## Logging
 
-DocWire SDK generate extensive logs that provide insights into the current processing status, warnings, and errors. In the latest version of the SDK, the logging mechanism has been enhanced to output logs in JSON format, offering several advantages.
+DocWire SDK features a powerful, modern, and highly configurable logging framework designed for both deep debugging and zero-overhead production use.
 
-The enhanced logging mechanism in the DocWire SDK provides developers with powerful tools for monitoring and debugging data processing. Whether redirecting logs to a custom stream or leveraging the flexibility of JSON formatting, the logging system is designed to meet the diverse needs of users.
+### Key Features
 
-### JSON Format for Logging
+- **Structured JSON Output**: All log records are generated as structured JSON objects, making them easy to parse, query, and integrate with modern log analysis platforms (e.g., ELK stack, Splunk, Datadog).
+- **Zero-Cost in Release Builds**: By default, most logging calls are completely compiled out in release builds (`NDEBUG` is defined). This means they have zero performance impact on your production code. Only logs explicitly marked with a persistent tag (like `log::audit`) are retained.
+- **Rich Contextual Information**: Logs automatically capture source location (file, line, function), thread ID, and a precise timestamp. You can also add any serializable C++ object to the log context for deep insights.
+- **Sink and Filter Model**: The framework is silent by default. You can programmatically set a "sink" (a callback function that receives log records) and a "filter" (a string that specifies which logs to enable) to control the logging output.
+- **Powerful Filtering**: Filter logs based on source file, function name, or custom tags using a simple wildcard-based syntax.
 
-The logs are now formatted in JSON, providing a structured and machine-readable representation of the information. This format is advantageous for various reasons:
+### Example Log Record
 
-- **Structured Data**: JSON allows for a clear and organized representation of log data, making it easy to extract specific information.
+```json
+{
+    "file": "api_tests.cpp",
+    "function": "void MyTest::TestBody()",
+    "line": 123,
+    "log": [
+        "Processing user",
+        {"user_id": {"typeid": "int", "value": 42}}
+    ],
+    "thread_id": "0x7f...",
+    "timestamp": "2024-05-21T15:30:00.123456+0200"
+}
+```
 
-- **Compatibility**: JSON is widely supported by various tools and platforms, ensuring compatibility and ease of integration into existing workflows.
+### Basic Usage
 
-- **Readability**: The human-readable nature of JSON logs facilitates manual inspection and troubleshooting when needed.
+The framework provides simple macros for logging:
 
-- **Flexibility**: JSON's key-value pair structure accommodates a wide range of log information, enhancing the flexibility of the logging system.
-
-### Configuring Logging
-
-To configure the logging parameters, the SDK provides a set of functions. Users can set the log verbosity level, customize the log stream, and create log record streams with specific severity levels and source locations.
-
-### Log Macros
-
-The SDK includes convenient macros for logging, such as:
-
-- docwire_log(severity): Conditionally logs based on the specified severity level.
-
-- docwire_log_vars(...): Logs variables with associated values.
-
-- docwire_log_func_with_args(...): Logs function entry with associated arguments.
-
-### Additional Logging Features
-
-The SDK introduces new features like logging source locations, custom streamable types, and handling of iterable and dereferenceable objects.
+- `log_entry(...)`: Creates a single log record.
+- `log_scope(...)`: Creates a log entry at the beginning of a scope and another at the end.
+- `log_forward(...)`: Logs the value of an expression and returns it, allowing you to log intermediate values in a chain of calls.
 
 <a name="api-documentation"></a>
 ## API Documentation
