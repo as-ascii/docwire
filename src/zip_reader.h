@@ -29,8 +29,8 @@ class DOCWIRE_CORE_EXPORT ZipReader : public with_pimpl<ZipReader>
 		bool exists(const std::string& file_name) const;
 		bool read(const std::string& file_name, std::string* contents, int num_of_chars = 0);
 		bool getFileSize(const std::string& file_name, unsigned long& file_size);
-		bool readChunk(const std::string& file_name, std::string* contents, int chunk_size);
-		bool readChunk(const std::string& file_name, char* contents, int chunk_size, int& readed);
+		bool readChunk(const std::string& file_name, std::string* contents, int num_of_chars);
+		bool readChunk(const std::string& file_name, char* contents, int num_of_chars, int& readed, bool add_null_terminator = true);
 		void closeReadingFileForChunks();
 		/**
 			Load and cache zip file directory. Speed up locating files dramatically. Use before multiple read() calls.

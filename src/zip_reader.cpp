@@ -210,9 +210,15 @@ void ZipReader::closeReadingFileForChunks()
 	impl().m_opened_for_chunks = false;
 }
 
-bool ZipReader::readChunk(const std::string& file_name, char* contents, int num_of_chars, int& readed)
+bool ZipReader::readChunk(const std::string& file_name, char* contents, int num_of_chars, int& readed, bool add_null_terminator)
 {
 	log_scope(file_name, num_of_chars);
+	if (num_of_chars == 0)
+	{
+		readed = 0;
+		return true;
+	}
+
 	if (impl().m_opened_for_chunks == false)
 	{
 		int res;
@@ -240,12 +246,14 @@ bool ZipReader::readChunk(const std::string& file_name, char* contents, int num_
 	}
 	if(readed < num_of_chars)	//end of file detected
 	{
-		contents[readed] = '\0';
+		if (add_null_terminator)
+			contents[readed] = '\0';
 		unzCloseCurrentFile(impl().ArchiveFile);
 		impl().m_opened_for_chunks = false;
 		return true;
 	}
-	contents[readed] = '\0';
+	if (add_null_terminator)
+		contents[readed] = '\0';
 	return true;
 }
 

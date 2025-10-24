@@ -12,6 +12,7 @@
 #ifndef DOCWIRE_CHARSET_CONVERTER_H
 #define DOCWIRE_CHARSET_CONVERTER_H
 
+#include <string_view>
 #include "core_export.h"
 #include "pimpl.h"
 #include <string>
@@ -24,7 +25,7 @@ class DOCWIRE_CORE_EXPORT charset_converter : public with_pimpl<charset_converte
 	public:		
 		charset_converter(const std::string &from, const std::string &to);
 		~charset_converter();
-		std::string convert(const std::string &input);
+		std::string convert(std::string_view input);
 };
 
 } // namespace docwire
