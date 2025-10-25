@@ -24,7 +24,8 @@ jobs:
     strategy:
       fail-fast: ${{ (github.event_name == 'schedule' && github.repository == 'docwire/docwire') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_tests_openai == 'true') || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tests:openai')) }}
       matrix:
-        sanitizer: ["", asan, tsan] # This will be combined with each include entry
+        os: [ubuntu-22.04, ubuntu-24.04, windows-2022, windows-2025, macos-14, macos-15]
+        sanitizer: ["", asan, tsan]
         include:
           - os: ubuntu-22.04
             triplet: x64-linux-dynamic
