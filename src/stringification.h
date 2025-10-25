@@ -73,7 +73,10 @@ template <typename T>
 requires (!string_method_equipped<T> && !streamable<T> && !strong_type_alias<T>)
 struct stringifier<T>
 {
-	std::string operator()(const T& value) const;
+	std::string operator()(const T& value) const
+	{
+		return stringify(serialization::full(value));
+	}
 };
 
 template<>
@@ -109,13 +112,6 @@ struct stringifier<T>
 {
 	std::string operator()(const T& value) const { return stringify(value.v); }
 };
-
-template <typename T>
-requires (!string_method_equipped<T> && !streamable<T> && !strong_type_alias<T>)
-std::string stringifier<T>::operator()(const T& value) const
-{
-	return stringify(serialization::full(value));
-}
 
 template<>
 struct stringifier<std::string>
