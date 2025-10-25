@@ -15,6 +15,7 @@
 #include "core_export.h"
 #include "pimpl.h"
 #include "source_location.h"
+#include <string_view>
 
 namespace docwire::log
 {
