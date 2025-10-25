@@ -17,6 +17,7 @@
 #include "log_core.h"
 #include "log_tags.h"
 #include <string>
+#include <type_traits>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -83,19 +84,33 @@ serialization::value to_log_value(const std::pair<T1, T2>& p)
 
 } // namespace detail
 
+namespace detail
+{
+
+/// @brief A `constexpr` variable template to count how many types in a pack are tags.
+template <typename... Ts>
+constexpr std::size_t count_tags = (context_tag<Ts> + ... + 0);
+
+template <typename... Args>
+constexpr auto collect_tags() {
+    // Create an array with the exact size calculated at compile time.
+    std::array<std::string_view, count_tags<Args...>> tags{};
+    std::size_t index = 0;
+    // Use a fold expression to iterate through types and populate the array.
+    ([&]<typename T>(std::type_identity<T>) {
+        if constexpr (context_tag<T>) {
+            tags[index++] = T::string();
+        }
+    }(std::type_identity<Args>{}), ...);
+    return tags;
+}
+} // namespace detail
+
 template<typename... Args>
 void entry(source_location location, std::tuple<Args...>&& args_tuple)
 {
-    std::vector<std::string_view> tags;
-
-    std::apply([&](const auto&... items) {
-        ( ([&]{
-            using T = std::decay_t<decltype(items)>;
-            if constexpr (context_tag<T>) { tags.push_back(T::string()); }
-        }()), ...);
-    }, args_tuple);
-
-    if (detail::is_enabled(location, tags))
+    constexpr auto tags = detail::collect_tags<Args...>();
+    if (detail::is_enabled(location, std::span{tags}))
     {
         serialization::array context_array;
         std::apply([&](const auto&... items) {

@@ -140,7 +140,7 @@ static bool wildcard_match(const std::string_view& pattern, const std::string_vi
 	return pattern_iter == pattern.end();
 }
 
-bool detail::is_enabled(const source_location& location, const std::vector<std::string_view>& tags)
+bool detail::is_enabled(const source_location& location, std::span<const std::string_view> tags)
 {
 	std::lock_guard lock(g_log_filter_mutex);
 	const auto& filter = g_log_filter;

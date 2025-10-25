@@ -16,8 +16,9 @@
 #include "serialization_base.h"
 #include "source_location.h"
 #include <functional>
+#include <span>
 #include <string>
-#include <vector>
+#include <string_view>
 
 /**
  * @brief Provides a modern, high-performance, and structured logging framework.
@@ -89,7 +90,7 @@ DOCWIRE_CORE_EXPORT serialization::object create_base_metadata(source_location l
 namespace detail
 {
 // This is an internal helper function for the log_entry macro.
-DOCWIRE_CORE_EXPORT bool is_enabled(const source_location& location, const std::vector<std::string_view>& entry_tags);
+DOCWIRE_CORE_EXPORT bool is_enabled(const source_location& location, std::span<const std::string_view> entry_tags);
 DOCWIRE_CORE_EXPORT bool is_logging_enabled();
 }
 
