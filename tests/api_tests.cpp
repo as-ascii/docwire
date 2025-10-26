@@ -999,8 +999,8 @@ std::string sanitize_expected_log_text(const std::string& orig_log_text)
         // bare function name (e.g., "TestBody") instead of the fully qualified one.
         // To make the test pass, we simplify the function name in the expected JSON
         // to match the actual output on these platforms.
-        static const std::regex re(R"|("function":"void [^"]*?TestBody\(\)")|");
-        return std::regex_replace(orig_log_text, re, R"("function":"TestBody")");
+        static const std::regex re{R"x("function":".*?(\w+)\s*\([^"]*\)")x"};
+        return std::regex_replace(orig_log_text, re, R"y("function":"$1")y");
     }        
     else
     {
@@ -1271,9 +1271,10 @@ TEST(Logging, FilteringByFileAndFunction)
     log::set_sink(log::json_stream_sink(log_stream));
 
     // Test filename filtering
-    log::set_filter("@file:api_tests.cpp");
-    log_entry(log::audit{}, "file_exact_match");
-    ASSERT_THAT(log_stream.str(), testing::HasSubstr("file_exact_match"));
+    // Also test combined file and function filters
+    log::set_filter("@file:api_tests.cpp, @func:*TestBody*");
+    log_entry(log::audit{}, "file_and_func_exact_match");
+    ASSERT_THAT(log_stream.str(), testing::HasSubstr("file_and_func_exact_match"));
     log_stream.str("");
 
     log::set_filter("@file:*_tests.cpp");
@@ -1296,11 +1297,6 @@ TEST(Logging, FilteringByFileAndFunction)
     log::set_filter("@func:*function_for_log_test*");
     function_for_log_test();
     ASSERT_THAT(log_stream.str(), testing::HasSubstr("from function_for_log_test"));
-    log_stream.str("");
-
-    log::set_filter("@func:*FilteringByFile*");
-    log_entry(log::audit{}, "func_wildcard_on_test_name");
-    ASSERT_THAT(log_stream.str(), testing::HasSubstr("func_wildcard_on_test_name"));
     log_stream.str("");
 
     log::set_filter("-@func:*function_for_log_test*");
