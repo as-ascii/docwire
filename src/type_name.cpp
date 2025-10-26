@@ -19,15 +19,23 @@ namespace docwire::type_name
 namespace
 {
 
+/**
+ * @brief Cleans up platform-specific artifacts from demangled type names.
+ *
+ * This function removes common, noisy substrings that different compilers and
+ * standard library implementations add to type names, ensuring a more
+ * consistent and readable representation across platforms.
+ */
 std::string normalize_name(const std::string& name)
 {
 	std::string normalized = name;
-	boost::algorithm::erase_all(normalized, "__cdecl ");
-	boost::algorithm::erase_all(normalized, "::__cxx11");
-	boost::algorithm::erase_all(normalized, "__1::");
+	boost::algorithm::erase_all(normalized, "__cdecl "); // MSVC calling convention
 	boost::algorithm::erase_all(normalized, "virtual ");
 	boost::algorithm::erase_all(normalized, "class ");
 	boost::algorithm::erase_all(normalized, "struct ");
+	boost::algorithm::replace_all(normalized, "::__cxx11", ""); // libstdc++ (GCC) ABI versioning namespace/tag
+	boost::algorithm::replace_all(normalized, "std::__1::", "std::"); // libc++ (Clang) versioning namespace
+	boost::algorithm::replace_all(normalized, "std::__fs::", "std::"); // libc++ (Clang) filesystem internal namespace
 	boost::algorithm::replace_all(normalized, "(void)", "()");
 	boost::algorithm::replace_all(normalized, " [", "[");
 	boost::algorithm::replace_all(normalized, ", ", ",");
