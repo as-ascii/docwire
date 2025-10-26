@@ -12,16 +12,17 @@
 #ifndef DOCWIRE_LOG_ENTRY_H
 #define DOCWIRE_LOG_ENTRY_H
 
+#include <array>
 #include "concepts_string.h"
 #include "diagnostic_context.h"
 #include "log_core.h"
 #include "log_tags.h"
+#include <span>
 #include <string>
 #include <type_traits>
 #include <string_view>
 #include <tuple>
 #include <utility>
-#include <vector>
 
 #ifdef NDEBUG
     #include <boost/preprocessor/comma_if.hpp>
