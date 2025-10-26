@@ -1248,8 +1248,8 @@ void function_for_log_test()
 
 TEST(Logging, FilteringByFileAndFunction)
 {
-    log::state_saver saver;
     std::stringstream log_stream;
+    log::state_saver saver;
     log::set_sink(log::json_stream_sink(log_stream));
 
     // Test filename filtering
