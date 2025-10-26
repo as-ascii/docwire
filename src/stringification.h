@@ -32,7 +32,10 @@ template <typename T>
 struct stringifier;
 
 template <typename T>
-std::string stringify(const T& value);
+std::string stringify(const T& value)
+{
+	return stringifier<T>()(value);
+}
 
 /**
  * @brief Specialization for types that are streamable to `std::ostream`.
@@ -82,7 +85,7 @@ struct stringifier<T>
 template<>
 struct stringifier<const char*>
 {
-	std::string operator()(const char* value) { return value; }
+	std::string operator()(const char* value) const { return value; }
 };
 
 /**
@@ -178,12 +181,6 @@ struct stringifier<serialization::value>
 			s_val);
 	}
 };
-
-template <typename T>
-std::string stringify(const T& value)
-{
-	return stringifier<T>()(value);
-}
 
 } // namespace docwire
 
