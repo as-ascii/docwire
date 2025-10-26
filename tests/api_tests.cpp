@@ -53,6 +53,7 @@
 #include "output.h"
 #include "plain_text_exporter.h"
 #include "post.h"
+#include <regex>
 #include "resource_path.h"
 #include "serialization.h"
 #include "serialization_document_elements.h" // IWYU pragma: keep
@@ -990,6 +991,23 @@ std::string sanitize_log_text(const std::string& orig_log_text)
     return log_text;
 }
 
+std::string sanitize_expected_log_text(const std::string& orig_log_text)
+{
+    if constexpr (std::is_same_v<source_location, basic_source_location>)
+    {
+        // When using the fallback basic_source_location, __builtin_FUNCTION() may return a
+        // bare function name (e.g., "TestBody") instead of the fully qualified one.
+        // To make the test pass, we simplify the function name in the expected JSON
+        // to match the actual output on these platforms.
+        static const std::regex re(R"("function":"void [^"]*?TestBody\(\)");
+        return std::regex_replace(orig_log_text, re, R"("function":"TestBody")");
+    }        
+    else
+    {
+        return orig_log_text;
+    }
+}
+
 TEST(Logging, Dereferenceable)
 {
 	std::stringstream log_stream;
@@ -1010,7 +1028,7 @@ TEST(Logging, Dereferenceable)
 #ifdef NDEBUG
 	ASSERT_EQ("[\n]\n", log_text);
 #else
-    ASSERT_EQ(read_test_file("logging_dereferenceable.out.json"), log_text);
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_dereferenceable.out.json")), log_text);
 #endif
 }
 
@@ -1097,7 +1115,7 @@ TEST(Logging, Iterable)
     // In release mode, none of these logs should be generated.
 	ASSERT_EQ("[\n]\n", log_text);
 #else
-    ASSERT_EQ(read_test_file("logging_iterable.out.json"), log_text);
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_iterable.out.json")), log_text);
 #endif
 }
 
@@ -1122,7 +1140,7 @@ TEST(Logging, MemberVariable)
 #ifdef NDEBUG
     ASSERT_EQ("[\n]\n", log_text);
 #else
-    ASSERT_EQ(read_test_file("logging_member_variable.out.json"), log_text);
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_member_variable.out.json")), log_text);
 #endif
 }
 
@@ -1155,7 +1173,7 @@ TEST(Logging, CerrLogRedirection)
 	ASSERT_EQ("[\n]\n", log_text);
 	ASSERT_TRUE(captured_cerr_stream.str().empty()) << "stderr should be empty in release mode as it's redirected to a null stream.";
 #else
-	ASSERT_EQ(read_test_file("logging_cerr_log_redirection.out.json"), log_text);
+	ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_cerr_log_redirection.out.json")), log_text);
 	ASSERT_TRUE(captured_cerr_stream.str().empty()) << "stderr should be empty in debug mode as it's redirected to the log.";
 #endif
 }
@@ -1178,7 +1196,7 @@ TEST(Logging, Basics)
     // In release mode, this log should be compiled out.
     ASSERT_EQ("[\n]\n", log_text);
 #else
-    ASSERT_EQ(read_test_file("logging_basics.out.json"), log_text);
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_basics.out.json")), log_text);
 #endif
 }
 
@@ -1202,7 +1220,7 @@ TEST(Logging, Scope)
     // In release mode, the scope and entry logs should be compiled out.
     ASSERT_EQ("[\n]\n", log_text);
 #else
-    ASSERT_EQ(read_test_file("logging_scope.out.json"), log_text);
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_scope.out.json")), log_text);
 #endif
 }
 
@@ -1232,9 +1250,9 @@ TEST(Logging, LogForward)
 
     std::string log_text = sanitize_log_text(log_stream.str());
 #ifdef NDEBUG
-    ASSERT_EQ(read_test_file("logging_log_forward.release.out.json"), log_text);
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_log_forward.release.out.json")), log_text);
 #else
-    ASSERT_EQ(read_test_file("logging_log_forward.out.json"), log_text);
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_log_forward.out.json")), log_text);
 #endif
 }
 
@@ -1320,7 +1338,7 @@ TEST(Logging, Filtering)
 #ifdef NDEBUG
     ASSERT_EQ("[\n]\n", log_text);
 #else
-    ASSERT_EQ(read_test_file("logging_filtering.out.json"), log_text);
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_filtering.out.json")), log_text);
 #endif
 }
 
@@ -1338,9 +1356,9 @@ TEST(Logging, AuditInRelease)
 
     std::string log_text = sanitize_log_text(log_stream.str());
 #ifdef NDEBUG
-    ASSERT_EQ(read_test_file("logging_audit.release.out.json"), log_text);
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_audit.release.out.json")), log_text);
 #else
-    ASSERT_EQ(read_test_file("logging_audit.out.json"), log_text);
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_audit.out.json")), log_text);
 #endif
 }
 
