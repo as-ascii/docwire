@@ -999,7 +999,7 @@ std::string sanitize_expected_log_text(const std::string& orig_log_text)
         // bare function name (e.g., "TestBody") instead of the fully qualified one.
         // To make the test pass, we simplify the function name in the expected JSON
         // to match the actual output on these platforms.
-        static const std::regex re(R"("function":"void [^"]*?TestBody\(\)");
+        static const std::regex re(R"("function":"void [^"]*?TestBody\(\))");
         return std::regex_replace(orig_log_text, re, R"("function":"TestBody")");
     }        
     else
