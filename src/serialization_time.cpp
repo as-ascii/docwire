@@ -10,19 +10,31 @@
 /*********************************************************************************************************************************************/
 
 #include "serialization_time.h"
-#include <ctime>
-#include <iomanip>
-#include <sstream>
+
+#include <string>
 
 namespace docwire::serialization
 {
 
+namespace
+{
+    // Helper to convert an integer to a two-digit, zero-padded string.
+    std::string to_string_padded(int value)
+    {
+        if (value >= 0 && value < 10)
+            return "0" + std::to_string(value);
+        else
+            return std::to_string(value);
+    }
+}
+
 value serializer<struct tm>::full(const struct tm& t) const
 {
-    std::ostringstream oss;
-    oss.imbue(std::locale::classic());
-    oss << std::put_time(&t, "%Y-%m-%d %H:%M:%S");
-    return oss.str();
+    // We build the string manually for performance, portability, and thread-safety.
+    return std::to_string(t.tm_year + 1900) + '-' +
+            to_string_padded(t.tm_mon + 1) + '-' + to_string_padded(t.tm_mday) + ' ' +
+            to_string_padded(t.tm_hour) + ':' + to_string_padded(t.tm_min) + ':' +
+            to_string_padded(t.tm_sec);
 }
 
 } // namespace docwire::serialization
