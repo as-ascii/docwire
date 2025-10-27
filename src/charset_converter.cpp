@@ -12,6 +12,7 @@
 #include "charset_converter.h"
 
 #include <cstring>
+#include <mutex>
 #include <iconv.h>
 #include "throw_if.h"
 
@@ -25,8 +26,18 @@ struct pimpl_impl<charset_converter> : pimpl_impl_base
 	{
 		iconv_t descriptor;
 
+		// The glibc implementation of iconv_open is not entirely thread-safe.
+		// It can race on its internal cache of gconv modules. To prevent this,
+		// we must serialize all calls to iconv_open across all threads.
+		// This mutex is global and static to ensure that only one thread
+		// can be inside iconv_open at any given time. The performance impact
+		// is minimal as this lock is only taken once per thread during the
+		// first-time initialization of a charset_converter.
+		static std::mutex iconv_open_mutex;
+
 		iconv_descriptor(const std::string& from, const std::string& to)
 		{
+			std::lock_guard<std::mutex> lock(iconv_open_mutex);
 			descriptor = iconv_open(to.c_str(), from.c_str());
 			throw_if(descriptor == (iconv_t)(-1), "iconv_open() failed", strerror(errno), from, to);
 		}
@@ -50,6 +61,8 @@ struct pimpl_impl<charset_converter> : pimpl_impl_base
 
 	iconv_descriptor m_descriptor;
 };
+
+std::mutex pimpl_impl<charset_converter>::iconv_descriptor::iconv_open_mutex;
 
 charset_converter::charset_converter(const std::string &from, const std::string &to)
 	: with_pimpl<charset_converter>(from, to)
