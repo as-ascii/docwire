@@ -14,9 +14,6 @@
 #include <cstring>
 #include <iconv.h>
 #include "throw_if.h"
-#include <map>
-#include <utility>
-#include <memory>
 
 namespace docwire
 {
@@ -27,43 +24,31 @@ struct pimpl_impl<charset_converter> : pimpl_impl_base
 	struct iconv_descriptor
 	{
 		iconv_t descriptor;
-		
+
 		iconv_descriptor(const std::string& from, const std::string& to)
 		{
 			descriptor = iconv_open(to.c_str(), from.c_str());
 			throw_if(descriptor == (iconv_t)(-1), "iconv_open() failed", strerror(errno), from, to);
 		}
+
 		~iconv_descriptor()
 		{
 			if (descriptor != (iconv_t)(-1))
 				iconv_close(descriptor);
 		}
 
+		// iconv_t is a raw C handle, so copying or moving it without proper semantics is unsafe.
 		iconv_descriptor(const iconv_descriptor&) = delete;
 		iconv_descriptor& operator=(const iconv_descriptor&) = delete;
 		iconv_descriptor(iconv_descriptor&&) = delete;
 		iconv_descriptor& operator=(iconv_descriptor&&) = delete;
 	};
 
-	pimpl_impl(const std::string& from, const std::string& to) : m_from(from), m_to(to) {}
+	pimpl_impl(const std::string& from, const std::string& to)
+		: m_descriptor(from, to)
+	{}
 
-	// Each thread gets its own iconv descriptor. This is necessary because
-	// iconv() modifies state associated with the descriptor, making a shared descriptor not thread-safe.
-	// We use a map to store a descriptor for each unique pair of encodings per thread.
-	iconv_t get_thread_local_descriptor()
-	{
-		thread_local std::map<std::pair<std::string, std::string>, std::unique_ptr<iconv_descriptor>> descriptors;
-		auto key = std::make_pair(m_from, m_to);
-		auto it = descriptors.find(key);
-		if (it == descriptors.end())
-		{
-			it = descriptors.emplace(std::move(key), std::make_unique<iconv_descriptor>(m_from, m_to)).first;
-		}
-		return it->second->descriptor;
-	}
-
-	std::string m_from;
-	std::string m_to;
+	iconv_descriptor m_descriptor;
 };
 
 charset_converter::charset_converter(const std::string &from, const std::string &to)
@@ -73,7 +58,7 @@ charset_converter::charset_converter(const std::string &from, const std::string 
 
 charset_converter::~charset_converter() = default;
 
-std::string charset_converter::convert(std::string_view input)
+std::string charset_converter::convert(std::string_view input) const
 {	
 	if (input.empty())
 		return "";
@@ -82,7 +67,7 @@ std::string charset_converter::convert(std::string_view input)
 	const char* inptr = input.data();
 	size_t inbytesleft = input.length();
 
-	iconv_t descriptor = impl().get_thread_local_descriptor();
+	iconv_t descriptor = impl().m_descriptor.descriptor;
 	// Reset descriptor to its initial state for a new conversion.
 	iconv(descriptor, nullptr, nullptr, nullptr, nullptr);
 

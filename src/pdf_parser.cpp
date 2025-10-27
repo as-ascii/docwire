@@ -296,7 +296,7 @@ struct pimpl_impl<PDFParser> : pimpl_impl_base
 
 				int object_count = FPDFPage_CountObjects(page.get());
 				throw_if (object_count < 0, "FPDFPage_CountObjects returned negative count");
-				static charset_converter conv("UTF-16LE", "UTF-8");
+				thread_local charset_converter conv("UTF-16LE", "UTF-8");
 				bool stop_processing = false;
 				for (int i = 0; i < object_count; ++i)
 				{
@@ -548,7 +548,7 @@ struct pimpl_impl<PDFParser> : pimpl_impl_base
 		unsigned long buffer_size = FPDF_GetMetaText(pdf_document(), tag.c_str(), nullptr, 0);
 		throw_if(buffer_size < 2);
 		std::vector<unsigned short> buffer(buffer_size);
-		static charset_converter conv("UTF-16LE", "UTF-8");
+		thread_local charset_converter conv("UTF-16LE", "UTF-8");
 		unsigned long bytes_returned = FPDF_GetMetaText(pdf_document(), tag.c_str(), buffer.data(), buffer.size());
 		throw_if(bytes_returned != buffer_size);
 		std::string utf8_text = conv.convert(std::string{

@@ -91,7 +91,7 @@ std::string read_xl_wide_string(binary::reader& reader)
 	std::vector<char> utf16_bytes(buffer_byte_size);
 	reader.read({reinterpret_cast<std::byte*>(utf16_bytes.data()), utf16_bytes.size()});
 
-	static charset_converter conv("UTF-16LE", "UTF-8");
+	thread_local charset_converter conv("UTF-16LE", "UTF-8");
 	return conv.convert({utf16_bytes.data(), utf16_bytes.size()});
 }
 

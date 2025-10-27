@@ -25,7 +25,7 @@ class DOCWIRE_CORE_EXPORT charset_converter : public with_pimpl<charset_converte
 	public:		
 		charset_converter(const std::string &from, const std::string &to);
 		~charset_converter();
-		std::string convert(std::string_view input);
+		std::string convert(std::string_view input) const;
 };
 
 } // namespace docwire
