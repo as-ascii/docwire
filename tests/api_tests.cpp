@@ -26,6 +26,8 @@
 #include "content_type_xlsb.h"
 #include "data_source.h"
 #include "diagnostic_message.h"
+#include "ensure.h"
+#include "environment.h"
 #include "error_hash.h" // IWYU pragma: keep
 #include "error_tags.h"
 #include <exception>
@@ -2994,7 +2996,7 @@ TEST(Stringification, StrongTypeAlias)
 
 int main(int argc, char* argv[])
 {
-    if (const char* env_p = std::getenv("DOCWIRE_TESTS_CONSOLE_LOGGING"); env_p != nullptr && std::string_view(env_p) == "1")
+    if (environment::get("DOCWIRE_TESTS_CONSOLE_LOGGING").value_or("0") == "1")
     {
         log::set_sink(log::json_stream_sink(std::clog));
         log::set_filter("*");
@@ -3087,3 +3089,58 @@ TEST(Http, ServerNonFatalError)
     }
     EXPECT_EQ(success_response_stream.str(), "success data");
 }
+
+TEST(Ensure, CorrectUsage)
+{
+    // Test successful comparisons
+    ASSERT_NO_THROW(ensure(5) == 5);
+    ASSERT_NO_THROW(ensure(5) != 6);
+    ASSERT_NO_THROW(ensure(6) > 5);
+    ASSERT_NO_THROW(ensure(5) < 6);
+    ASSERT_NO_THROW(ensure(5) >= 5);
+    ASSERT_NO_THROW(ensure(6) >= 5);
+    ASSERT_NO_THROW(ensure(5) <= 5);
+    ASSERT_NO_THROW(ensure(5) <= 6);
+    ASSERT_NO_THROW(ensure(std::string("hello world")).contains("world"));
+}
+
+TEST(Ensure, ThrowsOnFailure)
+{
+    // Test failing comparisons
+    ASSERT_THROW(ensure(5) == 6, docwire::errors::base);
+    ASSERT_THROW(ensure(5) != 5, docwire::errors::base);
+    ASSERT_THROW(ensure(5) > 6, docwire::errors::base);
+    ASSERT_THROW(ensure(6) < 5, docwire::errors::base);
+    ASSERT_THROW(ensure(5) >= 6, docwire::errors::base);
+    ASSERT_THROW(ensure(6) <= 5, docwire::errors::base);
+    ASSERT_THROW(ensure(std::string("hello world")).contains("galaxy"), docwire::errors::base);
+}
+
+TEST(Ensure, ThrowsWithCorrectContext)
+{
+    try
+    {
+        int actual = 42;
+        int expected = 100;
+        ensure(actual) == expected;
+        FAIL() << "Expected ensure to throw";
+    }
+    catch (const errors::base& e)
+    {
+        std::string msg = docwire::errors::diagnostic_message(e);
+        EXPECT_THAT(msg, testing::HasSubstr("!(m_value == other)"));
+        EXPECT_THAT(msg, testing::HasSubstr("m_value: 42"));
+        EXPECT_THAT(msg, testing::HasSubstr("other: 100"));
+    }
+}
+
+#ifndef NDEBUG
+TEST(EnsureDeathTest, MisuseDetection)
+{
+    // This test checks that using ensure() without a comparison operator
+    // triggers an assertion failure in debug builds.
+    ASSERT_DEATH(
+        (void)ensure(2 == 3), // Incorrect usage
+        "ensure\\(\\) was called without a comparison operator");
+}
+#endif

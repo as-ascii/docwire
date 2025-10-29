@@ -17,13 +17,16 @@
 #include <tuple> // IWYU pragma: keep
 #include <type_traits> // IWYU pragma: keep
 
-#define DOCWIRE_MAKE_ERROR(...) \
+#define DOCWIRE_MAKE_ERROR_AT_LOCATION(explicit_location, ...) \
     [&](const auto& location) { \
         auto context_tuple = std::make_tuple(DOCWIRE_DIAGNOSTIC_CONTEXT_MAKE_TUPLE(__VA_ARGS__)); \
         return std::apply([&](auto&&... args) { \
             return errors::impl<std::remove_cvref_t<decltype(args)>...>(context_tuple, location); \
         }, context_tuple); \
-    }(docwire::source_location::current())
+    }(explicit_location)
+
+#define DOCWIRE_MAKE_ERROR(...) \
+    DOCWIRE_MAKE_ERROR_AT_LOCATION(docwire::source_location::current() __VA_OPT__(,) __VA_ARGS__)
 
 #define DOCWIRE_MAKE_ERROR_PTR(...) \
 	std::make_exception_ptr(DOCWIRE_MAKE_ERROR(__VA_ARGS__))

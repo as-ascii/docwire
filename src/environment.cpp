@@ -9,30 +9,16 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_THROW_IF_H
-#define DOCWIRE_THROW_IF_H
+#include "environment.h"
 
-#include "make_error.h"
-
-#define DOCWIRE_THROW_IF(triggering_expression, ...) \
-	do { \
-		if (triggering_expression) \
-		{ \
-			const char* triggering_condition = #triggering_expression; \
-			throw DOCWIRE_MAKE_ERROR(triggering_condition __VA_OPT__(,) __VA_ARGS__); \
-		} \
-	} while(0)
-
-#define DOCWIRE_THROW_IF_AT_LOCATION(triggering_expression, explicit_location, ...) \
-    do { \
-        if (triggering_expression) { \
-			const char* triggering_condition = #triggering_expression; \
-            throw DOCWIRE_MAKE_ERROR_AT_LOCATION(explicit_location, triggering_condition __VA_OPT__(,) __VA_ARGS__); \
-        } \
-    } while(0)
-
-#ifdef DOCWIRE_ENABLE_SHORT_MACRO_NAMES
-	#define throw_if DOCWIRE_THROW_IF
-#endif
-
-#endif
+std::optional<std::string> docwire::environment::get(std::string_view name)
+{
+    // std::getenv requires a null-terminated string. std::string_view does not guarantee this.
+    // Creating a temporary std::string is the safe way to get a C-style string.
+    const std::string name_str(name);
+    const char* value = std::getenv(name_str.c_str());
+    if (value) {
+        return std::string(value);
+    }
+    return std::nullopt;
+}

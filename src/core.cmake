@@ -4,6 +4,7 @@ add_library(docwire_core SHARED
     data_source.cpp
     diagnostic_message.cpp
     entities.cpp
+    environment.cpp
     error.cpp
     json_serialization.cpp
     log_core.cpp

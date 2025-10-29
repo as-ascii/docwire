@@ -22,55 +22,176 @@ gtest_discover_tests(api_tests
 		PROPERTIES LABELS "is_api_test"
 )
 
+# This script verifies that snippets in README.md are consistent with their corresponding full example source files
+# and that the README structure is correct. It works by:
+# 1. Iterating through the README.md content.
+# 2. Finding all ```cpp code blocks and ensuring each is immediately followed by a Full example link.
+# 3. Finding all Full example links and ensuring each is immediately preceded by a ```cpp code block.
+# 4. For each valid pair, it parses the link to get the source filename (e.g., .../my_example_8cpp-example.html -> my_example.cpp).
+# 5. It normalizes both the snippet and the source file to be insensitive to indentation and line breaks.
+# 6. It splits the normalized snippet into "chunks" using "..." as a delimiter and confirms that each chunk appears in the correct order within the normalized source file.
+# All checks are performed at configure time, and any failure will result in a FATAL_ERROR.
 file(READ ../README.md content)
-set(n 1)
+set(remaining_content "${content}")
 while (TRUE)
-	string(FIND "${content}" "```cpp" start_pos)
-	if (start_pos EQUAL -1)
+	# --- Find the next snippet block ---
+	set(SNIPPET_START_MARKER "```cpp\n")
+	string(FIND "${remaining_content}" "${SNIPPET_START_MARKER}" snippet_start_pos)
+	if (snippet_start_pos EQUAL -1)
+		# No more snippets found. Check for any orphaned links in the rest of the file.
+		string(FIND "${remaining_content}" "[Full example](" orphaned_link_pos)
+		if(NOT orphaned_link_pos EQUAL -1)
+			message(FATAL_ERROR "README.md structure error: Found an orphaned '[Full example]' link without a preceding code snippet.")
+		endif()
 		break()
 	endif()
-	math(EXPR start_pos "${start_pos} + 6")
-	string(SUBSTRING "${content}" ${start_pos} -1 content)
-	string(FIND "${content}" "```" end_pos)
-	if (end_pos EQUAL -1)
-		message(FATAL_ERROR "Failed to find end of code block starting at position ${start_pos}")
+
+	# --- Extract Snippet Content ---
+	# "Eat" the content before and including the start marker.
+	string(LENGTH "${SNIPPET_START_MARKER}" snippet_start_len)
+	math(EXPR content_after_start_pos "${snippet_start_pos} + ${snippet_start_len}")
+	string(SUBSTRING "${remaining_content}" ${content_after_start_pos} -1 content_after_start)
+
+	set(SNIPPET_END_MARKER "\n```")
+	string(FIND "${content_after_start}" "${SNIPPET_END_MARKER}" snippet_end_pos)
+	if(snippet_end_pos EQUAL -1)
+		message(FATAL_ERROR "README.md structure error: A ```cpp code block was found at position ${snippet_start_pos} but it is not properly closed with '```'.")
 	endif()
-	string(SUBSTRING "${content}" 0 ${end_pos} code_block)
-	set(example_file "${CMAKE_BINARY_DIR}/example_${n}.cpp")
-	file(WRITE ${example_file} "${code_block}")
-	add_executable(example_${n} ${example_file})
-	target_include_directories(example_${n} PUBLIC ../src)
-	target_link_libraries(example_${n} PRIVATE docwire_core docwire_office_formats docwire_mail
-		docwire_ocr docwire_archives docwire_ai docwire_local_ai docwire_openai docwire_fuzzy_match
-		docwire_content_type docwire_http)
-	string(FIND "${code_block}" "OPENAI_API_KEY" openai_api_key_pos)
-	if (openai_api_key_pos EQUAL -1 OR NOT "$ENV{OPENAI_API_KEY}" STREQUAL "")
-		message(STATUS "Adding test example_${n}")
-		add_test(NAME example_${n} COMMAND example_${n})
-		string(FIND "${code_block}" "local_ai::model_chain_element" model_chain_element_pos)
-		string(FIND "${code_block}" "local_ai::embed" embed_pos)
-		if (NOT model_chain_element_pos EQUAL -1 OR NOT embed_pos EQUAL -1)
-			message(STATUS "Labeling test example_${n} as uses_model_runner")
-			set_property(TEST example_${n} PROPERTY LABELS "is_example;uses_model_runner")
-		else()
-			set_property(TEST example_${n} PROPERTY LABELS "is_example")
+	string(SUBSTRING "${content_after_start}" 0 ${snippet_end_pos} snippet_content)
+
+	# --- Extract Link URL ---
+	# "Eat" the snippet content and its end marker.
+	string(LENGTH "${SNIPPET_END_MARKER}" snippet_end_len)
+	math(EXPR content_after_snippet_pos "${snippet_end_pos} + ${snippet_end_len}")
+	string(SUBSTRING "${content_after_start}" ${content_after_snippet_pos} -1 content_after_snippet)
+
+	# Find the link, allowing for optional whitespace between snippet and link.
+	string(REGEX MATCH "^[ \t\n\r]*\\[Full example\\]\\(([^\\)]+)\\)" match "${content_after_snippet}")
+	if(NOT CMAKE_MATCH_COUNT EQUAL 1)
+		message(FATAL_ERROR "README.md structure error: A ```cpp code block was found but it is NOT immediately followed by a '[Full example](...)' link as required. Please check the formatting.")
+	endif()
+	set(rtd_link "${CMAKE_MATCH_1}")
+
+	# --- Advance remaining_content for the next loop iteration ---
+	# Find the position of the link text we just matched.
+	string(FIND "${content_after_snippet}" "${match}" link_match_pos)
+	string(LENGTH "${match}" link_match_len)
+	math(EXPR link_match_end_pos "${link_match_pos} + ${link_match_len}")
+
+	# The next search should start after the link we just processed.
+	math(EXPR next_search_start_pos_in_after_content "${content_after_snippet_pos} + ${link_match_end_pos}")
+	string(SUBSTRING "${content_after_start}" ${next_search_start_pos_in_after_content} -1 remaining_content)
+
+	# Extract filename from ReadTheDocs link
+	string(REGEX MATCH "/([a-zA-Z0-9_]+)_8cpp-example\\.html$" _ "${rtd_link}")
+	set(example_basename "${CMAKE_MATCH_1}")
+	set(example_filename "${example_basename}.cpp")
+	set(full_example_path "${CMAKE_CURRENT_SOURCE_DIR}/${example_filename}")
+
+	if (NOT EXISTS "${full_example_path}")
+		message(FATAL_ERROR "Example file '${full_example_path}' referenced by README.md snippet does not exist in tests/ directory.")
+	endif()
+
+	# --- Snippet Verification via Ordered Chunk Search ---
+	# This method treats "..." as a wildcard delimiter. It splits the snippet into chunks
+	# and verifies that each chunk appears in the full source file in the correct order.
+	# To safely use ';' as a list separator for chunks, we first escape all literal
+	# semicolons in both the snippet and the full source code.
+	file(READ "${full_example_path}" full_content)
+
+	# --- Whitespace Normalization Function ---
+	# This function converts text to a canonical form for comparison by:
+	# 1. Replacing all newlines with a single space.
+	# 2. Collapsing all sequences of multiple horizontal spaces into a single space.
+	# 3. Stripping any leading/trailing whitespace.
+	# This makes the verification insensitive to line breaks and indentation.
+	function(normalize_for_comparison input_text output_var)
+		string(REPLACE "\n" " " temp_string "${input_text}") # Flatten to single line
+		string(REGEX REPLACE "[ \t]+" " " temp_string "${temp_string}") # Collapse spaces
+		string(STRIP "${temp_string}" normalized_output)
+		set(${output_var} "${normalized_output}" PARENT_SCOPE)
+	endfunction()
+
+	string(REPLACE ";" "__SEMICOLON__" escaped_snippet "${snippet_content}")
+	string(REPLACE ";" "__SEMICOLON__" escaped_full_content "${full_content}")
+
+	# Normalize both the snippet and the full source into a canonical, single-line form.
+	normalize_for_comparison("${escaped_snippet}" normalized_snippet)
+	normalize_for_comparison("${escaped_full_content}" normalized_full_content)
+
+	# Now that the snippet is a single line, we can simply replace "..." with a semicolon to create chunks.
+	string(REPLACE "..." ";" snippet_chunks "${normalized_snippet}")
+
+	set(remaining_source_content "${normalized_full_content}")
+
+	foreach(chunk IN LISTS snippet_chunks)
+		# If a chunk is empty (e.g., snippet starts/ends with "..." or has "... ..."), skip it.
+		if ("${chunk}" STREQUAL "")
+			continue()
 		endif()
-	else()
-		message(STATUS "Skipping example_${n} because OPENAI_API_KEY is not set")
-	endif()
-	math(EXPR n "${n} + 1")
-	math(EXPR end_pos "${end_pos} + 3")
-	string(SUBSTRING "${content}" ${end_pos} -1 content)
+
+		# The chunks are already normalized, so we can search for them directly.
+		string(FIND "${remaining_source_content}" "${chunk}" found_pos)
+		if (found_pos EQUAL -1)
+			message(FATAL_ERROR "README.md snippet verification failed!\nFile: ${example_filename}\nSnippet chunk not found (or not in correct order):\n'${chunk}'")
+		endif()
+
+		# "Eat" the content up to and including the found chunk to prepare for the next search.
+		string(LENGTH "${chunk}" chunk_length)
+		math(EXPR next_search_start_pos "${found_pos} + ${chunk_length}")
+		string(SUBSTRING "${remaining_source_content}" ${next_search_start_pos} -1 remaining_source_content)
+	endforeach()
+	message(STATUS "Verified README snippet for ${example_filename}")
+
 endwhile()
 
-foreach(example IN ITEMS handling_errors_and_warnings file_type_determination)
+foreach(example IN ITEMS
+		handling_errors_and_warnings
+		file_type_determination
+		path_to_text_stream
+		local_embedding_similarity
+		filter_emails_by_subject
+		stream_to_html
+		parse_archives
+		local_ai_classify
+		openai_classify
+		local_ai_translate
+		openai_translate
+		local_ai_sentiment
+		openai_sentiment
+		local_ai_summary
+		openai_voice_summary
+		openai_transcribe_summary
+		local_ai_find
+		openai_find_image
+		openai_embedding
+		reuse_chain
+		join_transformers)
 	message(STATUS "Adding test ${example}")
 	add_executable(${example} ${example}.cpp)
 	target_include_directories(${example} PUBLIC ../src)
 	target_link_libraries(${example} PRIVATE docwire_core docwire_office_formats docwire_mail
-		docwire_ocr docwire_archives docwire_local_ai docwire_fuzzy_match docwire_content_type)
-	add_test(NAME ${example} COMMAND ${example})
-	set_property(TEST ${example} PROPERTY LABELS "is_example")
+		docwire_ocr docwire_archives docwire_ai docwire_local_ai docwire_openai docwire_fuzzy_match
+		docwire_content_type docwire_http)
+
+	# Read the example file to check for OpenAI and local AI usage.
+	file(READ ${example}.cpp example_content)
+	string(FIND "${example_content}" "openai::" openai_pos)
+	string(FIND "${example_content}" "OPENAI_API_KEY" openai_key_pos)
+
+	# Conditionally add the test, skipping OpenAI examples if the key is not set.
+	if ((openai_pos EQUAL -1 AND openai_key_pos EQUAL -1) OR NOT "$ENV{OPENAI_API_KEY}" STREQUAL "")
+		add_test(NAME ${example} COMMAND ${example})
+		string(FIND "${example_content}" "local_ai::" local_ai_pos)
+		if (NOT local_ai_pos EQUAL -1)
+			message(STATUS "Labeling test ${example} as uses_model_runner")
+			set_property(TEST ${example} PROPERTY LABELS "is_example;uses_model_runner")
+		else()
+			set_property(TEST ${example} PROPERTY LABELS "is_example")
+		endif()
+	else()
+		message(STATUS "Skipping test for ${example} because it uses OpenAI and OPENAI_API_KEY is not set.")
+	endif()
 endforeach()
 
 foreach(file IN ITEMS 1.doc 1.pdf basic_ocr-eng.png)

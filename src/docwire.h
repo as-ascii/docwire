@@ -27,6 +27,8 @@
 #include "archives_parser.h"
 #include "detect_sentiment.h"
 #include "embed.h"
+#include "ensure.h"
+#include "environment.h"
 #include "find.h"
 #include "fuzzy_match.h"
 #include "input.h"
@@ -66,6 +68,101 @@
  * @example file_type_determination.cpp
  * This example shows how to perform file type detection (with or without document processing)
  * by file extension or file signature or rely on provided mime-type
+*/
+
+/**
+ * @example path_to_text_stream.cpp
+ * This example shows how to parse a document from a file path and export its plain text content to a stream.
+*/
+
+/**
+ * @example stream_to_html.cpp
+ * This example shows how to parse a document from a stream and export its content to HTML.
+*/
+
+/**
+ * @example parse_archives.cpp
+ * This example demonstrates how to recursively parse files contained within an archive (e.g., ZIP, TAR).
+*/
+
+/**
+ * @example local_ai_classify.cpp
+ * This example shows how to classify a document into one of several categories using a built-in local AI model.
+*/
+
+/**
+ * @example openai_classify.cpp
+ * This example shows how to classify a document using the OpenAI API.
+*/
+
+/**
+ * @example local_ai_translate.cpp
+ * This example demonstrates how to translate a document to another language using a built-in local AI model.
+*/
+
+/**
+ * @example openai_translate.cpp
+ * This example shows how to translate a document using the OpenAI API.
+*/
+
+/**
+ * @example local_ai_sentiment.cpp
+ * This example shows how to detect the sentiment of a document using a built-in local AI model.
+*/
+
+/**
+ * @example openai_sentiment.cpp
+ * This example shows how to detect the sentiment of a document using the OpenAI API.
+*/
+
+/**
+ * @example local_ai_summary.cpp
+ * This example demonstrates how to create a summary of a document using a built-in local AI model.
+*/
+
+/**
+ * @example openai_voice_summary.cpp
+ * This example shows how to create a voice summary by chaining an OpenAI summarizer and a text-to-speech model.
+*/
+
+/**
+ * @example openai_transcribe_summary.cpp
+ * This example shows how to transcribe an audio file and then summarize the resulting text using the OpenAI API.
+*/
+
+/**
+ * @example local_ai_find.cpp
+ * This example demonstrates how to find a specific sentence in a document using a built-in local AI model.
+*/
+
+/**
+ * @example openai_find_image.cpp
+ * This example shows how to find objects within an image using the OpenAI API.
+*/
+
+/**
+ * @example openai_embedding.cpp
+ * This example shows how to generate a text embedding for a document using the OpenAI API.
+*/
+
+/**
+ * @example local_embedding_similarity.cpp
+ * This example demonstrates how to create embeddings for a document and queries using a local AI model and then calculate their similarity.
+*/
+
+/**
+ * @example reuse_chain.cpp
+ * This example shows how to create a single processing chain and reuse it to parse multiple input files.
+*/
+
+/**
+ * @example filter_emails_by_subject.cpp
+ * This example shows how to use a transformer to filter emails from a PST file based on their subject line.
+*/
+
+/**
+ * @example join_transformers.cpp
+ * This example demonstrates how to join multiple transformers to create a more complex filter.
 */
 
 /**
