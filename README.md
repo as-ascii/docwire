@@ -409,8 +409,7 @@ Make a summary of document in any format (Office, PDF, mail, etc) using build-in
 
 ```cpp
 std::filesystem::path("...") | ... | local_ai::model_chain_element("Write a short summary...") | out_stream;
-...
-ensure(out_stream.str()) == "Data processing is the process of transforming raw data into meaningful information...";
+ensure(out_stream.str()).is_one_of({ "Data processing is the collection, organization, analysis, and interpretation of data to extract useful insights and support decision-making."...
 ```
 [Full example](https://docwire.readthedocs.io/en/latest/local_ai_summary_8cpp-example.html)
 
@@ -433,7 +432,7 @@ Find phrases, objects and events with smart matching in documents in any format 
 
 ```cpp
 std::filesystem::path("...") | ... | local_ai::model_chain_element("Find sentence about \"data conversion\"...") | out_stream;
-ensure(out_stream.str()) == "Data processing refers to the activities performed on raw data...";
+ensure(out_stream.str()).is_one_of({ "Data processing refers to the activities performed on raw data to convert it into meaningful information."...
 ```
 [Full example](https://docwire.readthedocs.io/en/latest/local_ai_find_8cpp-example.html)
 

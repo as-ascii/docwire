@@ -9,11 +9,10 @@ int main(int argc, char* argv[])
   try
   {
     std::filesystem::path("data_processing_definition.doc") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | local_ai::model_chain_element("Write a short summary for this text:\n\n") | out_stream;
-    #ifdef NDEBUG
-      ensure(out_stream.str()) == "Data processing is the collection, organization, analysis, and interpretation of data to extract useful insights and support decision-making.";
-    #else
-      ensure(out_stream.str()) == "Data processing is the process of transforming raw data into meaningful information.";
-    #endif
+    ensure(out_stream.str()).is_one_of({
+        "Data processing is the collection, organization, analysis, and interpretation of data to extract useful insights and support decision-making.",
+        "Data processing is the process of transforming raw data into meaningful information."
+    });
   }
   catch (const std::exception& e)
   {

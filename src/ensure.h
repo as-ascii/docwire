@@ -12,6 +12,7 @@
 #ifndef DOCWIRE_ENSURE_H
 #define DOCWIRE_ENSURE_H
 
+#include <initializer_list>
 #include <cassert>
 #include "source_location.h"
 #include "throw_if.h"
@@ -154,6 +155,26 @@ public:
         DOCWIRE_THROW_IF_AT_LOCATION(std::string_view(m_value).find(substring) == std::string_view::npos, m_location, m_value, substring);
     }
 
+    /**
+     * @brief Checks if the held value is present in a given set of values. Throws if it is not.
+     * @details This provides a convenient way to check against a list of acceptable outcomes.
+     * @code
+     * ensure(status_code).is_one_of({200, 201, 204});
+     * @endcode
+     * @param expected_values An initializer list of values to check against.
+     */
+    void is_one_of(std::initializer_list<T> expected_values) const
+    {
+        set_comparison_performed();
+        for (const auto& expected : expected_values)
+        {
+            if (m_value == expected)
+            {
+                return; // Match found, success.
+            }
+        }
+        DOCWIRE_THROW_IF_AT_LOCATION(true, m_location, m_value, expected_values);
+    }
 private:
     /**
      * @brief Marks that a comparison has been performed on this object.
