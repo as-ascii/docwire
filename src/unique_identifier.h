@@ -12,7 +12,9 @@
 #ifndef DOCWIRE_UNIQUE_IDENTIFIER_H
 #define DOCWIRE_UNIQUE_IDENTIFIER_H
 
+#include "core_export.h"
 #include <atomic>
+#include <compare>
 
 namespace docwire
 {
@@ -24,7 +26,7 @@ namespace docwire
  * of identifiers should be very fast. Generation is thread-safe, which means that identifiers will not be duplicated
  * between different threads.
  */
-class unique_identifier
+class DOCWIRE_CORE_EXPORT unique_identifier
 {
 public:
 	/**
@@ -53,8 +55,8 @@ public:
     bool operator==(const unique_identifier& other) const = default;
 
 private:
-	inline static std::atomic<size_t> m_counter{0};  ///< Counter used for generating unique identifiers.
-	size_t m_id;                                     ///< Unique identifier value.
+	static std::atomic<size_t> m_counter; ///< Counter used for generating unique identifiers.
+	size_t m_id;                          ///< Unique identifier value.
 
 	friend struct std::hash<unique_identifier>;
 };

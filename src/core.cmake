@@ -30,6 +30,7 @@ add_library(docwire_core SHARED
     serialization_time.cpp
     serialization_typeindex.cpp
     type_name.cpp
+    unique_identifier.cpp
     zip_reader.cpp
     input.cpp)
 
