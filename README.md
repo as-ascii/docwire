@@ -543,7 +543,6 @@ By selecting vcpkg, DocWire ensures that programmers benefit from a trusted, use
 - [windows-2022](https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md)
 - [macos-15](https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md)
 - [macos-14](https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md)
-- [macos-13](https://github.com/actions/runner-images/blob/main/images/macos/macos-13-Readme.md)
 
 As the project evolves, we will continue to expand the list of officially supported platforms to ensure broad compatibility and meet the needs of our users.
 
