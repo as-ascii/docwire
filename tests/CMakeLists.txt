@@ -16,11 +16,10 @@ file(COPY ${test_files} DESTINATION .)
 
 include(GoogleTest)
 
-gtest_discover_tests(api_tests
-        DISCOVERY_MODE PRE_TEST
-        DISCOVERY_TIMEOUT 60
-		PROPERTIES LABELS "is_api_test"
-)
+# Run all gtests within a single process. This is much faster, especially under Valgrind,
+# as it avoids the overhead of starting a new process for each of the 700+ tests.
+add_test(NAME api_tests COMMAND api_tests)
+set_property(TEST api_tests PROPERTY LABELS "is_api_test")
 
 # This script verifies that snippets in README.md are consistent with their corresponding full example source files
 # and that the README structure is correct. It works by:
