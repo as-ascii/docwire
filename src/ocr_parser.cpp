@@ -51,6 +51,7 @@ class leptonica_stderr_capturer
 public:
     leptonica_stderr_capturer()
     {
+        m_contents.clear();
         leptSetStderrHandler(stderr_handler);
     }
 
