@@ -15,6 +15,7 @@
 #include "core_export.h"
 #include <atomic>
 #include <compare>
+#include <functional>
 
 namespace docwire
 {
