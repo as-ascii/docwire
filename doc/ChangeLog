@@ -13,7 +13,7 @@ This release introduces a comprehensive overhaul of the SDK's diagnostic and tes
 - **Features**
   - **Modern Logging Framework:** Replaced the legacy logger with a new zero-cost, structured logging system. It features a sink/filter architecture, JSON output, and expressive macros (`log_entry`, `log_scope`, `log_forward`) that are compiled out in release builds for zero performance overhead.
   - **Serialization Framework:** Introduced a powerful, concept-based serialization framework to convert C++ types into a structured representation, used by the new logging and error systems.
-  - **Fluent Assertion Utility:** Added `docwire::ensure`, a zero-cost, exception-throwing assertion utility for writing expressive and robust release-build validations (e.g., `ensure(value) > 5;`).
+  - **Fluent Assertion Utility:** Added `docwire::ensure`, a zero-cost, exception-throwing assertion utility for writing expressive and robust release-build validations (e.g., `ensure(value) > 5`).
   - **Safe Environment Variable Access:** Introduced `docwire::environment::get`, a safe and convenient wrapper for accessing environment variables.
   - **Endian-Aware Binary Reader:** Added `binary::reader`, a new utility for safely parsing little-endian binary data from any stream-like source.
 
