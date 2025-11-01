@@ -14,7 +14,7 @@
 namespace docwire::errors
 {
 
-base::base(const errors::source_location& location) : source_location(location)
+base::base(const source_location& location) : location(location)
 {}
 
 const char* base::what() const noexcept

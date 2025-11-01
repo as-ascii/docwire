@@ -15,7 +15,9 @@
 #include <archive_entry.h>
 #include "data_source.h"
 #include <filesystem>
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
+#include "serialization_message.h" // IWYU pragma: keep
 #include "throw_if.h"
 #include <vector>
 
@@ -54,9 +56,9 @@ public:
 
 		int_type underflow()
 		{
-			docwire_log(debug) << "Archive reader buffer underflow";
+			log_scope();
 			la_ssize_t bytes_read = archive_read_data(m_archive, m_buffer, m_buf_size);
-			docwire_log(debug) << bytes_read << " bytes read";
+			log_entry(bytes_read);
 			throw_if (bytes_read < 0, "archive_read_data() failed", archive_error_string(m_archive));
 			if (bytes_read == 0)
 				return traits_type::eof();
@@ -142,7 +144,7 @@ public:
 		int r = archive_read_next_header(m_archive, &entry);
 		if (r == ARCHIVE_EOF)
 		{
-			docwire_log(debug) << "End of archive";
+			log_entry("End of archive");
 			return Entry(m_archive, nullptr);
 		}
 		throw_if (r != ARCHIVE_OK, "archive_read_next_header() failed", archive_error_string(m_archive));
@@ -177,7 +179,7 @@ private:
 
 	static la_ssize_t archive_read_callback(archive* archive, void* client_data, const void** buf)
 	{
-		docwire_log(debug) << "archive_read_callback()";
+		log_scope();
 		CallbackClientData* data = (CallbackClientData*)client_data;
 		*buf = data->m_buffer;
 		if (data->m_stream.read(data->m_buffer, data->m_buf_size))
@@ -201,6 +203,8 @@ private:
 
 continuation archives_parser::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
+	log_scope(msg);
+
 	if (!msg->is<data_source>())
 		return emit_message(std::move(msg));
 	
@@ -210,21 +214,21 @@ continuation archives_parser::operator()(message_ptr msg, const message_callback
 	if (!data.has_highest_confidence_mime_type_in(supported_mime_types))
 		return emit_message(std::move(msg));
 
-	docwire_log(debug) << "Using archives parser.";
 	std::shared_ptr<std::istream> in_stream = data.istream();
 
 	try
 	{
+		log_scope();
 		ArchiveReader reader(*in_stream, [&emit_message](std::exception_ptr e) { emit_message(std::move(e)); });
 
 		for (ArchiveReader::Entry entry: reader)
 		{
 			std::string entry_name = entry.get_name();
-			docwire_log(debug) << "Processing archive entry: " << entry_name;
+			log_scope(entry_name);
 
 			if (entry.is_dir())
 			{
-				docwire_log(debug) << "Skipping directory entry";
+				log_entry();
 				continue;
 			}
 
@@ -234,9 +238,7 @@ continuation archives_parser::operator()(message_ptr msg, const message_callback
 			};
 			if (emit_message.back(std::move(entry_data_source)) == continuation::stop)
 				return continuation::stop;
-			docwire_log(debug) << "Finished processing archive entry: " << entry_name;
 		}
-		docwire_log(debug) << "Successfully processed all entries for archive.";
 	}
 	catch (const std::exception& e)
 	{

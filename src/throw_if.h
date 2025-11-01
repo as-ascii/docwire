@@ -18,10 +18,18 @@
 	do { \
 		if (triggering_expression) \
 		{ \
-			constexpr const char* triggering_condition = #triggering_expression; \
+			const char* triggering_condition = #triggering_expression; \
 			throw DOCWIRE_MAKE_ERROR(triggering_condition __VA_OPT__(,) __VA_ARGS__); \
 		} \
 	} while(0)
+
+#define DOCWIRE_THROW_IF_AT_LOCATION(triggering_expression, explicit_location, ...) \
+    do { \
+        if (triggering_expression) { \
+			const char* triggering_condition = #triggering_expression; \
+            throw DOCWIRE_MAKE_ERROR_AT_LOCATION(explicit_location, triggering_condition __VA_OPT__(,) __VA_ARGS__); \
+        } \
+    } while(0)
 
 #ifdef DOCWIRE_ENABLE_SHORT_MACRO_NAMES
 	#define throw_if DOCWIRE_THROW_IF

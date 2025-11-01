@@ -9,25 +9,26 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOG_VARIANT_H
-#define DOCWIRE_LOG_VARIANT_H
+#ifndef DOCWIRE_DIAGNOSTIC_MESSAGE_H
+#define DOCWIRE_DIAGNOSTIC_MESSAGE_H
 
-#include "log.h"
-#include <variant>
+#include "core_export.h"
+#include <string>
+#include <exception>
 
-namespace docwire
+namespace docwire::errors
 {
 
-template<typename... Ts>
-log_record_stream& operator<<(log_record_stream& log_stream, const std::variant<Ts...>& variant)
-{
-    std::visit([&](const auto& value)
-    {
-        log_stream << begin_complex() << docwire_log_streamable_type_of(variant) << std::make_pair("value", value) << end_complex();
-    }, variant);
-    return log_stream;
-}
+/**
+ * @brief Generates a diagnostic message for the given nested exceptions chain.
+ */
+DOCWIRE_CORE_EXPORT std::string diagnostic_message(const std::exception& e);
 
-} // namespace docwire
+/**
+ * @brief Generates a diagnostic message for the given nested exceptions chain.
+ */
+DOCWIRE_CORE_EXPORT std::string diagnostic_message(std::exception_ptr eptr);
 
-#endif // DOCWIRE_LOG_VARIANT_H
+} // namespace docwire::errors
+
+#endif // DOCWIRE_DIAGNOSTIC_MESSAGE_H

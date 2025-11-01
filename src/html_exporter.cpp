@@ -14,6 +14,8 @@
 #include "document_elements.h"
 #include "error_tags.h"
 #include "html_writer.h"
+#include "log_scope.h"
+#include "serialization_message.h" // IWYU pragma: keep
 #include "throw_if.h"
 #include <sstream>
 
@@ -33,6 +35,7 @@ HtmlExporter::HtmlExporter()
 
 continuation HtmlExporter::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
+	log_scope(msg);
 	if (msg->is<std::exception_ptr>())
 		return emit_message(std::move(msg));
 	if (msg->is<document::Document>() || !impl().m_stream)

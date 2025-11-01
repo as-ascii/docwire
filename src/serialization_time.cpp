@@ -9,24 +9,32 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOG_CTIME_H
-#define DOCWIRE_LOG_CTIME_H
+#include "serialization_time.h"
 
-#include <ctime>
-#include "log.h"
-#include <sstream>
+#include <string>
 
-namespace docwire
+namespace docwire::serialization
 {
 
-inline log_record_stream& operator<<(log_record_stream& log_stream, const tm& time)
+namespace
 {
-    std::ostringstream date_stream;
-    date_stream << std::put_time(&time, "%Y-%m-%d %H:%M:%S");
-    log_stream << date_stream.str();
-    return log_stream;
+    // Helper to convert an integer to a two-digit, zero-padded string.
+    std::string to_string_padded(int value)
+    {
+        if (value >= 0 && value < 10)
+            return "0" + std::to_string(value);
+        else
+            return std::to_string(value);
+    }
 }
 
-} // namespace docwire
+value serializer<struct tm>::full(const struct tm& t) const
+{
+    // We build the string manually for performance, portability, and thread-safety.
+    return std::to_string(t.tm_year + 1900) + '-' +
+            to_string_padded(t.tm_mon + 1) + '-' + to_string_padded(t.tm_mday) + ' ' +
+            to_string_padded(t.tm_hour) + ':' + to_string_padded(t.tm_min) + ':' +
+            to_string_padded(t.tm_sec);
+}
 
-#endif // DOCWIRE_LOG_CTIME_H
+} // namespace docwire::serialization

@@ -17,7 +17,8 @@
 #include <stack>
 #include <stdlib.h>
 #include <iostream>
-#include "log.h"
+#include "log_scope.h"
+#include "serialization_data_source.h" // IWYU pragma: keep
 #include <stdio.h>
 #include <sstream>
 #include "scoped_stack_push.h"
@@ -37,6 +38,7 @@ namespace docwire
 //Functions for parsing date/duration. Not sure if they should be here (in this file)
 static std::string ParseDate(std::string& format, long value)
 {
+	log_scope(format, value);
 	//by default value "0" is "1st january 2001 midnight". At least in iWorks
 	std::ostringstream os;
 	// warning TODO: mktime is not working for some reason... I will use my own function.
@@ -183,6 +185,7 @@ static std::string ParseDate(std::string& format, long value)
 
 static std::string ParseDuration(std::string& format, long value)
 {
+	log_scope(format, value);
 	std::ostringstream os;
 	std::string element;
 	for (int i = 0; i < format.length(); ++i)
@@ -228,6 +231,7 @@ static std::string ParseDuration(std::string& format, long value)
 
 static std::string find_main_xml_file(const ZipReader& unzip)
 {
+	log_scope();
 	if (unzip.exists("index.xml"))
 		return "index.xml";
 	if (unzip.exists("index.apxl"))
@@ -288,6 +292,7 @@ struct pimpl_impl<IWorkParser> : pimpl_impl_base
 			void ReadChunk(char* chunk, int len, bool error_if_no_data, int& readed)
 			try
 			{
+				log_scope(len, error_if_no_data);
 				chunk[0] = '\0';
 				if (m_done)
 				{
@@ -358,6 +363,7 @@ struct pimpl_impl<IWorkParser> : pimpl_impl_base
 
 			void SkipAttributes()
 			{
+				log_scope();
 				if (!m_tag_opened)
 					return;
 				while (true)
@@ -378,6 +384,7 @@ struct pimpl_impl<IWorkParser> : pimpl_impl_base
 
 			void ReadXmlAttributes(XmlElement& xml_element)
 			{
+				log_scope();
 				if (!m_tag_opened)
 					return;
 				bool reading_attribute_name = true;
@@ -446,6 +453,7 @@ struct pimpl_impl<IWorkParser> : pimpl_impl_base
 
 			void GetNextElement(XmlElement& xml_element)
 			{
+				log_scope();
 				xml_element.Clear();
 				char c;
 				while (true)
@@ -1855,7 +1863,7 @@ struct pimpl_impl<IWorkParser> : pimpl_impl_base
 
 		void ParseMetaData(const std::function<void(std::exception_ptr)>& non_fatal_error_handler)
 		{
-			docwire_log(debug) << "Extracting metadata.";
+			log_scope();
 			while (true)
 			{
 				m_xml_reader->GetNextElement(m_current_element);
@@ -2025,6 +2033,7 @@ struct pimpl_impl<IWorkParser> : pimpl_impl_base
 
 	void ReadMetadata(ZipReader& zipfile, attributes::Metadata& metadata, const std::function<void(std::exception_ptr)>& non_fatal_error_handler)
 	{
+		log_scope();
 		DataSource xml_data_source(zipfile, m_context_stack.top().m_xml_file);
 		XmlReader xml_reader(xml_data_source);
 		IWorkMetadataContent metadata_content(xml_reader, metadata);
@@ -2043,6 +2052,7 @@ struct pimpl_impl<IWorkParser> : pimpl_impl_base
 
 	IWorkContent::IWorkType getIWorkType(XmlReader& xml_reader)
 	{
+		log_scope();
 		XmlReader::XmlElement current_element;
 		// warning TODO: Check how encrypted files really look like
 		while (true)
@@ -2071,6 +2081,7 @@ struct pimpl_impl<IWorkParser> : pimpl_impl_base
 
 	void parseIWork(ZipReader& zipfile, std::string& text)
 	{
+		log_scope();
 		DataSource xml_data_source(zipfile, m_context_stack.top().m_xml_file);
 		XmlReader xml_reader(xml_data_source);
 		IWorkContent iwork_content(xml_reader);
@@ -2109,7 +2120,7 @@ IWorkParser::IWorkParser() = default;
 
 void pimpl_impl<IWorkParser>::parse(const data_source& data, const message_callbacks& emit_message)
 {
-	docwire_log(debug) << "Using iWork parser.";
+	log_scope(data);
 	scoped::stack_push<context> context_guard{m_context_stack, {.emit_message = emit_message}};
 	ZipReader unzip{data};
 	try

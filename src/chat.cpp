@@ -15,12 +15,14 @@
 #include <boost/json.hpp>
 #include "error_tags.h"
 #include "input.h"
-#include "log.h"
-#include "log_file_extension.h" // IWYU pragma: keep
+#include "log_entry.h"
+#include "log_scope.h"
 #include <magic_enum/magic_enum_iostream.hpp>
 #include "make_error.h"
 #include "output.h"
 #include "post.h"
+#include "serialization_enum.h" // IWYU pragma: keep
+#include "serialization_message.h" // IWYU pragma: keep
 #include <sstream>
 
 namespace docwire
@@ -50,10 +52,8 @@ namespace openai
 Chat::Chat(const std::string& system_message, const std::string& api_key, Model model, float temperature, ImageDetail image_detail)
 	: with_pimpl<Chat>(system_message, api_key, model, temperature, image_detail)
 {
-	docwire_log_func_with_args(system_message, temperature);
+	log_scope(system_message, model, temperature, image_detail);
 }
-
-using magic_enum::ostream_operators::operator<<;
 
 namespace
 {
@@ -96,7 +96,7 @@ enum class UserMsgType { text, image_url };
 
 std::string prepare_query(const std::string& system_msg, UserMsgType user_msg_type, const std::string& user_msg, Model model, float temperature, ImageDetail image_detail)
 {
-	docwire_log_func_with_args(system_msg, user_msg);
+	log_scope(system_msg, user_msg, model, temperature, image_detail);
 	boost::json::object query
 	{
 		{ "model", model_to_string(model) },
@@ -125,7 +125,7 @@ std::string prepare_query(const std::string& system_msg, UserMsgType user_msg_ty
 
 std::string post_request(const std::string& query, const std::string& api_key)
 {
-	docwire_log_func_with_args(query);
+	log_scope(query);
 	std::ostringstream response_stream{};
 	try
 	{
@@ -143,7 +143,7 @@ std::string post_request(const std::string& query, const std::string& api_key)
 
 std::string parse_response(const std::string& response)
 {
-	docwire_log_func_with_args(response);
+	log_scope(response);
 	try
 	{
 		boost::json::value response_val = boost::json::parse(response);
@@ -159,26 +159,26 @@ std::string parse_response(const std::string& response)
 
 continuation Chat::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
-	docwire_log_func();
+	log_scope(msg);
 	if (!msg->is<data_source>())
 		return emit_message(std::move(msg));
-	docwire_log(debug) << "data_source received";
+	log_entry();
 	const data_source& data = msg->get<data_source>();
 	UserMsgType user_msg_type;
 	std::string data_str;
 	if (data.has_highest_confidence_mime_type_in({mime_type{"text/plain"}}))
 	{
-		docwire_log(debug) << "Highest confidence MIME type is text/plain.";
+		log_scope();
 		user_msg_type = UserMsgType::text;
 		data_str = data.string();
 	}
 	else if (data.has_highest_confidence_mime_type_in({mime_type{"image/jpeg"}, mime_type{"image/png"}, mime_type{"image/gif"}, mime_type{"image/webp"}}))
 	{
-		docwire_log(debug) << "Highest confidence MIME type is image/jpeg, image/png, image/gif or image/webp.";
+		log_scope();
 		user_msg_type = UserMsgType::image_url;
 		std::span<const std::byte> input_data = data.span();
 		std::string base64Encoded = base64::encode(input_data);
-		docwire_log_var(base64Encoded);
+		log_entry(base64Encoded);
 		data_str = std::string{"data:image/*;base64,"} + base64Encoded;
 	}
 	else

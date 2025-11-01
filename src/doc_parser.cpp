@@ -13,7 +13,9 @@
 
 #include "document_elements.h"
 #include "error_tags.h"
-#include "log.h"
+#include "log_cerr_redirection.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "misc.h"
 #include "nested_exception.h"
 #include "throw_if.h"
@@ -34,6 +36,8 @@
 #include "wv2/src/word_helper.h"
 #include "wv2/src/word97_generated.h"
 #include "xls_parser.h"
+#include "serialization_data_source.h" // IWYU pragma: keep
+#include "serialization_enum.h" // IWYU pragma: keep
 #include "thread_safe_ole_stream_reader.h"
 #include "thread_safe_ole_storage.h"
 
@@ -112,6 +116,7 @@ struct Comment
 
 static void cp_to_stream_offset(const wvWare::Parser* parser, U32 cp, U32& stream_offset, bool* unicode_detected = NULL)
 {
+	log_scope(cp);
 	const Parser9x* parser9 = dynamic_cast<const Parser9x*>(parser);
 	throw_if (parser9 == NULL, "This is not a 9x parser.", errors::program_logic{});
 	U32 piece = 0;
@@ -124,34 +129,35 @@ static void cp_to_stream_offset(const wvWare::Parser* parser, U32 cp, U32& strea
 			break;
 		offset -= it.currentRun();
 	}
-	docwire_log(debug) << "Piece: " << piece << ", offset: " << offset;
+	log_entry(piece, offset);
 	PLCFIterator<Word97::PCD> it2(parser9->pieceTable()->at( piece ) );
 	throw_if (!it2.current(), "Specified piece not found.", errors::uninterpretable_data{});
-	U32 fc = it2.current()->fc;   // Start FC of this piece
-	docwire_log(debug) << "Piece start at FC " << fc << ".";
-        bool unicode;
-        parser9->calculateRealFC(fc, unicode);
-	docwire_log(debug) << "After unicode transition piece start at FC " << fc << ".";
-	if (offset != 0 )
-            fc += unicode ? offset * 2 : offset;
-	docwire_log(debug) << "Stream offset is " << fc << ".";
-	stream_offset = fc;
+	U32 piece_fc = it2.current()->fc;
+	log_entry(piece_fc);
+	bool unicode;
+	U32 real_fc = piece_fc;
+	parser9->calculateRealFC(real_fc, unicode);
+	log_entry(real_fc, unicode);
+	U32 final_stream_offset = real_fc + (unicode ? offset * 2 : offset);
+	log_entry(final_stream_offset);
+	stream_offset = final_stream_offset;
 	if (unicode_detected != NULL)
 		*unicode_detected = unicode;
 }
 
 static void parse_comments(const wvWare::Parser* parser, std::vector<Comment>& comments, const std::function<void(std::exception_ptr)>& non_fatal_error_handler)
 {
+	log_scope();
 	try
 	{
 		if (parser->fib().lcbPlcfandTxt == 0)
 		{
-			docwire_log(debug) << "No annotations.";
+			log_entry();
 			return;
 		}
 
 		U32 atn_part_cp = parser->fib().ccpText + parser->fib().ccpFtn + parser->fib().ccpHdd + parser->fib().ccpMcr;
-		docwire_log(debug) << "Annotations part at CP " << atn_part_cp << ".";
+		log_entry(atn_part_cp);
 		std::unique_ptr<OLEStreamReader> reader { parser->storage()->createStreamReader("WordDocument") };
 		throw_if (!reader, "Error opening WordDocument stream.", errors::uninterpretable_data{});
 		const Parser9x* parser9 = dynamic_cast<const Parser9x*>(parser);
@@ -159,14 +165,14 @@ static void parse_comments(const wvWare::Parser* parser, std::vector<Comment>& c
 		throw_if (!table_reader, "Error opening table stream.", errors::uninterpretable_data{});
 
 		U32 annotation_txts_offset = parser->fib().fcPlcfandTxt;
-		docwire_log(debug) << "Annotation texts table at offset " << annotation_txts_offset << ".";
+		log_entry(annotation_txts_offset);
 		table_reader->seek(annotation_txts_offset);
 		U32 annotation_begin_cp = table_reader->readU32();
 		std::vector<std::string> annotations;
 		for (;;)
 		{
 			U32 annotation_end_cp = table_reader->readU32();
-			docwire_log(debug) << "Annotation text position (CP) from " << annotation_begin_cp << " to " << annotation_end_cp << ".";
+			log_scope(annotation_begin_cp, annotation_end_cp);
 			U32 stream_begin_offset;
 			bool unicode;
 			try
@@ -186,14 +192,14 @@ static void parse_comments(const wvWare::Parser* parser, std::vector<Comment>& c
 			{
 				std::throw_with_nested(make_error("Converting annotation end position to stream offset failed.", errors::uninterpretable_data{}));
 			}
-			docwire_log(debug) << "Annotation text stream position from " << stream_begin_offset << " to " << stream_end_offset << ".";
+			log_entry(stream_begin_offset, stream_end_offset);
 			reader->seek(stream_begin_offset);
 			U8 annotation_mark = reader->readU8();
 			throw_if (annotation_mark != 0x05, "Incorrect annotation mark.", errors::uninterpretable_data{});
 			std::string annotation;
 			while (reader->tell() < stream_end_offset - 1)
 			{
-				docwire_log(debug) << "Stream pos " << reader->tell();
+				log_scope(reader->tell());
 				// warning TODO: Unicode support in comments
 				if (unicode)
 					reader->seek(1, SEEK_CUR); // skip unicode byte
@@ -206,7 +212,7 @@ static void parse_comments(const wvWare::Parser* parser, std::vector<Comment>& c
 						annotation += ch;
 				}
 			}
-			docwire_log(debug) << "Annotation text: \"" << annotation << "\"";
+			log_entry(annotation);
 			annotations.push_back(annotation);
 			if (annotation_end_cp >= parser->fib().ccpAtn - 1)
 				break;
@@ -215,7 +221,7 @@ static void parse_comments(const wvWare::Parser* parser, std::vector<Comment>& c
 
 		U32 annotation_owners_offset = parser->fib().fcGrpXstAtnOwners;
 		U32 annotation_owners_len = parser->fib().lcbGrpXstAtnOwners;
-		docwire_log(debug) << "Annotation owners table at offset " << annotation_owners_offset << " has length " << annotation_owners_len << ".";
+		log_entry(annotation_owners_offset, annotation_owners_len);
 		table_reader->seek(annotation_owners_offset);
 		std::vector<std::string> owners;
 		for (int total_len = 0; total_len < annotation_owners_len;)
@@ -235,19 +241,20 @@ static void parse_comments(const wvWare::Parser* parser, std::vector<Comment>& c
 				owner += (char)ch;
 				total_len += 2;
 			}
-			docwire_log(debug) << "Owner \"" << owner << "\" found.";
+			log_entry(owner);
 			owners.push_back(owner);
 		}
 
 		U32 annotation_refs_offset = parser->fib().fcPlcfandRef;
-		docwire_log(debug) << "Annotation refs table at offset " << annotation_refs_offset << ".";
+		log_entry(annotation_refs_offset);
 		table_reader->seek(annotation_refs_offset);
 		for (int i = 0;; i++)
 		{
+			log_scope(i);
 			U32 annotation_ref_cp = table_reader->readU32();
 			if (annotation_ref_cp >= parser->fib().ccpText)
 				break;
-			docwire_log(debug) << "Annotation " << i << " references text at CP " << annotation_ref_cp << ".";
+			log_entry(i, annotation_ref_cp);
 			U32 stream_offset;
 			try
 			{
@@ -259,7 +266,7 @@ static void parse_comments(const wvWare::Parser* parser, std::vector<Comment>& c
 			}
 			if (i < annotations.size())
 			{
-				docwire_log(debug) << "Annotation " << i << " references text at stream offset " << stream_offset << ".";
+				log_scope(i, stream_offset);
 				Comment c;
 				c.fc = stream_offset;
 				c.text = annotations[i];
@@ -272,7 +279,7 @@ static void parse_comments(const wvWare::Parser* parser, std::vector<Comment>& c
 			Word97::ATRD atrd(table_reader.get());
 			if (atrd.ibst < owners.size())
 			{
-				docwire_log(debug) << "Annotation owner is \"" << owners[atrd.ibst] << "\", index " << atrd.ibst << ".";
+				log_scope(owners[atrd.ibst], atrd.ibst);
 				comments[i].author = owners[atrd.ibst];
 			}
 		}
@@ -302,6 +309,7 @@ class TextHandler : public wvWare::TextHandler
 
 		void sectionStart(SharedPtr<const Word97::SEP> sep)
 		{
+			log_scope();
 		}
 
 		void sectionEnd()
@@ -310,12 +318,13 @@ class TextHandler : public wvWare::TextHandler
 
 		void pageBreak()
 		{
+			log_scope();
 		}
 
 		void paragraphStart(SharedPtr<const ParagraphProperties>
 			paragraphProperties)
 		{
-			docwire_log_func();
+			log_scope();
 			if (!m_curr_state->table_state.empty())
 			{
 				if (m_curr_state->table_state.top() == TableState::in_table)
@@ -360,7 +369,7 @@ class TextHandler : public wvWare::TextHandler
 
 		void paragraphEnd()
 		{
-			docwire_log_func();
+			log_scope();
 			m_emit_message(document::CloseParagraph{});
 			if (!((Parser9x*)m_parser)->currentParagraph()->empty())
 			{
@@ -370,7 +379,7 @@ class TextHandler : public wvWare::TextHandler
 
 		void runOfText (const UString &text, SharedPtr< const Word97::CHP > chp)
 		{
-			docwire_log_func();
+			log_scope();
 			if (m_curr_state->field_part == FIELD_PART_PARAMS)
 				m_curr_state->field_params += text;
 			else if (m_curr_state->field_part == FIELD_PART_VALUE)
@@ -386,6 +395,7 @@ class TextHandler : public wvWare::TextHandler
 		void specialCharacter(SpecialCharacter character,
 			SharedPtr<const Word97::CHP> chp)
 		{
+			log_scope(character);
 		}
 
 		void footnoteFound (FootnoteData::Type type, UChar character,
@@ -396,18 +406,20 @@ class TextHandler : public wvWare::TextHandler
 
 		void footnoteAutoNumber(SharedPtr<const Word97::CHP> chp)
 		{
+			log_scope();
 		}
 
 		void fieldStart(const FLD *fld,
 			SharedPtr<const Word97::CHP> chp)
 		{
-			docwire_log_func();
+			log_scope();
 			m_curr_state->field_type = (FieldType)fld->flt;
 			m_curr_state->field_part = FIELD_PART_PARAMS;
 			switch (fld->flt)
 			{
 				case FLT_EMBED:
-					docwire_log(debug) << "Embedded OLE object reference found.";
+				{
+					log_scope();
 					if (m_curr_state->obj_texts_iter == m_curr_state->obj_texts.end())
 						m_emit_message(make_error_ptr("Unexpected OLE object reference."));
 					else
@@ -418,6 +430,7 @@ class TextHandler : public wvWare::TextHandler
 						m_curr_state->obj_texts_iter++;
 					}
 					break;
+				}
 				default:
 					m_curr_state->field_params = "";
 					m_curr_state->field_value = "";
@@ -427,14 +440,14 @@ class TextHandler : public wvWare::TextHandler
 		void fieldSeparator(const FLD* fld,
 			SharedPtr<const Word97::CHP> chp)
 		{
-			docwire_log_func();
+			log_scope();
 			m_curr_state->field_part = FIELD_PART_VALUE;
 		}
 
 		void fieldEnd(const FLD* fld,
 			SharedPtr<const Word97::CHP> chp)
 		{
-			docwire_log_func();
+			log_scope();
 			UString params = m_curr_state->field_params;
 			int i = 0;
 			while (i < params.length() && params[i] == ' ') i++;
@@ -479,7 +492,7 @@ class TextHandler : public wvWare::TextHandler
 
 		void endOfDocument()
 		{
-			docwire_log_func();
+			log_scope();
 			if (m_comments_parsed)
 				for (int i = 0; i < m_comments.size(); i++)
 					if (m_comments[i].fc >= m_prev_par_fc)
@@ -505,7 +518,7 @@ class TableHandler : public wvWare::TableHandler
 
 		void tableRowStart(SharedPtr<const Word97::TAP> tap)
 		{
-			docwire_log_func();
+			log_scope();
 			if (m_current_state.table_state.empty() || m_current_state.table_state.top() == TableState::in_cell)
 			{
 				m_emit_message(document::Table{});
@@ -518,7 +531,7 @@ class TableHandler : public wvWare::TableHandler
 
 		void tableRowEnd()
 		{
-			docwire_log_func();
+			log_scope();
 			throw_if (m_current_state.table_state.empty(), errors::uninterpretable_data{});
 			if (m_current_state.table_state.top() == TableState::in_cell)
 			{
@@ -532,7 +545,7 @@ class TableHandler : public wvWare::TableHandler
 
 		void tableCellStart()
 		{
-			docwire_log_func();
+			log_scope();
 			throw_if (m_current_state.table_state.empty() || m_current_state.table_state.top() != TableState::in_row, errors::uninterpretable_data{});
 			m_emit_message(document::TableCell{});
 			m_current_state.table_state.push(TableState::in_cell);
@@ -540,7 +553,7 @@ class TableHandler : public wvWare::TableHandler
 
 		void tableCellEnd()
 		{
-			docwire_log_func();
+			log_scope();
 			if (!m_current_state.table_state.empty() && m_current_state.table_state.top() == TableState::in_table)
 			{
 				m_emit_message(document::CloseTable{});
@@ -566,7 +579,7 @@ class SubDocumentHandler : public wvWare::SubDocumentHandler
 
 		virtual void headerStart(HeaderData::Type type)
 		{
-			docwire_log_func();
+			log_scope();
 			switch (type)
 			{
 				case HeaderData::HeaderOdd:
@@ -586,7 +599,7 @@ class SubDocumentHandler : public wvWare::SubDocumentHandler
 
 		virtual void headerEnd()
 		{
-			docwire_log_func();
+			log_scope();
 			if (m_curr_header_footer->in_header)
 				m_emit_message(document::CloseHeader{});
 			if (m_curr_header_footer->in_footer)
@@ -600,10 +613,9 @@ DOCParser::DOCParser() = default;
 
 void pimpl_impl<DOCParser>::parse(const data_source& data, const message_callbacks& emit_message)
 {
-	docwire_log(debug) << "Using DOC parser.";
+	log_scope(data);
 
 	CurrentState curr_state;
-	docwire_log(debug) << "Opening stream as OLE storage to parse all embedded objects in supported formats.";
 	auto storage = std::make_unique<ThreadSafeOLEStorage>(data.span());
 	throw_if (!storage->isValid(), storage->getLastError(), errors::uninterpretable_data{});
 	emit_message(document::Document
@@ -617,12 +629,12 @@ void pimpl_impl<DOCParser>::parse(const data_source& data, const message_callbac
 		});
 	if (storage->enterDirectory("ObjectPool"))
 	{
-		docwire_log(debug) << "ObjectPool found, embedded OLE objects probably exist.";
+		log_scope();
 		std::vector<std::string> obj_list;
 		throw_if (!storage->getStreamsAndStoragesList(obj_list), storage->getLastError(), errors::uninterpretable_data{});
 		for (size_t i = 0; i < obj_list.size(); ++i)
 		{
-			docwire_log(debug) << "OLE object entry found: " << obj_list[i];
+			log_scope(i, obj_list[i]);
 			std::string obj_text;
 			std::string current_dir = obj_list[i];
 			if (storage->enterDirectory(obj_list[i]))
@@ -631,8 +643,7 @@ void pimpl_impl<DOCParser>::parse(const data_source& data, const message_callbac
 				throw_if (!storage->getStreamsAndStoragesList(obj_list), storage->getLastError(), current_dir, errors::uninterpretable_data{});
 				if (find(obj_list.begin(), obj_list.end(), "Workbook") != obj_list.end())
 				{
-					docwire_log(debug) << "Embedded MS Excel workbook detected.";
-					docwire_log(debug) << "Using XLS parser.";
+					log_scope();
 					try
 					{
 						XLSParser xls{};
@@ -648,13 +659,9 @@ void pimpl_impl<DOCParser>::parse(const data_source& data, const message_callbac
 			curr_state.obj_texts.push_back(obj_text);
 		}
 	}
-	else
-	{
-		docwire_log(debug) << "No ObjectPool found, embedded OLE objects probably do not exist.";
-	}
 	storage->leaveDirectory();
 	curr_state.obj_texts_iter = curr_state.obj_texts.begin();
-	cerr_log_redirection cerr_redirection(docwire_current_source_location());
+	log::cerr_redirection cerr_redirection;
 	SharedPtr<wvWare::Parser> parser;
 	{
 		std::lock_guard<std::mutex> parser_factory_mutex_2_lock(parser_factory_mutex_2);

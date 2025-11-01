@@ -29,8 +29,10 @@ extern "C"
 }
 
 #include "error_tags.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "misc.h"
+#include "serialization_message.h" // IWYU pragma: keep
 #include "throw_if.h"
 
 namespace docwire
@@ -43,23 +45,20 @@ inline std::string toString(const uint8_t* text)
 	return {(const char*)text};
 }
 
-constexpr uint64_t WINDOWS_TICK = 10000000;
-constexpr uint64_t SHIFT = 11644473600;
-
-inline std::unique_ptr<char[]> getAttachmentName(libpff_item_t* item)
+inline std::string getAttachmentName(libpff_item_t* item)
 {
+	log_scope();
 	size_t size;
 	if (libpff_attachment_get_utf8_short_filename_size(item, &size, nullptr) != 1)
 	{
-		return nullptr;
+		return "";
 	}
-	std::unique_ptr<char[]> out(std::make_unique<char[]>(size + 1));
-	auto* filename = (uint8_t*)out.get();
-	if (libpff_attachment_get_utf8_short_filename(item, filename, size, nullptr) != 1)
+	std::vector<uint8_t> buffer(size);
+	if (libpff_attachment_get_utf8_short_filename(item, buffer.data(), size, nullptr) != 1)
 	{
-		return nullptr;
+		return "";
 	}
-	return out;
+	return std::string(reinterpret_cast<const char*>(buffer.data()));
 }
 
 /**
@@ -162,10 +161,14 @@ struct RawAttachment
 
 class Message
 {
+  static constexpr uint64_t WINDOWS_TICK = 10000000;
+  static constexpr uint64_t SHIFT = 11644473600;
+
   public:
 	explicit Message(pffItem in)
 		: _messageHandle{std::move(in)}
 	{
+		log_scope();
 	}
 
 	std::string getName() const
@@ -262,6 +265,7 @@ class Message
 	std::vector<RawAttachment>
 	getAttachments()
 	{
+		log_scope();
 		int items;
 		pffError err;
     std::vector<RawAttachment> attachments;
@@ -274,22 +278,22 @@ class Message
 			pffItem item;
 			if (libpff_message_get_attachment(_messageHandle, i, &item, &err) != 1)
 			{
-				docwire_log(debug) << "Message Get attachments failed: ";
+				log_entry();
 				continue;
 			}
 			size64_t size;
 			if (libpff_attachment_get_data_size(item, &size, &err) == -1)
 			{
-				docwire_log(debug) << "Get data size failed";
+				log_entry();
 				continue;
 			}
 			std::unique_ptr<uint8_t[]> datablob(new uint8_t[size + 1]);
 			if (libpff_attachment_data_read_buffer(item, datablob.get(), size, &err) == -1)
 			{
-				docwire_log(debug) << "Data Read failed";
+				log_entry();
 				continue;
 			}
-      std::string attachment_name = getAttachmentName(item).get();
+      std::string attachment_name = getAttachmentName(item);
       attachments.push_back(RawAttachment(size, datablob, attachment_name));
 		}
 		return attachments;
@@ -305,6 +309,7 @@ class Folder
 	explicit Folder(pffItem&& folderHandle)
 		: _folderHandle(std::move(folderHandle))
 	{
+		log_scope();
 	}
 
 	int getSubFolderNumber() const
@@ -392,6 +397,7 @@ struct pimpl_impl<PSTParser> : pimpl_impl_base
 
 void pimpl_impl<PSTParser>::parse_internal(const Folder& root, int deep, unsigned int &mail_counter) const
 {
+	log_scope(deep, mail_counter);
 	for (int i = 0; i < root.getSubFolderNumber(); ++i)
 	{
 		auto sub_folder = root.getSubFolder(i);
@@ -443,6 +449,7 @@ namespace
 
 void libbfio_stream_initialize(libbfio_handle_t** handle, std::shared_ptr<std::istream> stream)
 {
+	log_scope();
 	throw_if (handle == NULL, "Invalid handle", errors::program_logic{});
 	throw_if (*handle != NULL, "Handle already initialized", errors::program_logic{});
 	auto libbfio_handle_initialize_result = libbfio_handle_initialize(
@@ -499,13 +506,10 @@ void libbfio_stream_initialize(libbfio_handle_t** handle, std::shared_ptr<std::i
 
 void pimpl_impl<PSTParser>::parse(std::shared_ptr<std::istream> stream) const
 {
+	log_scope();
 	libpff_file_t* file = nullptr;
 	pffError error{nullptr};
-	if (libpff_file_initialize(&file, &error) != 1)
-	{
-		docwire_log(severity_level::error) << "Unable to initialize file.";
-		return;
-	}
+	throw_if (libpff_file_initialize(&file, &error) != 1, "libpff_file_initialize failed");
 
   libbfio_handle_t* handle = nullptr;
     libbfio_error_t* bfio_error = nullptr;
@@ -539,6 +543,8 @@ PSTParser::PSTParser() = default;
 
 continuation PSTParser::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
+	log_scope(msg);
+
     if (!msg->is<data_source>())
         return emit_message(std::move(msg));
 
@@ -548,7 +554,7 @@ continuation PSTParser::operator()(message_ptr msg, const message_callbacks& emi
     if (!data.has_highest_confidence_mime_type_in(supported_mime_types))
         return emit_message(std::move(msg));
 
-    docwire_log(debug) << "Using PST parser.";
+    log_entry();
     try
     {
         std::shared_ptr<std::istream> stream = data.istream();

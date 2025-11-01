@@ -17,7 +17,10 @@
 #include <ctranslate2/ops/mean.h>
 #include <ctranslate2/translator.h>
 #include "error_tags.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
+#include "serialization_exception.h" // IWYU pragma: keep
+#include "serialization_filesystem.h" // IWYU pragma: keep
 #include "throw_if.h"
 #include "tokenizer.h"
 #include <variant>
@@ -30,19 +33,20 @@ namespace
 
 std::variant<ctranslate2::Translator, ctranslate2::Encoder> load_model(const std::filesystem::path& model_data_path)
 {
+    log_scope(model_data_path);
     try
     {
-        docwire_log(info) << "Attempting to load model as Translator: " << model_data_path;
+        log_scope();
         return std::variant<ctranslate2::Translator, ctranslate2::Encoder>{
             std::in_place_type<ctranslate2::Translator>,
             ctranslate2::models::ModelLoader{model_data_path.string()}};
     }
     catch (const std::exception& translator_error)
     {
-        docwire_log(warning) << "Failed to load model as Translator, trying as Encoder. " << translator_error;
+        log_scope(translator_error);
         try
         {
-            docwire_log(info) << "Attempting to load model as Encoder: " << model_data_path;
+            log_scope();
             return std::variant<ctranslate2::Translator, ctranslate2::Encoder>{
                 std::in_place_type<ctranslate2::Encoder>,
                 ctranslate2::models::ModelLoader{model_data_path.string()}};
@@ -69,7 +73,7 @@ struct pimpl_impl<local_ai::model_runner> : pimpl_impl_base
 
     std::vector<std::string> process(const std::vector<std::string>& input_tokens)
     {
-        docwire_log_func();
+        log_scope();
         throw_if(!std::holds_alternative<ctranslate2::Translator>(m_model), "Model is not a Translator, cannot process.", errors::program_logic{});
         auto& translator = std::get<ctranslate2::Translator>(m_model);
         ctranslate2::TranslationOptions options{};
@@ -79,7 +83,7 @@ struct pimpl_impl<local_ai::model_runner> : pimpl_impl_base
         options.disable_unk = true;
 		options.callback = [](ctranslate2::GenerationStepResult step_result)->bool
 		{
-            docwire_log_var(step_result.token);
+            log_entry(step_result.token);
 			return false;
 		};
 		auto results = translator.translate_batch_async({ input_tokens }, options);
@@ -92,7 +96,7 @@ struct pimpl_impl<local_ai::model_runner> : pimpl_impl_base
 
     std::vector<double> embed(const std::string& input)
     {
-        docwire_log_func();
+        log_scope(input);
         throw_if(!std::holds_alternative<ctranslate2::Encoder>(m_model), "Model is not an Encoder, cannot embed.", errors::program_logic{});
         auto& encoder = std::get<ctranslate2::Encoder>(m_model);
 
@@ -158,6 +162,7 @@ model_runner::model_runner(const std::filesystem::path& model_data_path)
 
 std::string model_runner::process(const std::string& input)
 {
+    log_scope(input);
     std::vector<std::string> input_tokens = impl().m_tokenizer.tokenize(input);
     std::vector<std::string> output_tokens = impl().process(input_tokens);
     return impl().m_tokenizer.detokenize(output_tokens);
@@ -165,6 +170,7 @@ std::string model_runner::process(const std::string& input)
 
 std::vector<double> model_runner::embed(const std::string& input)
 {
+    log_scope(input);
     return impl().embed(input);
 }
 

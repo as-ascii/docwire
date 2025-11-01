@@ -14,11 +14,13 @@
 #include "data_source.h"
 #include "document_elements.h"
 #include "error_tags.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include <map>
 #include <math.h>
 #include "misc.h"
 #include <mutex>
+#include "nested_exception.h"
 #include "oshared.h"
 #include <set>
 #include <stdio.h>
@@ -152,6 +154,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 
 	std::string getStandardDateFormat(int xf_index)
 	{
+		log_scope(xf_index);
 		static StandardDateFormats formats;
 		if (xf_index >= m_context_stack.top().m_xf_records.size())
 		{
@@ -170,6 +173,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 
 	std::string xlsDateToString(double xls_date, std::string date_fmt)
 	{
+		log_scope(xls_date, date_fmt);
 		time_t time = rint((xls_date - m_context_stack.top().m_date_shift) * 86400);
 		char buffer[128];
     struct tm time_buffer;
@@ -179,6 +183,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 
 	std::string formatXLSNumber(double number, short int xf_index)
 	{
+		log_scope(number, xf_index);
 		std::string date_fmt = getStandardDateFormat(xf_index);
 		if (date_fmt != "")
 			return xlsDateToString(number, date_fmt);
@@ -192,6 +197,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 
 	std::string parseXNum(std::vector<unsigned char>::const_iterator src,int xf_index)
 	{
+		log_scope(xf_index);
 		union
 		{
 			unsigned char xls_num[8];
@@ -207,6 +213,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 
 	std::string parseRkRec(std::vector<unsigned char>::const_iterator src, short int xf_index)
 	{
+		log_scope(xf_index);
 		double number;
 		if ((*src) & 0x02)
 			number = (double)(getS32LittleEndian(src) >> 2);
@@ -234,6 +241,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 
 	std::string parseXLUnicodeString(std::vector<unsigned char>::const_iterator* src, std::vector<unsigned char>::const_iterator src_end, const std::vector<size_t>& record_sizes, size_t& record_index, size_t& record_pos)
 	{
+		log_scope();
 		if (record_pos >= record_sizes[record_index])
 		{
 			size_t diff = record_pos - record_sizes[record_index];
@@ -277,7 +285,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 		int after_text_block_len = 0;
 		if (flags & 0x08) // rich text
 		{
-			docwire_log(debug) << "Rich text flag enabled.";
+			log_scope();
 			if (src_end - *src < 2)
 			{
 				emit_message(make_error_ptr("Unexpected end of buffer."));
@@ -290,7 +298,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 		}
 		if (flags & 0x04) // asian
 		{
-			docwire_log(debug) << "Asian flag enabled.";
+			log_scope();
 			if (src_end - *src < 4)
 			{
 				emit_message(make_error_ptr("Unexpected end of buffer."));
@@ -301,10 +309,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 			*src += 4;
 			record_pos += 4;
 		}
-		if (after_text_block_len > 0)
-		{
-			docwire_log(debug) << "Additional formatting blocks found, size " << after_text_block_len << " bytes.";
-		}
+		log_entry(after_text_block_len);
 		std::string dest;
 		std::vector<unsigned char>::const_iterator s = *src;
 		int char_count = 0;
@@ -320,7 +325,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 				emit_message(make_error_ptr("Record boundary crossed.", record_pos, record_sizes[record_index]));
 			if (record_pos == record_sizes[record_index])
 			{
-				docwire_log(debug) << "Record boundary reached.";
+				log_scope();
 				record_index++;
 				record_pos = 0;
 				// At the beginning of each CONTINUE record the option flags byte is repeated.
@@ -398,7 +403,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 
 	void parseSharedStringTable(const std::vector<unsigned char>& sst_buf)
 	{
-		docwire_log(debug) << "Parsing shared string table.";
+		log_scope(sst_buf.size());
 		if (sst_buf.size() < 8)
 		{
 			emit_message(make_error_ptr("Error while parsing shared string table. Buffer must contain at least 8 bytes.", sst_buf.size()));
@@ -414,6 +419,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 
 	std::string cellText(int row, int col, const std::string& s)
 	{
+		log_scope(row, col, s);
 		std::string r;
 		while (row > m_context_stack.top().m_last_row)
 		{
@@ -434,7 +440,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 
 	void processRecord(int rec_type, const std::vector<unsigned char>& rec, std::string& text)
 	{
-		docwire_log(debug) << hex() << "record" << rec_type;
+		log_scope(rec_type);
 		if (rec_type != XLS_CONTINUE && m_context_stack.top().m_prev_rec_type == XLS_SST)
 			parseSharedStringTable(m_context_stack.top().m_shared_string_table_buf);
 		switch (rec_type)
@@ -479,8 +485,10 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 					return; // do not change m_prev_rec_type
 				m_context_stack.top().m_shared_string_table_buf.reserve(m_context_stack.top().m_shared_string_table_buf.size() + rec.size());
 				m_context_stack.top().m_shared_string_table_buf.insert(m_context_stack.top().m_shared_string_table_buf.end(), rec.begin(), rec.begin() + rec.size());
-				m_context_stack.top().m_shared_string_table_record_sizes.push_back(rec.size());
-				docwire_log(debug) << "XLS_CONTINUE record for XLS_SST found. Index: " << m_context_stack.top().m_shared_string_table_record_sizes.size() - 1 << ", size:" << rec.size() << ".";
+				const auto record_size = rec.size();
+				m_context_stack.top().m_shared_string_table_record_sizes.push_back(record_size);
+				const auto record_size_index = m_context_stack.top().m_shared_string_table_record_sizes.size() - 1;
+				log_entry(record_size_index, record_size);
 				return;
 			}
 			case XLS_DATE_1904:
@@ -494,7 +502,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 			}
 			case XLS_FILEPASS:
 			{
-				docwire_log(info) << "XLS file is encrypted.";
+				log_scope();
 				if (rec.size() >= 2)
 				{
 					U16 encryption_type = getU16LittleEndian(rec.begin());
@@ -717,6 +725,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 
 	void parseXLS(ThreadSafeOLEStreamReader& reader, std::string& text)
 	{
+		log_scope();
 		m_context_stack.top().m_xf_records.clear();
 		m_context_stack.top().m_date_shift = 25569.0;
 		m_context_stack.top().m_shared_string_table.clear();
@@ -736,6 +745,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 			throw_if (oleEof(reader), "BOF record not found", errors::uninterpretable_data{});
 			U16 rec_type, rec_len;
 			throw_if (!reader.readU16(rec_type) || !reader.readU16(rec_len), reader.getLastError());
+			log_entry(rec_type, rec_len);
 			enum BofRecordTypes
 			{
 				BOF_BIFF_2 = 0x009,
@@ -755,6 +765,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 						{
 							U16 biff_ver, data_type;
 							throw_if (!reader.readU16(biff_ver) || !reader.readU16(data_type), reader.getLastError());
+							log_entry(biff_ver, data_type);
 							//On microsoft site there is documentation only for "BIFF8". Documentation from OpenOffice is better:
 							/*
 								BIFF5:
@@ -786,7 +797,7 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 							*/
 							if(biff_ver == 0x600)
 							{
-								docwire_log(debug) << "Detected BIFF8 version";
+								log_scope();
 								rec.resize(8);
 								read_status = reader.read(&*rec.begin(), 8);
 								m_context_stack.top().m_biff_version = BIFF8;
@@ -794,26 +805,32 @@ struct pimpl_impl<XLSParser> : pimpl_impl_base
 							}
 							else
 							{
-								docwire_log(debug) << "Detected BIFF5 version";
+								log_scope();
 								m_context_stack.top().m_biff_version = BIFF5;
 								bof_struct_size = 8;
 							}
 							break;
 						}
 						case BOF_BIFF_3:
-							docwire_log(debug) << "Detected BIFF3 version";
+						{
+							log_scope();
 							m_context_stack.top().m_biff_version = BIFF3;
 							bof_struct_size = 6;
 							break;
+						}
 						case BOF_BIFF_4:
-							docwire_log(debug) << "Detected BIFF4 version";
+						{
+							log_scope();
 							m_context_stack.top().m_biff_version = BIFF4;
 							bof_struct_size = 6;
 							break;
+						}
 						default:
-							docwire_log(debug) << "Detected BIFF2 version";
+						{
+							log_scope();
 							m_context_stack.top().m_biff_version = BIFF2;
 							bof_struct_size = 4;
+						}
 					}
 					rec.resize(rec_len - (bof_struct_size - 4));
 					read_status = reader.read(&*rec.begin(), rec_len - (bof_struct_size - 4));
@@ -909,7 +926,7 @@ void pimpl_impl<XLSParser>::parse(const data_source& data, const message_callbac
 
 std::string pimpl_impl<XLSParser>::parse(ThreadSafeOLEStorage& storage, const message_callbacks& emit_message)
 {
-	docwire_log(debug) << "Using XLS parser.";
+	log_scope();
 	scoped::stack_push<context> context_guard{m_context_stack, context{.emit_message = emit_message}};
 	try
 	{

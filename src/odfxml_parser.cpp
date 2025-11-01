@@ -13,8 +13,11 @@
 
 #include "data_source.h"
 #include "document_elements.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "make_error.h"
+#include "serialization_enum.h" // IWYU pragma: keep
+#include "serialization_message.h" // IWYU pragma: keep
 #include "xml_stream.h"
 
 namespace docwire
@@ -44,11 +47,14 @@ struct pimpl_impl<ODFXMLParser> : with_pimpl_owner<ODFXMLParser>
 							  const ZipReader* zipfile, std::string& text,
 							  bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
+			log_scope();
 			// warning TODO: Unfortunately, in CommonXMLDocumentParser we are not checking full names for xml tags.\
 			Thats a problem, since we can have table:body, office:body etc. What if more xml tags are not handled correctly?
 			if (xml_stream.fullName() != "office:body")
+			{
+				log_entry();
 				return;
-			docwire_log(debug) << "ODF_BODY Command";
+			}
 			//we are inside body, we can disable adding text nodes
 			owner().disableText(false);
 		}
@@ -57,7 +63,7 @@ struct pimpl_impl<ODFXMLParser> : with_pimpl_owner<ODFXMLParser>
 								ZipReader* zipfile, std::string& text,
 								bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "ODF_OBJECT Command";
+			log_scope();
 			xml_stream.levelDown();
 			owner().disableText(true);
 			text += owner().parseXmlData(xml_stream, mode, zipfile);
@@ -69,7 +75,7 @@ struct pimpl_impl<ODFXMLParser> : with_pimpl_owner<ODFXMLParser>
 									const ZipReader* zipfile, std::string& text,
 									bool& children_processed, std::string& level_suffix, bool first_on_level)
 		{
-			docwire_log(debug) << "ODF_BINARY_DATA Command";
+			log_scope();
 			children_processed = true;
 		}
 };
@@ -92,6 +98,7 @@ ODFXMLParser::ODFXMLParser()
 
 void pimpl_impl<ODFXMLParser>::parse(const data_source& data, XmlParseMode mode, const message_callbacks& emit_message)
 {
+	log_scope(mode);
 	std::string xml_content = data.string();
 	auto base_context_guard = owner().create_base_context_guard(emit_message);
 
@@ -121,7 +128,7 @@ void pimpl_impl<ODFXMLParser>::parse(const data_source& data, XmlParseMode mode,
 
 attributes::Metadata pimpl_impl<ODFXMLParser>::extract_metadata(const std::string& xml_content) const
 {
-	docwire_log(debug) << "Extracting metadata.";
+	log_scope();
 	attributes::Metadata metadata;
 
 	owner().parseODFMetadata(xml_content, metadata); // Call owner's parseODFMetadata
@@ -145,6 +152,8 @@ attributes::Metadata pimpl_impl<ODFXMLParser>::extract_metadata(const std::strin
 
 continuation ODFXMLParser::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
+	log_scope(msg);
+
 	if (!msg->is<data_source>())
 		return emit_message(std::move(msg));
 
@@ -156,7 +165,7 @@ continuation ODFXMLParser::operator()(message_ptr msg, const message_callbacks& 
 		return emit_message(std::move(msg));
 	}
 
-	docwire_log(debug) << "Using ODFXML parser.";
+	log_entry();
 	try
 	{
 		impl().parse(data, XmlParseMode::PARSE_XML, emit_message);

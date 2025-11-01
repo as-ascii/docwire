@@ -12,7 +12,9 @@
 #include "meta_data_exporter.h"
 
 #include "document_elements.h"
+#include "log_scope.h"
 #include "meta_data_writer.h"
+#include "serialization_message.h" // IWYU pragma: keep
 #include <sstream>
 
 namespace docwire
@@ -30,6 +32,7 @@ MetaDataExporter::MetaDataExporter()
 
 continuation MetaDataExporter::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
+	log_scope(msg);
 	if (msg->is<std::exception_ptr>())
 		return emit_message(std::move(msg));
 	if (msg->is<document::Document>() || !impl().m_stream)

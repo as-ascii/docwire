@@ -11,17 +11,22 @@
 
 #include "xlsb_parser.h"
 
+#include "charset_converter.h"
 #include "attributes.h"
+#include "binary_reader.h"
+#include <cstring>
 #include "data_source.h"
 #include "document_elements.h"
 #include "error_tags.h"
 #include "scoped_stack_push.h"
 #include "zip_reader.h"
 #include <iostream>
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "make_error.h"
 #include <map>
 #include "misc.h"
+#include "serialization_data_source.h" // IWYU pragma: keep
 #include <sstream>
 #include <stack>
 #include <stdint.h>
@@ -38,6 +43,64 @@ const std::vector<mime_type> supported_mime_types =
 {
 	mime_type{"application/vnd.ms-excel.sheet.binary.macroenabled.12"}
 };
+
+struct rk_number
+{
+	double value;
+	bool is_int;
+};
+
+rk_number read_rk_number(binary::reader& reader)
+{
+	log_scope();
+	uint32_t uvalue = reader.read_little_endian<uint32_t>();
+	bool fx100 = (uvalue & 0x00000001) > 0;
+	bool fint = (uvalue & 0x00000002) > 0;
+	if (fint)
+	{
+		int svalue = (int) uvalue;
+		svalue /= 4;	//remove 2 last bits
+		double final_value = svalue;
+		if (fx100)
+			final_value /= 100.0;
+		return { final_value, true };
+	}
+	else
+	{
+		uvalue = uvalue & 0xFFFFFFFC;
+		uint64_t temp_val = (uint64_t)uvalue << 32;
+		double final_value = std::bit_cast<double>(temp_val);
+		if (fx100)
+			final_value /= 100.0;
+		return { final_value, false };
+	}
+}
+
+std::string read_xl_wide_string(binary::reader& reader)
+{
+	log_scope();
+	const uint32_t num_chars = reader.read_little_endian<uint32_t>();
+	log_entry(num_chars);
+	if (num_chars == 0)
+		return "";
+
+	// The string is stored as a raw sequence of UTF-16LE bytes.
+	// We read it as a raw buffer and pass it directly to the charset_converter,
+	// which is configured to expect "UTF-16LE".
+	const size_t buffer_byte_size = num_chars * sizeof(char16_t);
+	std::vector<char> utf16_bytes(buffer_byte_size);
+	reader.read({reinterpret_cast<std::byte*>(utf16_bytes.data()), utf16_bytes.size()});
+
+	thread_local charset_converter conv("UTF-16LE", "UTF-8");
+	return conv.convert({utf16_bytes.data(), utf16_bytes.size()});
+}
+
+std::string read_rich_str(binary::reader& reader)
+{
+	log_scope();
+	reader.read_little_endian<uint8_t>(); // skip flags
+	return read_xl_wide_string(reader);
+}
 
 } // anonymous namespace
 
@@ -134,176 +197,89 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 		private:
 			ZipReader* m_zipfile;
-			std::vector<unsigned char> m_chunk;
-			int m_chunk_len;
-			int m_pointer;
 			unsigned long m_file_size;
-			unsigned long m_readed;
+			unsigned long m_read_total;
 			std::string m_file_name;
+			binary::reader m_stream_reader;
 
 		public:
 			XLSBReader(ZipReader& zipfile, const std::string& file_name)
+				: m_zipfile(&zipfile),
+					m_file_name(file_name),
+					m_read_total(0),
+					m_file_size(0),
+					m_stream_reader([this](std::span<std::byte> dest)
+					{
+						int read_now = 0;
+						// We are reading raw binary data, so we do not want readChunk to add a null terminator.
+						if (!m_zipfile->readChunk(m_file_name, (char*)dest.data(), dest.size(), read_now, false))
+							throw make_error("Failed to read chunk from zip", m_file_name, errors::uninterpretable_data{});
+
+						throw_if(static_cast<size_t>(read_now) != dest.size(), "Unexpected EOF reading from zip chunk", m_file_name, errors::uninterpretable_data{});
+
+						m_read_total += read_now;
+						if (m_read_total == m_file_size)
+							m_zipfile->closeReadingFileForChunks();
+					})
 			{
-				m_zipfile = &zipfile;
-				m_file_name = file_name;
-				m_chunk_len = 0;
-				m_pointer = 0;
-				m_readed = 0;
-				m_chunk.reserve(1024);
-				m_file_size = 0;
-				zipfile.getFileSize(file_name, m_file_size);
+				m_zipfile->getFileSize(file_name, m_file_size);
 			}
 
 			bool done()
 			{
-				return m_readed == m_file_size;
-			}
-
-			void readNum(uint32_t& value, int bytes)
-			{
-				value = 0;
-				throw_if (m_chunk_len - m_pointer < bytes, "Unexpected EOF", errors::uninterpretable_data{});
-				for (int i = 0; i < bytes; ++i)
-					value += (m_chunk[m_pointer++] << (i * 8));
-			}
-
-			void readUint8(uint32_t& value)
-			{
-				readNum(value, 1);
-			}
-
-			void readUint16(uint32_t& value)
-			{
-				readNum(value, 2);
-			}
-
-			void readUint32(uint32_t& value)
-			{
-				readNum(value, 4);
-			}
-
-			void readXnum(double& value)
-			{
-				uint8_t* val_ptr = (uint8_t*)&value;
-				throw_if (m_chunk_len - m_pointer < 8, "Unexpected EOF", errors::uninterpretable_data{});
-				for (int i = 0; i < 8; ++i)
-					val_ptr[8 - i] = m_chunk[m_pointer++];
-			}
-
-			void readRkNumber(double& value, bool& is_int)
-			{
-					value = 0;
-					uint32_t uvalue;
-					readNum(uvalue, 4);
-					bool fx100 = (uvalue & 0x00000001) > 0;
-					bool fint = (uvalue & 0x00000002) > 0;
-					if (fint)
-					{
-						is_int = true;
-						int svalue = (int) uvalue;
-						svalue /= 4;	//remove 2 last bits
-						if (fx100)
-							svalue /= 100;
-						value = svalue;
-					}
-					else
-					{
-						is_int = false;
-						uvalue = uvalue & 0xFFFFFFFC;
-						uint64_t* val_ptr = (uint64_t*)&value;
-						uint32_t* uval_ptr = (uint32_t*)&uvalue;
-						*val_ptr = (uint64_t)*uval_ptr << 32;
-						if (fx100)
-							value /= 100.0;
-					}
-			}
-
-			void readXlWideString(std::string& str)
-			{
-				uint32_t str_size;
-					readNum(str_size, 4);
-					throw_if (str_size * 2 > m_chunk_len - m_pointer,
-						"XLSB: xlWideString size is larger than chunk size", errors::uninterpretable_data{});
-					str.reserve(2 * str_size);
-					for (int i = 0; i < str_size; ++i)
-					{
-						unsigned int uc = *((unsigned short*)&m_chunk[m_pointer]);
-						m_pointer += 2;
-						if (uc != 0)
-						{
-							if (utf16_unichar_has_4_bytes(uc))
-							{
-								throw_if (++i >= str_size, "Unexpected EOF", errors::uninterpretable_data{});
-								uc = (uc << 16) | *((unsigned short*)&m_chunk[m_pointer]);
-								m_pointer += 2;
-							}
-							str += unichar_to_utf8(uc);
-						}
-					}
-			}
-
-			void readRichStr(std::string& str)
-			{
-					//skip first byte
-					throw_if (m_chunk_len == m_pointer, "Unexpected EOF", errors::uninterpretable_data{});
-					++m_pointer;
-					readXlWideString(str);
+				return m_read_total == m_file_size;
 			}
 
 			void readRecord(Record& record)
 			{
+				log_scope();
 				record.m_type = 0;
 				record.m_size = 0;
 				for (int i = 0; i < 2; ++i)	//read record type
 				{
-					readChunk(1);
-					uint32_t byte = m_chunk[m_pointer++];
+					uint8_t byte = m_stream_reader.read_little_endian<uint8_t>();
 					record.m_type += ((byte & 0x7F) << (i * 7));
 					if (byte < 128)
 						break;
 				}
 				for (int i = 0; i < 4; ++i)	//read record size
 				{
-					if (m_pointer == m_chunk_len)
-						readChunk(1);
-					uint32_t byte = m_chunk[m_pointer++];
+					uint8_t byte = m_stream_reader.read_little_endian<uint8_t>();
 					record.m_size += ((byte & 0x7F) << (i * 7));
 					if (byte < 128)
 						break;
 				}
-				readChunk(record.m_size);
 			}
 
-			void skipBytes(uint32_t bytes_to_skip)
+			// This function reads the record payload from the main stream into a temporary buffer
+			// and returns a new reader that operates only on that buffer.
+			binary::reader record_reader(uint32_t record_size)
 			{
-				if (bytes_to_skip <= m_chunk_len - m_pointer)
-					m_pointer += bytes_to_skip;
-			}
-
-			void readChunk(uint32_t len)
-			{
-				if (len == 0)
-					return;
-				m_chunk.resize(len + 1);
-				throw_if (!m_zipfile->readChunk(m_file_name, (char*)&m_chunk[0], len, m_chunk_len), "Error reading chunk from zip file", m_file_name);
-				m_readed += m_chunk_len;
-				throw_if (m_chunk_len != len, "Error reading chunk from zip file", m_file_name);
-				m_pointer = 0;
+				log_scope();
+				std::vector<std::byte> record_bytes(record_size);
+				m_stream_reader.read(record_bytes);
+				return binary::reader([bytes = std::move(record_bytes), pos = 0](std::span<std::byte> dest) mutable {
+					throw_if(pos + dest.size() > bytes.size(), "Reading past record boundary", errors::uninterpretable_data{});
+					std::memcpy(dest.data(), bytes.data() + pos, dest.size());
+					pos += dest.size();
+				});
 			}
 	};
 
-	void parseRecordForSharedStrings(XLSBReader& xlsb_reader, XLSBReader::Record& record)
+	void parseRecordForSharedStrings(binary::reader& record_reader, XLSBReader::Record& record)
 	{
+		log_scope(record.m_type);
 		switch (record.m_type)
 		{
 			case XLSBReader::BRT_BEGIN_SST:
 			{
 				try
 				{
-					xlsb_reader.skipBytes(4);
-					uint32_t strings_count = 0;
-					xlsb_reader.readUint32(strings_count);
-					xlsb_content().m_shared_strings.reserve(strings_count);
+					// This record contains the total number of strings and the count of unique strings.
+					// We only need the total count to reserve space.
+					uint32_t total_strings;
+					total_strings = record_reader.read_little_endian<uint32_t>();
+					xlsb_content().m_shared_strings.reserve(total_strings);
 				}
 				catch (const std::exception& e)
 				{
@@ -317,7 +293,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 				{
 					xlsb_content().m_shared_strings.push_back(std::string());
 					std::string* new_string = &xlsb_content().m_shared_strings[xlsb_content().m_shared_strings.size() - 1];
-					xlsb_reader.readRichStr(*new_string);
+					*new_string = read_rich_str(record_reader);
 				}
 				catch (const std::exception& e)
 				{
@@ -328,10 +304,10 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 		}
 	}
 
-	void parseColumn(XLSBReader& xlsb_reader, std::string& text)
+	void parseColumn(binary::reader& record_reader, std::string& text)
 	{
-		uint32_t column;
-		xlsb_reader.readUint32(column);
+		log_scope();
+		uint32_t column = record_reader.read_little_endian<uint32_t>();
 		if (xlsb_content().m_current_column > 0)
 			text += "	";
 		while (column > xlsb_content().m_current_column)
@@ -339,19 +315,20 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 			text += "	";
 			++xlsb_content().m_current_column;
 		}
-		xlsb_reader.skipBytes(4);
+		record_reader.read_little_endian<uint32_t>(); // Skip xf_index
 		xlsb_content().m_current_column = column + 1;
 	}
 
-	void parseRecordForWorksheets(XLSBReader& xlsb_reader, XLSBReader::Record& record, std::string& text)
+	void parseRecordForWorksheets(binary::reader& record_reader, XLSBReader::Record& record, std::string& text)
 	{
+		log_scope(record.m_type);
 		switch (record.m_type)
 		{
 			case XLSBReader::BRT_CELL_BLANK:
 			{
 				try
 				{
-					parseColumn(xlsb_reader, text);
+					parseColumn(record_reader, text);
 				}
 				catch (const std::exception& e)
 				{
@@ -364,9 +341,8 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 			{
 				try
 				{
-					parseColumn(xlsb_reader, text);
-					uint32_t value;
-					xlsb_reader.readUint8(value);
+					parseColumn(record_reader, text);
+					uint8_t value = record_reader.read_little_endian<uint8_t>();
 					text += xlsb_content().m_error_codes[value];
 				}
 				catch (const std::exception& e)
@@ -380,9 +356,8 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 			{
 				try
 				{
-					parseColumn(xlsb_reader, text);
-					uint32_t value;
-					xlsb_reader.readUint8(value);
+					parseColumn(record_reader, text);
+					uint8_t value = record_reader.read_little_endian<uint8_t>();
 					if (value)
 						text += "1";
 					else
@@ -399,9 +374,9 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 			{
 				try
 				{
-					parseColumn(xlsb_reader, text);
+					parseColumn(record_reader, text);
 					double value;
-					xlsb_reader.readXnum(value);
+					value = record_reader.read_double_le();
 					std::ostringstream os;
 					os << value;
 					text += os.str();
@@ -417,8 +392,8 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 			{
 				try
 				{
-					parseColumn(xlsb_reader, text);
-					xlsb_reader.readXlWideString(text);
+					parseColumn(record_reader, text);
+					text += read_xl_wide_string(record_reader);
 				}
 				catch (const std::exception& e)
 				{
@@ -430,10 +405,10 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 			{
 				try
 				{
-					xlsb_reader.readUint32(xlsb_content().m_row_start);
-					xlsb_reader.readUint32(xlsb_content().m_row_end);
-					xlsb_reader.readUint32(xlsb_content().m_col_start);
-					xlsb_reader.readUint32(xlsb_content().m_col_end);
+					xlsb_content().m_row_start = record_reader.read_little_endian<uint32_t>();
+					xlsb_content().m_row_end = record_reader.read_little_endian<uint32_t>();
+					xlsb_content().m_col_start = record_reader.read_little_endian<uint32_t>();
+					xlsb_content().m_col_end = record_reader.read_little_endian<uint32_t>();
 				}
 				catch (const std::exception& e)
 				{
@@ -445,8 +420,9 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 			{
 				try
 				{
-					uint32_t row;
-					xlsb_reader.readUint32(row);
+					log_scope();
+					uint32_t row = record_reader.read_little_endian<uint32_t>();
+					log_entry(xlsb_content().m_current_row, row);
 					for (int i = xlsb_content().m_current_row; i < row; ++i)
 						text += "\n";
 					xlsb_content().m_current_row = row;
@@ -462,16 +438,12 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 			{
 				try
 				{
-					parseColumn(xlsb_reader, text);
-					double value;
-					bool is_int;
-					xlsb_reader.readRkNumber(value, is_int);
-					std::ostringstream os;
-					if (!is_int)
-						os << value;
+					parseColumn(record_reader, text);
+					rk_number rk = read_rk_number(record_reader);
+					if (rk.is_int)
+						text += stringify((int)rk.value);
 					else
-						os << (int)value;
-					text += os.str();
+						text += stringify(rk.value);
 				}
 				catch (const std::exception& e)
 				{
@@ -483,9 +455,8 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 			{
 				try
 				{
-					parseColumn(xlsb_reader, text);
-					uint32_t str_index;
-					xlsb_reader.readUint32(str_index);
+					parseColumn(record_reader, text);
+					uint32_t str_index = record_reader.read_little_endian<uint32_t>();
 					if (str_index >= xlsb_content().m_shared_strings.size())
 						emit_message(make_error_ptr("Detected reference to string that does not exist", str_index, xlsb_content().m_shared_strings.size()));
 					else
@@ -502,12 +473,13 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 	void parseSharedStrings(ZipReader& unzip)
 	{
+		log_scope();
 		XLSBReader::Record record;
 		std::string file_name = "xl/sharedStrings.bin";
 		if (!unzip.exists(file_name))
 		{
 			//file may not exist, nothing wrong is with that.
-			docwire_log(debug) << "File: " + file_name + " does not exist";
+			log_entry();
 			return;
 		}
 		XLSBReader xlsb_reader(unzip, file_name);
@@ -519,15 +491,16 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 			}
 			catch (const std::exception& e)
 			{
-				std::throw_with_nested(errors::impl{std::make_pair("file_name", "xl/sharedStrings.bin")});
+				std::throw_with_nested(make_error(std::make_pair("file_name", "xl/sharedStrings.bin")));
 			}
 			try
 			{
-				parseRecordForSharedStrings(xlsb_reader, record);
+				auto record_reader = xlsb_reader.record_reader(record.m_size);
+				parseRecordForSharedStrings(record_reader, record);
 			}
 			catch (const std::exception& e)
 			{
-				std::throw_with_nested(errors::impl{std::make_pair("file_name", "xl/sharedStrings.bin")});
+				std::throw_with_nested(make_error(std::make_pair("file_name", "xl/sharedStrings.bin")));
 			}
 		}
 		unzip.closeReadingFileForChunks();
@@ -535,6 +508,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 	void parseWorksheets(ZipReader& unzip, std::string& text)
 	{
+		log_scope();
 		XLSBReader::Record record;
 		int sheet_index = 1;
 		std::string sheet_file_name = "xl/worksheets/sheet1.bin";
@@ -553,7 +527,8 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 				}
 				try
 				{
-					parseRecordForWorksheets(xlsb_reader, record, text);
+					auto record_reader = xlsb_reader.record_reader(record.m_size);
+					parseRecordForWorksheets(record_reader, record, text);
 				}
 				catch (const std::exception& e)
 				{
@@ -571,6 +546,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 	void parseXLSB(ZipReader& unzip, std::string& text)
 	{
+		log_scope();
 		text.reserve(1024 * 1024);
 		throw_if (!unzip.loadDirectory(), "Error loading zip directory");
 		try
@@ -593,7 +569,7 @@ struct pimpl_impl<XLSBParser> : pimpl_impl_base
 
 	void readMetadata(ZipReader& unzip, attributes::Metadata& metadata)
 	{
-		docwire_log(debug) << "Extracting metadata.";
+		log_scope();
 		std::string data;
 		throw_if (!unzip.read("docProps/app.xml", &data), "Error reading docProps/app.xml", errors::uninterpretable_data{});
 		if (data.find("<TitlesOfParts>") != std::string::npos && data.find("</TitlesOfParts>") != std::string::npos)
@@ -682,7 +658,7 @@ attributes::Metadata pimpl_impl<XLSBParser>::metaData(ZipReader& unzip)
 
 void pimpl_impl<XLSBParser>::parse(const data_source& data, const message_callbacks& emit_message)
 {
-	docwire_log(debug) << "Using XLSB parser.";
+	log_scope(data);
 	scoped::stack_push<pimpl_impl<XLSBParser>::context> context_guard{m_context_stack, {emit_message}};
 	std::string text;
 	ZipReader unzip{data};

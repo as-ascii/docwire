@@ -14,10 +14,13 @@
 #include <boost/json.hpp>
 #include "error_tags.h"
 #include "input.h"
+#include "log_scope.h"
 #include "make_error.h"
 #include "output.h"
 #include "post.h"
 #include "ai_elements.h"
+#include "serialization_enum.h" // IWYU pragma: keep
+#include "serialization_message.h" // IWYU pragma: keep
 #include "throw_if.h"
 #include <sstream>
 
@@ -63,6 +66,7 @@ std::string model_to_string(embed::model model)
 
 std::string prepare_query(const std::string& input, embed::model model)
 {
+	log_scope(input, model);
 	boost::json::object query
 	{
 		{ "model", model_to_string(model) },
@@ -73,6 +77,7 @@ std::string prepare_query(const std::string& input, embed::model model)
 
 std::string post_request(const std::string& query, const std::string& api_key)
 {
+	log_scope(query);
 	std::ostringstream response_stream{};
 	try
 	{
@@ -89,6 +94,7 @@ std::string post_request(const std::string& query, const std::string& api_key)
 
 std::vector<double> parse_response(const std::string& response)
 {
+	log_scope(response);
 	try
 	{
 		boost::json::value response_val = boost::json::parse(response);
@@ -111,6 +117,7 @@ std::vector<double> parse_response(const std::string& response)
 
 continuation embed::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
+	log_scope(msg);
 	if (!msg->is<data_source>())
 		return emit_message(std::move(msg));
 	const data_source& data = msg->get<data_source>();

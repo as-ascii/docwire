@@ -1,6 +1,6 @@
 /*********************************************************************************************************************************************/
 /*  DocWire SDK: Award-winning modern data processing in C++20. SourceForge Community Choice & Microsoft support. AI-driven processing.      */
-/*  Supports nearly 100 data formats, including email boxes and OCR. Boost efficiency in text extraction, web data extraction, data mining,  */
+/*  Supports nearly 100 data formats, including email boxes and OCR. Boost efficiency in text extraction, web data extraction, data mining,  */ 
 /*  document analysis. Offline processing possible for security and confidentiality                                                          */
 /*                                                                                                                                           */
 /*  Copyright (c) SILVERCODERS Ltd, http://silvercoders.com                                                                                  */
@@ -9,26 +9,22 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOG_FILE_EXTENSION_H
-#define DOCWIRE_LOG_FILE_EXTENSION_H
+#ifndef DOCWIRE_SERIALIZATION_H
+#define DOCWIRE_SERIALIZATION_H
 
-#include "file_extension.h"
-#include "log.h"
+// IWYU pragma: begin_exports
+#include "serialization_base.h"
+#include "serialization_enum.h"
+#include "serialization_data_source.h"
+#include "serialization_document_elements.h"
+#include "serialization_exception.h"
+#include "serialization_file_extension.h"
+#include "serialization_filesystem.h"
+#include "serialization_message.h"
+#include "serialization_pair.h"
+#include "serialization_thread_id.h"
+#include "serialization_time.h"
+#include "serialization_typeindex.h"
+// IWYU pragma: end_exports
 
-namespace docwire
-{
-
-/**
-* @brief Logs the file extension to a record stream.
-*
-* @param log_stream The record stream to log to.
-*/
-inline log_record_stream& operator<<(log_record_stream& log_stream, const file_extension& ext)
-{
-	log_stream << docwire_log_streamable_obj(ext, ext.string());
-	return log_stream;
-}
-
-} // namespace docwire
-
-#endif // DOCWIRE_LOG_FILE_EXTENSION_H
+#endif // DOCWIRE_SERIALIZATION_H

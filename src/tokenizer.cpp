@@ -14,7 +14,8 @@
 #include <boost/json.hpp>
 #include "error_tags.h"
 #include <fstream>
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include <unordered_map>
 #include <optional>
 #include <sentencepiece_processor.h>
@@ -124,7 +125,7 @@ tokenizer::tokenizer(const std::filesystem::path& model_data_path)
 
 std::vector<std::string> tokenizer::tokenize(const std::string& input)
 {
-    docwire_log_func();
+    log_scope(input);
     std::vector<std::string> input_tokens;
     throw_if(!impl().m_processor.Encode(input, &input_tokens).ok(), errors::uninterpretable_data{});
     if (impl().m_tokenizer_config.tokenizer_class == "T5Tokenizer")
@@ -139,13 +140,13 @@ std::vector<std::string> tokenizer::tokenize(const std::string& input)
         throw_if(!impl().m_tokenizer_config.sep_token, errors::program_corrupted{});
         input_tokens.push_back(*impl().m_tokenizer_config.sep_token);
     }
-    docwire_log_var(input_tokens);
+    log_entry(input_tokens);
     return input_tokens;
 }
 
 std::vector<int> tokenizer::encode(const std::string& input)
 {
-    docwire_log_func();
+    log_scope(input);
 
     // 1. Get string tokens (this already includes special tokens from the tokenize method)
     const std::vector<std::string> tokens = this->tokenize(input);
@@ -160,13 +161,13 @@ std::vector<int> tokenizer::encode(const std::string& input)
         input_ids.push_back(it->second);
     }
 
-    docwire_log_var(input_ids);
+    log_entry(input_ids);
     return input_ids;
 }
 
 std::string tokenizer::detokenize(const std::vector<std::string>& output_tokens)
 {
-    docwire_log_func();
+    log_scope(output_tokens);
     std::string output;
     throw_if(!impl().m_processor.Decode(output_tokens, &output).ok(), errors::uninterpretable_data{});
     return output;

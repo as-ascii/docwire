@@ -19,9 +19,12 @@
 
 #include "mail_elements.h"
 #include "document_elements.h"
+#include "log_scope.h"
 #include "plain_text_writer.h"
 #include "error_tags.h"
 #include "misc.h"
+#include "serialization_document_elements.h" // IWYU pragma: keep
+#include "serialization_mail_elements.h" // IWYU pragma: keep
 #include "throw_if.h"
 
 namespace docwire
@@ -184,6 +187,7 @@ struct pimpl_impl<PlainTextWriter> : pimpl_impl_base
   std::shared_ptr<TextElement>
   write_mail(const mail::Mail& mail)
   {
+    log_scope(mail);
     std::string text = "";
     if (mail.level)
     {
@@ -204,6 +208,7 @@ struct pimpl_impl<PlainTextWriter> : pimpl_impl_base
   std::shared_ptr<TextElement>
   write_attachment(const mail::Attachment& attachment)
   {
+    log_scope(attachment);
     std::string text = "attachment: " + m_eol_sequence + m_eol_sequence;
     if (attachment.name)
     {
@@ -215,6 +220,7 @@ struct pimpl_impl<PlainTextWriter> : pimpl_impl_base
   std::shared_ptr<TextElement>
   write_folder(const mail::Folder& folder)
   {
+    log_scope(folder);
     std::string text = "";
     if (folder.level)
     {
@@ -231,30 +237,35 @@ struct pimpl_impl<PlainTextWriter> : pimpl_impl_base
   std::shared_ptr<TextElement>
   write_text(const document::Text& text)
   {
+    log_scope(text);
     return std::make_shared<TextElement>(text.text);
   }
 
   std::shared_ptr<TextElement>
   write_close_mail_body(const mail::CloseMailBody&)
   {
+    log_scope();
     return std::make_shared<TextElement>(m_eol_sequence);
   }
 
   std::shared_ptr<TextElement>
   write_close_attachment(const mail::CloseAttachment&)
   {
+    log_scope();
     return std::make_shared<TextElement>(m_eol_sequence);
   }
 
   std::shared_ptr<TextElement>
   write_new_line(const document::BreakLine&)
   {
+    log_scope();
     return std::make_shared<TextElement>(m_eol_sequence);
   }
 
   std::shared_ptr<TextElement>
   write_new_paragraph(const document::CloseParagraph&)
   {
+    log_scope();
     if (list_mode)
     {
       return std::make_shared<TextElement>("");
@@ -265,6 +276,7 @@ struct pimpl_impl<PlainTextWriter> : pimpl_impl_base
   std::shared_ptr<TextElement>
   write_image(const document::Image& image)
   {
+    log_scope(image);
     std::string text;
     if (image.structured_content_streamer)
     {
@@ -294,18 +306,21 @@ struct pimpl_impl<PlainTextWriter> : pimpl_impl_base
   std::shared_ptr<TextElement>
   turn_on_table_mode(const document::Table&)
   {
+    log_scope();
     return std::make_shared<TextElement>("");
   }
 
   std::shared_ptr<TextElement>
   turn_off_table_mode(const document::CloseTable&)
   {
+    log_scope();
     return std::make_shared<TextElement>("");
   }
 
   std::shared_ptr<TextElement>
   write_list(const document::List& list)
   {
+    log_scope(list);
     list_mode = true;
     list_counter = 1;
     list_type = list.type;
@@ -315,6 +330,7 @@ struct pimpl_impl<PlainTextWriter> : pimpl_impl_base
   std::shared_ptr<TextElement>
   write_close_list(const document::CloseList&)
   {
+    log_scope();
     list_mode = false;
     list_counter = 1;
     return std::make_shared<TextElement>("");
@@ -323,6 +339,7 @@ struct pimpl_impl<PlainTextWriter> : pimpl_impl_base
   std::shared_ptr<TextElement>
   write_list_item(const document::ListItem&)
   {
+    log_scope();
     if (list_type == "none")
       return std::make_shared<TextElement>("");
     else if (list_type == "decimal")
@@ -336,6 +353,7 @@ struct pimpl_impl<PlainTextWriter> : pimpl_impl_base
   std::shared_ptr<TextElement>
   write_close_list_item(const document::CloseListItem&)
   {
+    log_scope();
     ++list_counter;
     return std::make_shared<TextElement>(m_eol_sequence);
   }
@@ -343,6 +361,7 @@ struct pimpl_impl<PlainTextWriter> : pimpl_impl_base
 	std::shared_ptr<TextElement>
 	write_comment(const document::Comment& comment)
 	{
+		log_scope(comment);
 		std::string text = m_eol_sequence + "[[[";
 		if (comment.author)
 		{
@@ -368,17 +387,20 @@ struct pimpl_impl<PlainTextWriter> : pimpl_impl_base
 	std::shared_ptr<TextElement> write_header(const document::Header&)
 	{
 		header_mode = true;
+		log_scope();
 		return std::make_shared<TextElement>("");
 	}
 
 	std::shared_ptr<TextElement> write_close_header(const document::CloseHeader&)
 	{
+    log_scope();
 		header_mode = false;
 		return std::make_shared<TextElement>(m_eol_sequence);
 	}
 
 	std::shared_ptr<TextElement> write_footer(const document::Footer&)
 	{
+    log_scope();
 		footer_mode = true;
 		footer_stream.str("");
 		return std::make_shared<TextElement>("");
@@ -386,6 +408,7 @@ struct pimpl_impl<PlainTextWriter> : pimpl_impl_base
 
 	std::shared_ptr<TextElement> write_close_footer(const document::CloseFooter&)
 	{
+    log_scope();
 		footer_mode = false;
 		return std::make_shared<TextElement>("");
 	}
@@ -393,11 +416,13 @@ struct pimpl_impl<PlainTextWriter> : pimpl_impl_base
 	std::shared_ptr<TextElement>
 	write_close_page(const document::ClosePage&)
 	{
+		log_scope();
 		return std::make_shared<TextElement>(m_eol_sequence);
 	}
 
 	std::shared_ptr<TextElement> write_close_document(const document::CloseDocument&)
 	{
+		log_scope();
 		std::string footer = footer_stream.str();
 		if (!footer.empty())
 			footer += m_eol_sequence;

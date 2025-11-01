@@ -28,7 +28,7 @@ class DOCWIRE_XML_EXPORT XmlStream : public with_pimpl<XmlStream>
 		void next();
 		void levelDown();
 		void levelUp();
-		char* content();
+		std::string content();
 		std::string name();
 		std::string fullName();
 		std::string stringValue();

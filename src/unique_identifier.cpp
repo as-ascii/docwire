@@ -9,22 +9,9 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOG_DATA_SOURCE_H
-#define DOCWIRE_LOG_DATA_SOURCE_H
-
-#include "data_source.h"
-#include "log.h"
-#include "log_file_extension.h" // IWYU pragma: keep
+#include "unique_identifier.h"
 
 namespace docwire
 {
-
-inline log_record_stream& operator<<(log_record_stream& log_stream, const data_source& data)
-{
-	log_stream << docwire_log_streamable_obj(data, data.path(), data.file_extension());
-	return log_stream;
+    std::atomic<size_t> unique_identifier::m_counter{0};
 }
-
-} // namespace docwire
-
-#endif // DOCWIRE_LOG_DATA_SOURCE_H

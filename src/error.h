@@ -13,39 +13,13 @@
 #define DOCWIRE_ERROR_H
 
 #include "core_export.h"
+#include "diagnostic_context.h" // IWYU pragma: keep
 #include <exception>
-#include <string>
+#include "serialization_pair.h" // IWYU pragma: keep
 #include "stringification.h"
-#if __has_include(<source_location>) && (!defined(__clang__) || __clang_major__ >= 16) // https://github.com/llvm/llvm-project/issues/56379
-	#define USE_STD_SOURCE_LOCATION 1
-#else
-	#warning "Cannot use std::source_location"
-	#define USE_STD_SOURCE_LOCATION 0
-#endif
-#if USE_STD_SOURCE_LOCATION
-	#include <source_location>
-#else
-	#include <boost/assert/source_location.hpp>
-#endif
+#include "source_location.h"
+#include <tuple>
 #include <utility>
-
-template <typename T1, typename T2>
-struct docwire::stringifier<std::pair<T1, T2>>
-{
-	std::string operator()(const std::pair<T1, T2>& pair) const
-	{
-		return stringify(pair.first) + ": " + stringify(pair.second);
-	}
-};
-
-template <>
-struct docwire::stringifier<std::exception>
-{
-	std::string operator()(const std::exception& e) const
-	{
-		return e.what();
-	}
-};
 
 /**
  * @brief Provides features for reporting and handling errors with context data using nested exceptions.
@@ -53,18 +27,6 @@ struct docwire::stringifier<std::exception>
  */
 namespace docwire::errors
 {
-
-#if USE_STD_SOURCE_LOCATION
-	using source_location = std::source_location;
-	#define DOCWIRE_CURRENT_LOCATION() std::source_location::current()
-#else
-	using source_location = boost::source_location;
-	#if !defined(__clang__) // https://github.com/llvm/llvm-project/issues/56379
-		#define DOCWIRE_CURRENT_LOCATION() BOOST_CURRENT_LOCATION
-	#else
-		#define DOCWIRE_CURRENT_LOCATION() boost::source_location(__builtin_FILE(), __builtin_LINE(), __builtin_FUNCTION(), __builtin_COLUMN())
-	#endif
-#endif
 #ifdef DOCWIRE_ENABLE_SHORT_MACRO_NAMES
 	#define current_location DOCWIRE_CURRENT_LOCATION
 #endif
@@ -94,10 +56,13 @@ namespace docwire::errors
  * try {
  * 	// SDK code that may throw an error
  * } catch (const docwire::errors::base& e) {
- *  std::cerr << e.what() << std::endl; // Print only the type name of the exception
- *  std::cerr << e.context_type().name() << std::endl; // Print the context information type name
- *  std::cerr << e.context_string() << std::endl; // Print the context information stringified
- *  std::cerr << errors::diagnostic_message(e) << std::endl; // Print the diagnostic message including nested exceptions
+ *  std::cerr << "Exception type: " << e.what() << std::endl;
+ *  // Manually inspect context items:
+ *  for (size_t i = 0; i < e.context_count(); ++i) {
+ *      std::cerr << "  Context item " << i << ": " << e.context_string(i) << std::endl;
+ *  }
+ *  // Or print the full, user-friendly diagnostic message:
+ *  std::cerr << errors::diagnostic_message(e) << std::endl;
  * }
  * @endcode
  *
@@ -108,33 +73,38 @@ namespace docwire::errors
  */
 struct DOCWIRE_CORE_EXPORT base : public std::exception
 {
-	/**
-	 * @brief The source location where the exception was thrown.
-	 */
-	errors::source_location source_location;
+	/// @brief The source location where the exception was thrown.
+	source_location location;
 
 	/**
 	 * @brief Constructs a base object with the current source location.
 	 *
 	 * @param location The source location of the exception (initialized by current location by default).
 	 */
-	base(const errors::source_location& location);
+	base(const source_location& location = source_location::current());
 
 	/**
 	 * @brief Get the type information of the context.
 	 *
-	 * @return The type information of the context.
+	 * @param index The index of the context item.
+	 * @return The type information of the context item at the given index.
 	 * @see context_string
 	 */
-	virtual std::type_info const& context_type() const noexcept = 0;
+	virtual std::type_info const& context_type(size_t index) const noexcept = 0;
 
 	/**
 	 * @brief Get the string representation of the context.
 	 *
-	 * @return The string representation of the context.
+	 * @param index The index of the context item.
+	 * @return The string representation of the context item at the given index.
 	 * @see context_type
 	 */
-	virtual std::string context_string() const = 0;
+	virtual std::string context_string(size_t index) const = 0;
+
+	/**
+	 * @brief Get the number of context items.
+	 */
+	virtual size_t context_count() const noexcept = 0;
 
 	/**
 	 * @brief Get the exception type.
@@ -149,85 +119,113 @@ struct DOCWIRE_CORE_EXPORT base : public std::exception
 };
 
 /**
- * @brief Implementation of the error class for a specific context type.
+ * @brief Implementation of the error class for a variadic number of context items.
  *
  * This class is used to throw exceptions with additional context information.
- * It provides a way to throw exceptions with a specific context type, such as:
+ * It can store multiple context items of different types.
  *
  * @code
- * throw errors::impl{"message"}
- * throw errors::impl{errors::network_failure{}}
- * throw errors::impl{std::pair<"key", "value"}}
+ * // It is recommended to use the make_error macro instead of constructing impl directly.
+ * throw make_error("A simple error message");
+ *
+ * std::string file_path = "/path/to/file";
+ * throw make_error("File not found", errors::file_not_found{}, file_path);
  * @endcode
  *
- * The error::impl template can be used directly, but the make_error macro offers more features,
- * such as stringification of expressions.
+ * While the `errors::impl` template can be used directly, it is strongly recommended to use the `make_error`
+ * macro, which correctly handles context creation and source location capture.
  *
- * The class stores an instance of the context type and provides methods to get the type and string
- * representation of the context.
+ * The class stores the context items in a tuple and provides methods to access them by index.
  *
- * @tparam T The type of the context.
+ * @tparam T The types of the context items.
  *
  * @see errors::base
  * @see errors::make_error
  * @see errors::diagnostic_message
  * @see @ref handling_errors_and_warnings.cpp "handling errors and warnings example"
  */
-template <typename T>
+template <typename... T>
 struct impl : public base
 {
-	T context;
+private:
+    template<size_t I>
+    std::string context_string_impl() const
+    {
+        return stringify(std::get<I>(context));
+    }
+
+    template<size_t I>
+    const std::type_info& context_type_impl() const noexcept
+    {
+        return typeid(std::get<I>(context));
+    }
+
+    template <size_t... Is>
+    std::string context_string_at(size_t index, std::index_sequence<Is...>) const {
+        using FuncType = std::string(impl::*)() const;
+        static constexpr FuncType funcs[] = { &impl::template context_string_impl<Is>... };
+        return (this->*funcs[index])();
+    }
+
+    template <size_t... Is>
+    const std::type_info& context_type_at(size_t index, std::index_sequence<Is...>) const noexcept {
+        using FuncType = const std::type_info&(impl::*)() const noexcept;
+        static constexpr FuncType funcs[] = { &impl::template context_type_impl<Is>... };
+        return (this->*funcs[index])();
+    }
+
+public:
+	/**
+	 * @brief A tuple holding all context items provided when the error was created.
+	 */
+	std::tuple<T...> context;
 	
 	/**
-	 * @brief Constructor for the impl class.
+	 * @brief Constructs an error object from a tuple of context items.
 	 *
-	 * @param context The context to be stored.
+	 * @param context_tuple A tuple containing the context to be stored.
 	 * @param location The source location of the exception (initialized by current location by default).
 	 */
-	impl(const T& context, const errors::source_location& location = DOCWIRE_CURRENT_LOCATION())
-		: base(location), context(context)
+	explicit impl(const std::tuple<T...>& context_tuple, const source_location& location = source_location::current())
+		: base(location), context(context_tuple)
 	{
 	}
 
 	/**
 	 * @brief Get the type information of the context.
 	 *
-	 * @return The type information of the context.
+	 * @param index The index of the context item.
+	 * @return The type information of the context item at the given index.
 	 * @see context_string
 	 * @see context
 	 */
-	std::type_info const& context_type() const noexcept override
+	std::type_info const& context_type(size_t index) const noexcept override
 	{
-		return typeid(T);
+		return context_type_at(index, std::make_index_sequence<sizeof...(T)>{});
 	}
 
 	/**
 	 * @brief Get the string representation of the context.
 	 *
-	 * The method attempts to convert the context to a string using various methods,
-	 * depending on the type T.
-	 *
-	 * @return The string representation of the context.
+	 * @param index The index of the context item.
+	 * @return The string representation of the context item at the given index.
 	 * @see context_type
 	 * @see context
 	 */
-	std::string context_string() const override
+	std::string context_string(size_t index) const override
 	{
-		return stringify(context);
+		return context_string_at(index, std::make_index_sequence<sizeof...(T)>{});
+	}
+
+	/**
+	 * @brief Get the number of context items.
+	 * @return The number of context items stored in this error object.
+	 */
+	size_t context_count() const noexcept override
+	{
+		return sizeof...(T);
 	}
 };
-
-template <typename T>
-std::pair<std::string, T> convert_to_context(const std::string& name, const T& v)
-{
-	return std::pair<std::string, T>{name, v};
-}
-
-template <size_t N>
-const char* convert_to_context(const std::string& name, const char (&v)[N])
-{
-	return v;
-}
 
 } // namespace docwire::errors
 

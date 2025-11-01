@@ -41,9 +41,9 @@ struct std::hash<docwire::errors::base>
 	size_t operator()(const docwire::errors::base& e) const noexcept
 	{
 		size_t hash = 0;
-		boost::hash_combine(hash, std::string_view{e.source_location.file_name()});
-		boost::hash_combine(hash, e.source_location.line());
-		boost::hash_combine(hash, e.source_location.column());
+		boost::hash_combine(hash, std::string_view{e.location.file_name()});
+		boost::hash_combine(hash, e.location.line());
+		boost::hash_combine(hash, e.location.column());
     	try
 		{
     		std::rethrow_if_nested(e);

@@ -12,8 +12,8 @@
 #include "charset_converter.h"
 
 #include <cstring>
-#include <iconv.h>
 #include <mutex>
+#include <iconv.h>
 #include "throw_if.h"
 
 namespace docwire
@@ -22,47 +22,94 @@ namespace docwire
 template<>
 struct pimpl_impl<charset_converter> : pimpl_impl_base
 {
-	iconv_t descriptor;
-};
-
-namespace
-{
-	std::mutex iconv_mutex;	
-} // anonymous namespace
-
-	charset_converter::charset_converter(const std::string &from, const std::string &to)
+	struct iconv_descriptor
 	{
-		std::lock_guard<std::mutex> mutex_lock(iconv_mutex);
-		impl().descriptor = iconv_open(to.c_str(), from.c_str());
-		throw_if(impl().descriptor == (iconv_t)(-1), "iconv_open() failed", strerror(errno), from, to);
-	}
-	
-	charset_converter::~charset_converter()
-	{
-		std::lock_guard<std::mutex> mutex_lock(iconv_mutex);
-		iconv_close(impl().descriptor);
-	}
-	
-	std::string charset_converter::convert(const std::string &input)
-	{	
-		size_t output_max_size = 2 * input.length();
-		std::unique_ptr<char[]> output{new char[output_max_size]};
+		iconv_t descriptor;
 
-		const char* inbuf = input.c_str();
-		size_t inbytesleft = input.length();
-		char* outbuf = output.get();
-		size_t outbytesleft = output_max_size;
-	
-		std::lock_guard<std::mutex> mutex_lock(iconv_mutex);
-		for(;;)
+		// The glibc implementation of iconv_open is not entirely thread-safe.
+		// It can race on its internal cache of gconv modules. To prevent this,
+		// we must serialize all calls to iconv_open across all threads.
+		// This mutex is global and static to ensure that only one thread
+		// can be inside iconv_open at any given time. The performance impact
+		// is minimal as this lock is only taken once per thread during the
+		// first-time initialization of a charset_converter.
+		static std::mutex iconv_open_mutex;
+
+		iconv_descriptor(const std::string& from, const std::string& to)
 		{
-			size_t result = iconv(impl().descriptor, const_cast<char**>(&inbuf), &inbytesleft, &outbuf, &outbytesleft);
-			if (result == 0) break;
-			throw_if(result == (size_t)-1 && errno == E2BIG, "iconv() failed", strerror(errno));
-			inbuf++; inbytesleft--;
+			std::lock_guard<std::mutex> lock(iconv_open_mutex);
+			descriptor = iconv_open(to.c_str(), from.c_str());
+			throw_if(descriptor == (iconv_t)(-1), "iconv_open() failed", strerror(errno), from, to);
 		}
 
-		return std::string{output.get(), output_max_size - outbytesleft};
+		~iconv_descriptor()
+		{
+			if (descriptor != (iconv_t)(-1))
+				iconv_close(descriptor);
+		}
+
+		// iconv_t is a raw C handle, so copying or moving it without proper semantics is unsafe.
+		iconv_descriptor(const iconv_descriptor&) = delete;
+		iconv_descriptor& operator=(const iconv_descriptor&) = delete;
+		iconv_descriptor(iconv_descriptor&&) = delete;
+		iconv_descriptor& operator=(iconv_descriptor&&) = delete;
+	};
+
+	pimpl_impl(const std::string& from, const std::string& to)
+		: m_descriptor(from, to)
+	{}
+
+	iconv_descriptor m_descriptor;
+};
+
+std::mutex pimpl_impl<charset_converter>::iconv_descriptor::iconv_open_mutex;
+
+charset_converter::charset_converter(const std::string &from, const std::string &to)
+	: with_pimpl<charset_converter>(from, to)
+{
+}
+
+charset_converter::~charset_converter() = default;
+
+std::string charset_converter::convert(std::string_view input) const
+{	
+	if (input.empty())
+		return "";
+
+	// iconv API is not const-correct for the input buffer.
+	const char* inptr = input.data();
+	size_t inbytesleft = input.length();
+
+	iconv_t descriptor = impl().m_descriptor.descriptor;
+	// Reset descriptor to its initial state for a new conversion.
+	iconv(descriptor, nullptr, nullptr, nullptr, nullptr);
+
+	// A reasonable starting point for most conversions. UTF-8 can take up to 4 bytes per character.
+	size_t output_size = input.length() * 2;
+	std::string output(output_size, '\0');
+	size_t total_written = 0;
+
+	while (inbytesleft > 0)
+	{
+		char* outptr = output.data() + total_written;
+		size_t outbytesleft = output.size() - total_written;
+
+		size_t result = iconv(descriptor, const_cast<char**>(&inptr), &inbytesleft, &outptr, &outbytesleft);
+		total_written = output.size() - outbytesleft;
+
+		if (result == (size_t)-1)
+		{
+			if (errno == E2BIG) // Output buffer is full.
+			{
+				// Double the buffer size and continue.
+				output.resize(output.size() * 2);
+			}
+			else // A non-recoverable error occurred.
+				throw make_error("iconv() failed", strerror(errno));
+		}
 	}
+	output.resize(total_written);
+	return output;
+}
 
 } // namespace docwire

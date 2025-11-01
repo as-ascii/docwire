@@ -13,7 +13,7 @@
 #define DOCWIRE_ERROR_TAGS_H
 
 #include "core_export.h"
-#include <string>
+#include <string_view>
 
 namespace docwire::errors
 {
@@ -38,7 +38,7 @@ namespace docwire::errors
  */
 struct DOCWIRE_CORE_EXPORT program_logic
 {
-	std::string string() const;
+	static constexpr std::string_view string() { return "program logic error tag"; }
 };
 
 /**
@@ -62,7 +62,7 @@ struct DOCWIRE_CORE_EXPORT program_logic
  */
 struct DOCWIRE_CORE_EXPORT program_corrupted
 {
-	std::string string() const;
+	static constexpr std::string_view string() { return "program corrupted error tag"; }
 };
 
 /**
@@ -86,7 +86,7 @@ struct DOCWIRE_CORE_EXPORT program_corrupted
  */
 struct DOCWIRE_CORE_EXPORT uninterpretable_data
 {
-	std::string string() const;
+	static constexpr std::string_view string() { return "uninterpretable data error tag"; }
 };
 
 /**
@@ -110,7 +110,7 @@ struct DOCWIRE_CORE_EXPORT uninterpretable_data
  */
 struct DOCWIRE_CORE_EXPORT network_failure
 {
-	std::string string() const;
+	static constexpr std::string_view string() { return "network failure error tag"; }
 };
 
 /**
@@ -132,18 +132,8 @@ struct DOCWIRE_CORE_EXPORT network_failure
  */
 struct DOCWIRE_CORE_EXPORT file_encrypted
 {
-	std::string string() const;
+	static constexpr std::string_view string() { return "file encrypted error tag"; }
 };
-
-template <typename T>
-concept error_tag = std::same_as<T, program_logic> || std::same_as<T, program_corrupted> ||
-	std::same_as<T, uninterpretable_data> || std::same_as<T, network_failure> || std::same_as<T, file_encrypted>;
-
-template <error_tag T>
-inline T convert_to_context(const std::string& name, const T& v)
-{
-	return v;
-}
 
 } // namespace docwire::errors
 

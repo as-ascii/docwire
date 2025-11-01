@@ -15,7 +15,8 @@
 #include "data_stream.h"
 #include "data_source.h"
 #include "error_tags.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include <map>
 #include "misc.h"
 #include <mutex>
@@ -24,6 +25,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "serialization_data_source.h" // IWYU pragma: keep
+#include "serialization_enum.h" // IWYU pragma: keep
+#include "serialization_time.h" // IWYU pragma: keep
+#include "stringification.h"
 #include <time.h>
 #include "throw_if.h"
 #include "wv2/src/textconverter.h"
@@ -42,6 +47,7 @@ namespace
 
 long parseNumber(DataStream& data_stream)
 {
+	log_scope();
 	int ch;
 	int count = 0;
 	char buf[RTFARGSMAXLEN + 1];
@@ -60,6 +66,7 @@ long parseNumber(DataStream& data_stream)
 
 int parseCharCode(DataStream& data_stream)
 {
+	log_scope();
 	int ch;
 	int count = 0;
 	char buf[RTFARGSMAXLEN + 1];
@@ -161,8 +168,8 @@ RTFStringCommand rtf_commands[] =
 	{ "tab", RTF_TAB}, 
 	{ "emdash", RTF_EMDASH},
 	{ "endash", RTF_ENDASH},
-	{ "emspace", RTF_EMDASH},
-	{ "enspace", RTF_ENDASH},
+	{ "emspace", RTF_EMSPACE},
+	{ "enspace", RTF_ENSPACE},
 	{ "bullet", RTF_BULLET}, 
 	{ "lquote", RTF_LQUOTE},
 	{ "rquote", RTF_RQUOTE},
@@ -201,6 +208,7 @@ struct RTFParserState
 
 RTFCommand commandNameToEnum(char* name)
 {
+	log_scope(name);
 	for (int i = 0; i < sizeof(rtf_commands) / sizeof(RTFStringCommand); i++)
 	{
 		if (strcmp(name, rtf_commands[i].name) == 0)
@@ -211,6 +219,7 @@ RTFCommand commandNameToEnum(char* name)
 
 bool parseCommand(DataStream& data_stream, RTFCommand& cmd, long int& arg)
 {
+	log_scope();
 	char name[RTFNAMEMAXLEN + 1];
 
 	int ch = data_stream.getc();
@@ -252,12 +261,13 @@ bool parseCommand(DataStream& data_stream, RTFCommand& cmd, long int& arg)
 			arg = ch;
 		}
 	}
-	docwire_log(debug) << "[cmd: " << name << " (" << arg << ")]";
+	log_entry(name, arg);
 	return true;
 }
 
 std::string codepage_to_encoding(int codepage)
 {
+	log_scope(codepage);
 	char encoding[7];
 	snprintf(encoding, 7, "CP%i", codepage);
 	return encoding;
@@ -265,6 +275,7 @@ std::string codepage_to_encoding(int codepage)
 
 std::string win_charset_to_encoding(long int win_charset)
 {
+	log_scope(win_charset);
 	long int codepage = 1250;
 	switch (win_charset)
 	{
@@ -293,6 +304,7 @@ std::string win_charset_to_encoding(long int win_charset)
 
 void parse_dttm_time(int dttm, tm& tm)
 {
+	log_scope(dttm);
 	tm.tm_sec = 0;
 	tm.tm_min = dttm & 0x0000003F;
 	dttm >>= 6;
@@ -308,9 +320,12 @@ void parse_dttm_time(int dttm, tm& tm)
 void execCommand(DataStream& data_stream, UString& text, int& skip, RTFParserState& state, RTFCommand cmd, long int arg,
 	TextConverter*& converter, const std::function<void(std::exception_ptr)>& non_fatal_error_handler)
 {
+	log_scope(cmd, arg);
 	switch (cmd)
 	{
 		case RTF_SPEC_CHAR:
+		{
+			log_scope();
 			if (arg == '*' && skip == 0)
 				skip = state.groups.size() - 1;
 			else if (arg == '\r' || arg == '\n') // the same as \para command
@@ -320,35 +335,70 @@ void execCommand(DataStream& data_stream, UString& text, int& skip, RTFParserSta
 			else if (arg == '-')
 				text += UString((UChar)0xAD); /* Optional hyphen */
 			break;
+		}
 		case RTF_EMDASH:
+		{
+			log_scope();
 			text += UString((UChar)0x2014);
 			break;
-		case RTF_ENDASH: 
+		}
+		case RTF_ENDASH:
+		{
+			log_scope();
 			text += UString((UChar)0x2013);
 			break;
-		case RTF_BULLET: 
+		}
+		case RTF_BULLET:
+		{
+			log_scope();
 			text += UString((UChar)0x2022);
 			break;
+		}
 		case RTF_LQUOTE:
+		{
+			log_scope();
 			text += UString((UChar)0x2018);
 			break;
+		}
 		case RTF_RQUOTE:
+		{
+			log_scope();
 			text += UString((UChar)0x2019);
 			break;
+		}
 		case RTF_LDBLQUOTE:
+		{
+			log_scope();
 			text += UString((UChar)0x201C);
 			break;
+		}
 		case RTF_RDBLQUOTE:
+		{
+			log_scope();
 			text += UString((UChar)0x201D);
 			break;
+		}
 		case RTF_ZWNONJOINER:
+		{
+			log_scope();
 			text += UString((UChar)0xfeff);
 			break;
+		}
 		case RTF_EMSPACE:
-		case RTF_ENSPACE:
+		{
+			log_scope();
 			text += UString(' ');
 			break;
+		}
+		case RTF_ENSPACE:
+		{
+			log_scope();
+			text += UString(' ');
+			break;
+		}
 		case RTF_CHAR:
+		{
+			log_scope();
 			if (skip == 0)
 			{
 				if (converter != NULL)
@@ -357,13 +407,22 @@ void execCommand(DataStream& data_stream, UString& text, int& skip, RTFParserSta
 					text += UString((UChar)arg);
 			}
 			break;
+		}
 		case RTF_UC:
+		{
+			log_scope();
 			state.groups.top().uc = arg;
 			break;
+		}
 		case RTF_TAB:
+		{
+			log_scope();
 			text += UString((UChar)0x0009);
 			break;
+		}
 		case RTF_UNICODE_CHAR:
+		{
+			log_scope();
 			if (arg < 0)
 				break;
 			if (skip == 0)
@@ -379,22 +438,35 @@ void execCommand(DataStream& data_stream, UString& text, int& skip, RTFParserSta
 				}
 			}
 			break;
+		}
 		case RTF_PARA:
+		{
+			log_scope();
 			text += UString("\n");
 			break;
+		}
 		case RTF_CELL:
+		{
+			log_scope();
 			text += UString("\n");
 			break;
+		}
 		case RTF_FLDINST:
+		{
+			log_scope();
 			state.groups.top().destination = destination_type::fldinst;
 			state.fldinst_text = "";
 			skip = 0;
 			break;
+		}
 		case RTF_FLDRSLT:
+		{
+			log_scope();
 			state.groups.top().destination = destination_type::fldrslt;
 			state.fldrslt_text = "";
 			skip = 0;
 			break;
+		}
 		case RTF_PICT:
 		case RTF_FONTTBL:
 		case RTF_INFO:
@@ -405,20 +477,30 @@ void execCommand(DataStream& data_stream, UString& text, int& skip, RTFParserSta
 		case RTF_RSIDTBL:
 		case RTF_GENERATOR:
 		case RTF_DATAFIELD:
+		{
+			log_scope();
 			if (skip == 0)
 				skip = state.groups.size() - 1;
 			break;
+		}
 		case RTF_LANG:
+		{
+			log_scope();
 			break;
+		}
 		case RTF_LINE:
+		{
+			log_scope();
 			text += UString("\n");
 			break;
+		}
 		case RTF_CODEPAGE:
-			docwire_log(debug) << "Initializing converter for codepage " << arg;
+		{
+			log_scope(arg);
 			converter = new TextConverter(codepage_to_encoding(arg));
 			if (converter->isOk())
 			{
-				docwire_log(debug) << "Converter initialized.";
+				log_entry();
 			}
 			else
 			{
@@ -427,29 +509,37 @@ void execCommand(DataStream& data_stream, UString& text, int& skip, RTFParserSta
 				converter = NULL;
 			}
 			break;
+		}
 		case RTF_FONT_CHARSET:
-			docwire_log(debug) << "Setting win charset " << arg << " for font number " << state.last_font_ref_num;
+		{
+			log_scope(arg, state.last_font_ref_num);
 			state.font_table[state.last_font_ref_num] = win_charset_to_encoding(arg);
 			break;
+		}
 		case RTF_F:
+		{
+			log_scope();
 			if (state.font_table.find(arg) != state.font_table.end())
 			{
-				docwire_log(debug) << "Font number " << arg << " referenced. Setting converter for encoding " << state.font_table[arg];
+				log_entry(arg, state.font_table[arg]);
 				if (converter != NULL)
 					converter->setFromCode(state.font_table[arg]);
 			}
 			else
 				state.last_font_ref_num = arg;
 			break;
-
+		}
 		case RTF_ANNOTATION:
+		{
+			log_scope();
 			state.groups.top().destination = destination_type::annotation;
 			state.annotation_text = "";
 			skip = 0;
 			break;
-
+		}
 		case RTF_ATNDATE:
 		{
+			log_scope();
 			char ch;
 			std::string s;
 			while (isdigit(ch = data_stream.getc()) && !data_stream.eof())
@@ -459,9 +549,9 @@ void execCommand(DataStream& data_stream, UString& text, int& skip, RTFParserSta
 			parse_dttm_time(str_to_int(s), state.annotation_time);
 			break;
 		}
-
 		case RTF_ATNAUTHOR:
 		{
+			log_scope();
 			state.author_of_next_annotation = "";
 			char ch;
 			while ((ch = data_stream.getc()) != '}' && !data_stream.eof())
@@ -479,7 +569,7 @@ attributes::Metadata extract_rtf_metadata(const data_source& data); // Forward d
 
 void parse_rtf_content(const data_source& data, const message_callbacks& emit_message)
 {
-	docwire_log(debug) << "Using RTF parser.";
+	log_scope(data);
 	UString text;
 	std::span<const std::byte> span = data.span();
 	auto stream = std::make_unique<BufferStream>(reinterpret_cast<const char*>(span.data()), span.size());
@@ -538,7 +628,7 @@ void parse_rtf_content(const data_source& data, const message_callbacks& emit_me
 					destination_type destination = state.groups.top().destination;
 					state.groups.pop();
 					if (destination == destination_type::annotation && state.groups.top().destination != destination_type::annotation)
-						emit_message(document::Comment{.author = state.author_of_next_annotation, .time = date_to_string(state.annotation_time), .comment = ustring_to_string(state.annotation_text)});
+						emit_message(document::Comment{.author = state.author_of_next_annotation, .time = stringify(state.annotation_time), .comment = ustring_to_string(state.annotation_text)});
 					else if (destination == destination_type::fldinst)
 					{
 					}
@@ -624,6 +714,7 @@ void parse_rtf_content(const data_source& data, const message_callbacks& emit_me
 
 bool parse_rtf_time(const std::string& s, tm& time)
 {
+	log_scope(s);
 	time = tm();
 	size_t p2 = s.find("\\yr");
 	if (p2 != std::string::npos)
@@ -660,8 +751,8 @@ bool parse_rtf_time(const std::string& s, tm& time)
 
 attributes::Metadata extract_rtf_metadata(const data_source& data)
 {	
+	log_scope(data);
 	attributes::Metadata meta;
-	docwire_log(debug) << "Extracting metadata.";
 	std::string content = data.string();
 	size_t p = content.find("\\author ");
 	if (p != std::string::npos)

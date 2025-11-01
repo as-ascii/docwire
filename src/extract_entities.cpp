@@ -11,7 +11,8 @@
 
 #include "extract_entities.h"
 
-#include "log.h"
+#include "log_scope.h"
+#include "serialization_enum.h" // IWYU pragma: keep
 
 namespace docwire
 {
@@ -21,7 +22,7 @@ namespace openai
 ExtractEntities::ExtractEntities(const std::string& api_key, Model model, float temperature, ImageDetail image_detail)
 	: Chat("Your task is to find all dates, timespans, addresses, companies and person names inside every message. Show it as formatted list.", api_key, model, temperature, image_detail)
 {
-	docwire_log_func();
+	log_scope(model, temperature, image_detail);
 }
 
 } // namespace openai

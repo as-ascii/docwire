@@ -13,11 +13,13 @@
 
 #include "data_stream.h"
 #include <cmath>
+#include "log_scope.h"
 #include "misc.h"
 #include <new>
 #include <memory>
 #include <cstdio>
 #include <cstring>
+#include "serialization_enum.h" // IWYU pragma: keep
 #include "thread_safe_ole_stream_reader.h"
 
 namespace docwire
@@ -121,6 +123,7 @@ struct pimpl_impl<ThreadSafeOLEStorage> : pimpl_impl_base
 
 	void getStreamPositions(std::vector<uint32_t>& stream_positions, bool mini_stream, const std::shared_ptr<DirectoryEntry>& dir_entry)
 	{
+		log_scope(mini_stream, dir_entry->m_name);
 		stream_positions.clear();
 		size_t mini_sectors_count = m_number_of_mini_fat_sectors * m_sector_size / 4;
 		size_t sectors_count = m_number_of_fat_sectors * m_sector_size / 4;
@@ -178,6 +181,7 @@ struct pimpl_impl<ThreadSafeOLEStorage> : pimpl_impl_base
 
 	bool getCurrentDirectoryChilds()
 	{
+		log_scope();
 		for (auto & m_child_directory : m_child_directories)
 			m_child_directory->m_added = false;
 		if (m_current_directory->m_child == 0xFFFFFFFF)
@@ -232,6 +236,7 @@ struct pimpl_impl<ThreadSafeOLEStorage> : pimpl_impl_base
 
 	void getStoragesAndStreams()
 	{
+		log_scope();
 		if (!m_is_valid_ole)
 			return;
 		size_t records_count = m_sector_size / 4;
@@ -366,6 +371,7 @@ struct pimpl_impl<ThreadSafeOLEStorage> : pimpl_impl_base
 
 	void getMiniFatSectorChain()
 	{
+		log_scope();
 		if (!m_is_valid_ole)
 			return;
 		size_t records_count = m_sector_size / 4;
@@ -399,6 +405,7 @@ struct pimpl_impl<ThreadSafeOLEStorage> : pimpl_impl_base
 
 	void getFatSectorChain()
 	{
+		log_scope();
 		if (!m_is_valid_ole)
 			return;
 		size_t records_count = m_sector_size / 4;
@@ -422,6 +429,7 @@ struct pimpl_impl<ThreadSafeOLEStorage> : pimpl_impl_base
 
 	void getFatArraySectorChain()
 	{
+		log_scope();
 		if (!m_is_valid_ole)
 			return;
 		uint32_t records_count = m_sector_size / 4 - 1;
@@ -461,6 +469,7 @@ struct pimpl_impl<ThreadSafeOLEStorage> : pimpl_impl_base
 
 	bool skipBytes(int bytes_to_skip)
 	{
+		log_scope(bytes_to_skip);
 		if (!m_data_stream->seek(bytes_to_skip, SEEK_CUR))
 		{
 			m_is_valid_ole = false;
@@ -472,6 +481,7 @@ struct pimpl_impl<ThreadSafeOLEStorage> : pimpl_impl_base
 
 	bool getUint16(uint16_t& data)
 	{
+		log_scope();
 		if (!m_data_stream->read(&data, sizeof(uint16_t), 1))
 		{
 			m_is_valid_ole = false;
@@ -483,6 +493,7 @@ struct pimpl_impl<ThreadSafeOLEStorage> : pimpl_impl_base
 
 	bool getUint32(uint32_t& data)
 	{
+		log_scope();
 		if (!m_data_stream->read(&data, sizeof(uint32_t), 1))
 		{
 			m_is_valid_ole = false;
@@ -494,6 +505,7 @@ struct pimpl_impl<ThreadSafeOLEStorage> : pimpl_impl_base
 
 	void parseHeader()
 	{
+		log_scope();
 		uint8_t ole_header[] = {0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1};
 		uint8_t readed_ole_header[8];
 		if (!m_is_valid_ole)
@@ -552,6 +564,7 @@ ThreadSafeOLEStorage::ThreadSafeOLEStorage(std::span<const std::byte> buffer)
 
 bool ThreadSafeOLEStorage::open(Mode mode)
 {
+	log_scope(mode);
 	if (mode == ReadOnly)	//opening in constructor
 		return true;
 	return false;			//only read mode is supported now
@@ -564,20 +577,24 @@ bool ThreadSafeOLEStorage::isValid() const
 
 void ThreadSafeOLEStorage::close()
 {
+	log_scope();
 }
 
 std::string ThreadSafeOLEStorage::getLastError()
 {
+	log_scope();
 	return impl().m_error;
 }
 
 std::string ThreadSafeOLEStorage::name() const
 {
+	log_scope();
 	return impl().m_file_name;
 }
 
 bool ThreadSafeOLEStorage::getStreamsAndStoragesList(std::vector<std::string>& components)
 {
+	log_scope();
 	components.clear();
 	if (!impl().m_is_valid_ole || impl().m_current_directory == nullptr)
 		return false;
@@ -596,6 +613,7 @@ bool ThreadSafeOLEStorage::getStreamsAndStoragesList(std::vector<std::string>& c
 
 bool ThreadSafeOLEStorage::enterDirectory(const std::string& directory_path)
 {
+	log_scope(directory_path);
 	if (!impl().m_is_valid_ole || impl().m_current_directory == nullptr)
 		return false;
 	if (!impl().m_child_directories_loaded)
@@ -628,6 +646,7 @@ bool ThreadSafeOLEStorage::enterDirectory(const std::string& directory_path)
 
 bool ThreadSafeOLEStorage::leaveDirectory()
 {
+	log_scope();
 	if (!impl().m_is_valid_ole || impl().m_current_directory == nullptr)
 		return false;
 	if (impl().m_inside_directories.empty())
@@ -646,6 +665,7 @@ bool ThreadSafeOLEStorage::leaveDirectory()
 
 OLEStreamReader *ThreadSafeOLEStorage::createStreamReader(const std::string& stream_path)
 {
+	log_scope(stream_path);
 	if (!impl().m_is_valid_ole || impl().m_current_directory == nullptr) {
         return nullptr;
     }
@@ -707,6 +727,7 @@ OLEStreamReader *ThreadSafeOLEStorage::createStreamReader(const std::string& str
 
 bool ThreadSafeOLEStorage::readDirectFromBuffer(unsigned char* buffer, int size, int offset)
 {
+	log_scope(size, offset);
 	if (!impl().m_data_stream->open())
 	{
 		impl().m_error = "Cannot open file " + impl().m_file_name;
@@ -730,6 +751,7 @@ bool ThreadSafeOLEStorage::readDirectFromBuffer(unsigned char* buffer, int size,
 
 void ThreadSafeOLEStorage::streamDestroyed(OLEStream* stream)
 {
+	log_scope();
 	//nothing to do. Stream is already self-sufficient and storage does not care about it
 }
 

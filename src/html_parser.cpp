@@ -25,12 +25,16 @@
 #include <boost/algorithm/string/trim.hpp>
 #include "charset_converter.h"
 #include "data_source.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "make_error.h"
 #include "misc.h"
 #include <mutex>
+#include "nested_exception.h"
 #include <set>
 #include "pimpl.h"
+#include "serialization_data_source.h" // IWYU pragma: keep
+#include "serialization_message.h" // IWYU pragma: keep
 #include "scoped_stack_push.h"
 #include "throw_if.h" 
 #include "document_elements.h"
@@ -67,6 +71,7 @@ attributes::Styling html_node_styling(const lxb_dom_node_t* node)
 
 void convert_to_utf8(std::string& text, const std::string& charset)
 {
+	log_scope(charset);
 	if (boost::iequals(charset, "utf-8"))
 		return;
 	charset_converter converter(charset, "UTF-8");
@@ -75,6 +80,7 @@ void convert_to_utf8(std::string& text, const std::string& charset)
 
 std::optional<std::string> get_encoding_from_meta_tags(const std::string& html_content)
 {
+	log_scope();
 	std::unique_ptr<lxb_html_encoding_t, decltype([](lxb_html_encoding_t* h)
 		{
 			lxb_html_encoding_destroy(h, true);
@@ -95,6 +101,7 @@ std::optional<std::string> get_encoding_from_meta_tags(const std::string& html_c
 
 std::optional<std::string> get_encoding_from_xml_declaration(const std::string& html_content)
 {
+	log_scope();
 	// if this is xhtml document, information about encoding may be stored between <?xml and ?>.
 	// lexbor seems not to parse this fragment, so we should do this manually
 	std::string charset;
@@ -125,6 +132,7 @@ std::optional<std::string> get_encoding_from_xml_declaration(const std::string& 
 
 std::optional<std::string> guess_encoding(const std::string& text)
 {
+	log_scope();
 	std::unique_ptr<void, decltype([](csd_t h)
 		{
 			if (h != (csd_t)-1) csd_close(h);
@@ -141,6 +149,7 @@ std::optional<std::string> guess_encoding(const std::string& text)
 
 std::optional<std::string> determine_encoding(const std::string& html_content)
 {
+	log_scope();
 	std::optional<std::string> charset;
 	try
 	{
@@ -168,6 +177,7 @@ std::optional<std::string> determine_encoding(const std::string& html_content)
 
 void ensure_html_utf8_encoding(std::string& html_content)
 {
+	log_scope();
 	std::optional<std::string> charset;
 	try
 	{
@@ -179,7 +189,7 @@ void ensure_html_utf8_encoding(std::string& html_content)
 	}
 	if (!charset)
 	{
-		docwire_log(debug) << "Could not detect encoding. Document is assumed to be encoded in UTF-8";
+		log_scope();
 		charset = "UTF-8";
 	}
 	try
@@ -190,17 +200,19 @@ void ensure_html_utf8_encoding(std::string& html_content)
 	{
 		std::throw_with_nested(make_error("Cannot convert charset", *charset));
 	}
-	docwire_log(debug) << "After converting to utf8: [" << html_content << "]";
+	log_entry(html_content);
 }
 
 void move_child_node_to_parent(lxb_dom_node_t* node, lxb_dom_node_t* child_node)
 {
+	log_scope();
 	lxb_dom_node_remove_wo_events(child_node);
 	lxb_dom_node_insert_before_wo_events(node, child_node);
 }
 
 void fix_dom_in_table_insertion_mode(lxb_dom_node_t* node, lxb_dom_node_t* child_node, lxb_tag_id_t child_tag_id)
 {
+	log_scope(child_tag_id);
 	// https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intable
 	if (child_tag_id == LXB_TAG_CAPTION)
 	{
@@ -238,6 +250,7 @@ void fix_dom_in_table_insertion_mode(lxb_dom_node_t* node, lxb_dom_node_t* child
 
 void fix_dom_in_table_body_insertion_mode(lxb_dom_node_t* node, lxb_dom_node_t* child_node, lxb_tag_id_t child_tag_id)
 {
+	log_scope(child_tag_id);
 	// https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intbody
 	if (child_tag_id == LXB_TAG_TR)
 	{
@@ -261,6 +274,7 @@ void fix_dom_in_table_body_insertion_mode(lxb_dom_node_t* node, lxb_dom_node_t* 
 
 void fix_dom_in_table_row_insertion_mode(lxb_dom_node_t* node, lxb_dom_node_t* child_node, lxb_tag_id_t child_tag_id)
 {
+	log_scope(child_tag_id);
 	// https://html.spec.whatwg.org/multipage/parsing.html#parsing-main-intr
 	if (child_tag_id == LXB_TAG_TH || child_tag_id == LXB_TAG_TD)
 	{
@@ -278,6 +292,7 @@ void fix_dom_in_table_row_insertion_mode(lxb_dom_node_t* node, lxb_dom_node_t* c
 
 void fix_dom(lxb_dom_node_t* node)
 {
+	log_scope();
 	// First of all fix all child nodes as it may cause moving some nodes to the parent (this node)
 	lxb_dom_node_t* child_node = lxb_dom_node_first_child(const_cast<lxb_dom_node_t*>(node));
     while (child_node != nullptr)
@@ -363,6 +378,7 @@ struct pimpl_impl<HTMLParser> : pimpl_impl_base
 
 void pimpl_impl<HTMLParser>::parse_css(const std::string & m_style_text)
 {
+	log_scope();
 	// warning TODO: For now, we only need to know
 	// about one attribute (list-style). This function only fixes the problem with automatic HTML files
 	// produced by LibreOffice/OpenOffice. Those programs use <ol> and <ul>, but usually turn off
@@ -422,6 +438,7 @@ void pimpl_impl<HTMLParser>::parse_css(const std::string & m_style_text)
 
 void pimpl_impl<HTMLParser>::parse_document(const std::string& html_content_arg, const message_callbacks& emit_message)
 {
+	log_scope();
 	std::string html_content = html_content_arg;
 	if (!m_skip_decoding)
 	{
@@ -452,7 +469,7 @@ void pimpl_impl<HTMLParser>::parse_document(const std::string& html_content_arg,
 		{
 			.metadata = [this, head]()
 			{
-				docwire_log(debug) << "Extracting metadata.";
+				log_entry("Extracting metadata.");
 				if (!m_context_stack.top().head_parsed)
 				{
 					m_context_stack.top().in_metadata = true;
@@ -478,6 +495,7 @@ void pimpl_impl<HTMLParser>::parse_document(const std::string& html_content_arg,
 
 void pimpl_impl<HTMLParser>::process_node(const lxb_dom_node_t* node)
 {
+	log_scope();
     if (node == nullptr)
         return;
 
@@ -511,37 +529,49 @@ void pimpl_impl<HTMLParser>::process_node(const lxb_dom_node_t* node)
 
 void pimpl_impl<HTMLParser>::process_text(const lxb_dom_node_t* node)
 {
+	log_scope();
 	if (m_context_stack.top().in_head && !m_context_stack.top().in_style)
+	{
+		log_entry();
 		return;
+	}
     const lxb_char_t* data = lxb_dom_node_text_content(const_cast<lxb_dom_node_t*>(node), nullptr);
     if (data == nullptr)
-        return;
+	{
+		log_entry();
+		return;
+	}
     std::string text((const char*)data);
 	if (m_context_stack.top().in_style)
 	{
+		log_scope();
 		m_context_stack.top().style_text += text;
+		log_entry();
 		return;
 	}
 	// https://developer.mozilla.org/en-US/docs/Web/API/Document_Object_Model/Whitespace#what_is_whitespace
 	// Convert all whitespaces into spaces and reduce all adjacent spaces into a single space
 	{
+		log_scope();
 		static std::mutex whitespaces_regex_mutex;
 		std::lock_guard<std::mutex> whitespaces_regex_mutex_lock(whitespaces_regex_mutex);
 		static const std::regex whitespaces_regex(R"(\s+)");
 		text = std::regex_replace(text, whitespaces_regex, " ");
 	}
-	docwire_log(debug) << "After converting and reducing whitespaces: [" << text << "]";
+	log_entry(text);
 	bool last_char_was_space = isspace((unsigned char)m_context_stack.top().last_char_in_inline_formatting_context);
-	docwire_log(debug) << "Last char in inline formatting context was whitespace: " << last_char_was_space;
+	log_entry(last_char_was_space);
 	// Reduce whitespaces between text nodes (end of previous and beginning of current.
 	// Remove whitespaces from beginning of inline formatting context.
 	if (last_char_was_space || m_context_stack.top().last_char_in_inline_formatting_context == '\0')
 	{
+		log_scope();
 		boost::trim_left(text);
-		docwire_log(debug) << "After reducing whitespaces between text nodes and removing whitespaces from begining of inline formatting context: [" << text << "]";
+		log_entry(text);
 	}
 	if (!text.empty())
 	{
+		log_scope();
 		m_context_stack.top().last_char_in_inline_formatting_context = text.back();
 		// buffer text because whitespaces from end of inline formatting context should be removed.
 		m_context_stack.top().buffered_text += text;
@@ -550,6 +580,7 @@ void pimpl_impl<HTMLParser>::process_text(const lxb_dom_node_t* node)
 
 void pimpl_impl<HTMLParser>::process_tag(const lxb_dom_node_t* node, bool is_closing)
 {
+	log_scope(is_closing);
     const lxb_dom_element_t* element = lxb_dom_interface_element(node);
     lxb_tag_id_t tag_id = lxb_dom_element_tag_id(const_cast<lxb_dom_element_t*>(element));
 	if (!m_context_stack.top().buffered_text.empty())
@@ -802,7 +833,7 @@ HTMLParser::HTMLParser()
 
 void pimpl_impl<HTMLParser>::parse(const data_source& data, const message_callbacks& emit_message)
 {
-	docwire_log(debug) << "Using HTML parser.";
+	log_scope(data);
 	std::string content = data.string();
 	parse_document(content, emit_message);
 	emit_message(document::CloseDocument{});
@@ -810,6 +841,7 @@ void pimpl_impl<HTMLParser>::parse(const data_source& data, const message_callba
 
 continuation HTMLParser::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
+	log_scope(msg);
 	if (!msg->is<data_source>())
 		return emit_message(std::move(msg));
 
@@ -832,6 +864,7 @@ continuation HTMLParser::operator()(message_ptr msg, const message_callbacks& em
 
 void HTMLParser::skipCharsetDecoding()
 {
+	log_scope();
 	impl().m_skip_decoding = true;
 }
 

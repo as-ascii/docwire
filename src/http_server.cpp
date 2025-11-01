@@ -11,10 +11,10 @@
 
 #include "http_server.h"
 #include "parsing_chain.h"
-#include "exception_utils.h"
 #include "data_source.h"
 #include "input.h"
 #include "output.h"
+#include "log_scope.h"
 #include "make_error.h"
 #include "throw_if.h"
 
@@ -63,6 +63,7 @@ struct pimpl_impl<http::server> : pimpl_impl_base
 
     void init(http::server::route_list& routes, http::thread_num thread_num, http::body_limit limit)
     {
+        log_scope(thread_num, limit);
         if (thread_num.v > 0)
         {
             m_thread_num = thread_num.v;
@@ -124,6 +125,7 @@ struct pimpl_impl<http::server> : pimpl_impl_base
 
     void handle_request(const httplib::Request& req, httplib::Response& res, const http::server::pipeline_factory& factory, const std::string& path_key)
     {
+        log_scope(path_key);
         try
         {
             thread_local boost::container::flat_map<std::string, std::unique_ptr<ParsingChain>> pipelines;
@@ -188,11 +190,13 @@ struct pimpl_impl<http::server> : pimpl_impl_base
 
     BOOST_NOINLINE void httplib_listen_noninlined()
     {
+        log_scope();
         m_svr->listen_after_bind();
     }
 
     BOOST_NOINLINE void httplib_stop_noninlined()
     {
+        log_scope();
         if (m_svr && m_svr->is_running())
         {
             m_svr->stop();
@@ -213,6 +217,7 @@ struct pimpl_impl<http::server> : pimpl_impl_base
 
     void run()
     {
+        log_scope();
         if (!m_svr->bind_to_port(m_addr.c_str(), m_port)) {
             throw make_error("HTTP server failed to bind", m_addr, m_port);
         }
@@ -223,6 +228,7 @@ struct pimpl_impl<http::server> : pimpl_impl_base
 
 	void stop()
 	{
+        log_scope();
         httplib_stop_noninlined();
 	}
 };
@@ -232,11 +238,15 @@ namespace http
 
 server::server(address addr, port port, route_list routes, thread_num thread_num, error_handler handler, body_limit limit)
 	: with_pimpl<server>(addr, port, std::move(routes), thread_num, std::nullopt, std::move(handler), limit)
-{}
+{
+    log_scope(addr, port);
+}
 
 server::server(address addr, port port, certificate_info cert_info, route_list routes, thread_num thread_num, error_handler handler, body_limit limit)
 	: with_pimpl<server>(addr, port, std::move(routes), thread_num, std::move(cert_info), std::move(handler), limit)
-{}
+{
+    log_scope(addr, port);
+}
 
 server::~server() = default;
 
@@ -246,6 +256,7 @@ server& server::operator=(server&&) = default;
 
 void server::operator()()
 {
+    log_scope();
     try
     {
         impl().run();
@@ -258,16 +269,19 @@ void server::operator()()
 
 void server::wait_until_ready()
 {
+    log_scope();
     impl().wait_until_ready();
 }
 
 void server::stop()
 {
+    log_scope();
 	impl().stop();
 }
 
 http::certificate_info generate_self_signed_cert(const std::string& common_name, const std::string& country, const std::string& organization)
 {
+    log_scope(common_name, country, organization);
     // 1. Create key
     ossl_unique_ptr<EVP_PKEY, &EVP_PKEY_free> pkey(EVP_PKEY_new());
     ossl_unique_ptr<RSA, &RSA_free> rsa(RSA_new());

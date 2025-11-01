@@ -2,10 +2,14 @@ add_library(docwire_core SHARED
     charset_converter.cpp
     cosine_similarity.cpp
     data_source.cpp
+    diagnostic_message.cpp
     entities.cpp
+    environment.cpp
     error.cpp
-    error_tags.cpp
-    log.cpp
+    json_serialization.cpp
+    log_core.cpp
+    log_cerr_redirection.cpp
+    log_json_stream_sink.cpp
     misc.cpp
     thread_safe_ole_storage.cpp
     thread_safe_ole_stream_reader.cpp
@@ -22,6 +26,11 @@ add_library(docwire_core SHARED
     chain_element.cpp
     parsing_chain.cpp
     resource_path.cpp
+    serialization_thread_id.cpp
+    serialization_time.cpp
+    serialization_typeindex.cpp
+    type_name.cpp
+    unique_identifier.cpp
     zip_reader.cpp
     input.cpp)
 

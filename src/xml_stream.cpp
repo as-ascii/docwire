@@ -12,9 +12,9 @@
 #include "xml_stream.h"
 
 #include <boost/algorithm/string/trim.hpp>
-#include "libxml/globals.h"
 #include <libxml/xmlreader.h>
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include <mutex>
 #include "throw_if.h"
 
@@ -22,11 +22,20 @@ namespace docwire
 {
 
 template <>
-std::string stringify(const xmlError& error)
+struct serialization::serializer<xmlError>
 {
-	return boost::trim_right_copy(std::string{error.message}) +
-		std::string(" (code: ") + std::to_string(error.code) + ")";
-}
+    value full(const xmlError& error) const
+    {
+        return serialization::object{{
+            {"message", error.message ? boost::trim_right_copy(std::string{error.message}) : std::string{}},
+            {"code", static_cast<std::int64_t>(error.code)}
+        }};
+    }
+
+    value typed_summary(const xmlError& error) const {
+        return serialization::decorate_with_typeid(full(error), type_name::pretty<xmlError>());
+    }
+};
 
 static size_t xml_parser_usage_counter = 0;
 
@@ -116,11 +125,12 @@ struct pimpl_impl<XmlStream> : pimpl_impl_base
 	pimpl_impl(const std::string& xml, XmlStream::no_blanks no_blanks_option)
 		: m_reader(make_xml_text_reader_safely(xml, no_blanks_option))
 	{
+		log_scope();
 		throw_if (m_reader == NULL, "Cannot initialize xmlTextReader");
 		throw_if (!read_next(), "Cannot initialize xmlTextReader");
 		m_curr_depth = xmlTextReaderDepth(m_reader.get());
 		throw_if (m_curr_depth == -1, "Cannot initialize xmlTextReader");
-		docwire_log(debug) << "Starting curr_depth: " << m_curr_depth;
+		log_entry(m_curr_depth);
 	}
 
 	bool should_skip() const
@@ -137,7 +147,7 @@ struct pimpl_impl<XmlStream> : pimpl_impl_base
 			if (read_status == 0) // eof
 				return false;
 			throw_if (read_status != 1, "Incorrect xmlTextReader status code", read_status);
-			docwire_log(debug) << "# read. type=" << xmlTextReaderNodeType(m_reader.get()) << ", depth=" << xmlTextReaderDepth(m_reader.get()) << ", name=" << (char*)xmlTextReaderConstLocalName(m_reader.get());
+			log_entry(xmlTextReaderNodeType(m_reader.get()), xmlTextReaderDepth(m_reader.get()), (char*)xmlTextReaderConstLocalName(m_reader.get()));
 		}
 		while (should_skip());
 		return true;
@@ -156,81 +166,72 @@ XmlStream::operator bool()
 
 void XmlStream::next()
 {
-	docwire_log(debug) << "# next(). curr_depth=" << impl().m_curr_depth;
+	log_scope(impl().m_curr_depth);
 	do
 	{
 		if (!impl().read_next())
 		{
-			docwire_log(debug) << "# End of file or error - Null";
+			log_entry();
 			impl().m_badbit = true;
 			return;
 		}
 		if (xmlTextReaderDepth(impl().m_reader.get()) < impl().m_curr_depth)
 		{
+			log_entry();
 			impl().m_badbit = true;
-			docwire_log(debug) << "# End of level or error - Null";
 			return;
 		}
 	} while (
 		xmlTextReaderNodeType(impl().m_reader.get()) == XML_READER_TYPE_END_ELEMENT ||
 		xmlTextReaderDepth(impl().m_reader.get()) > impl().m_curr_depth);
-	docwire_log(debug) << (
-		xmlTextReaderConstValue(impl().m_reader.get()) == NULL ?
-			std::string("# null value.") :
-			std::string("# value:") + (char*)xmlTextReaderConstValue(impl().m_reader.get())
-		);
+	log_entry(name(), content());
 	impl().m_badbit = false;
 }
 
 void XmlStream::levelDown()
 {
+	log_scope(impl().m_curr_depth);
 	impl().m_curr_depth++;
-	docwire_log(debug) << "# levelDown(). curr_depth=" << impl().m_curr_depth;
 	// warning TODO: <a></a> is not empty according to xmlTextReaderIsEmptyElement(). Check if it is a problem.
 	if (xmlTextReaderIsEmptyElement(impl().m_reader.get()) != 0)
 	{
+		log_entry();
 		impl().m_badbit = true;
-		docwire_log(debug) << "# Empty or error - Null";
 		return;
 	}
 	do
 	{
 		if (!impl().read_next())
 		{
+			log_entry();
 			impl().m_badbit = true;
-			docwire_log(debug) << "# End of document - Null";
 			return;
 		}
 		if (xmlTextReaderDepth(impl().m_reader.get()) < impl().m_curr_depth)
 		{
 			impl().m_badbit = true;
-			docwire_log(debug) << "# Level empty or error - Null";
+			log_entry();
 			return;
 		}
 	} while (xmlTextReaderNodeType(impl().m_reader.get()) == XML_READER_TYPE_END_ELEMENT);
-	docwire_log(debug) << "# name:" << (char*)xmlTextReaderConstLocalName(impl().m_reader.get()) << "\n";
-	docwire_log(debug) << (
-		xmlTextReaderConstValue(impl().m_reader.get()) == NULL ?
-			std::string("# null value.") :
-			std::string("# value:") + (char*)xmlTextReaderConstValue(impl().m_reader.get())
-		);
+	log_entry(name(), content());
 }
 
 void XmlStream::levelUp()
 {
+	log_scope(impl().m_curr_depth);
 	impl().m_curr_depth--;
-	docwire_log(debug) << "# levelDown(). curr_depth=" << impl().m_curr_depth;
 	if (impl().m_badbit)
 	{
-		docwire_log(debug) << "# Was null - now invalid.";
+		log_entry();
 		return;
 	}
 	for(;;)
 	{
 		if (!impl().read_next())
 		{
+			log_entry();
 			impl().m_badbit = true;
-			docwire_log(debug) << "# End of document or error - Null";
 			return;
 		}
 		if (xmlTextReaderNodeType(impl().m_reader.get()) == XML_READER_TYPE_END_ELEMENT &&
@@ -240,38 +241,36 @@ void XmlStream::levelUp()
 			break;
 		}
 	}
-	docwire_log(debug) << "# name:" << (char*)xmlTextReaderConstLocalName(impl().m_reader.get());
-	docwire_log(debug) << (
-		xmlTextReaderConstValue(impl().m_reader.get()) == NULL ?
-			std::string("# null value.") :
-			std::string("# value:") + (char*)xmlTextReaderConstValue(impl().m_reader.get())
-		);
+	log_entry(name(), content());
 }
 
-char* XmlStream::content()
+std::string XmlStream::content()
 {
-	docwire_log(debug) << "# content()";
-	return (char*)xmlTextReaderConstValue(impl().m_reader.get());
+	log_scope(impl().m_curr_depth);
+	const xmlChar* val = xmlTextReaderConstValue(impl().m_reader.get());
+	return val ? (const char*)val : "";
 }
 
 std::string XmlStream::name()
 {
-	docwire_log(debug) << "# name()";
-	return (char*)xmlTextReaderConstLocalName(impl().m_reader.get());
+	log_scope(impl().m_curr_depth);
+	const xmlChar* val = xmlTextReaderConstLocalName(impl().m_reader.get());
+	return val ? (const char*)val : "";
 }
 
 std::string XmlStream::fullName()
 {
-	docwire_log(debug) << "# fullName()";
-	return (char*)xmlTextReaderConstName(impl().m_reader.get());
+	log_scope(impl().m_curr_depth);
+	const xmlChar* val = xmlTextReaderConstName(impl().m_reader.get());
+	return val ? (const char*)val : "";
 }
 
 std::string XmlStream::stringValue()
 {
-	docwire_log(debug) << "# stringValue()";
+	log_scope(impl().m_curr_depth);
 	if (xmlTextReaderNodeType(impl().m_reader.get()) != 1)
 	{
-		docwire_log(debug) << "!!! Getting string value not from start tag.";
+		log_entry();
 		return "";
 	}
 	xmlNodePtr node = xmlTextReaderExpand(impl().m_reader.get());
@@ -287,10 +286,10 @@ std::string XmlStream::stringValue()
 
 std::string XmlStream::attribute(const std::string& attr_name)
 {
-	docwire_log(debug) << "# attribute()";
+	log_scope(attr_name);
 	if (xmlTextReaderNodeType(impl().m_reader.get()) != 1)
 	{
-		docwire_log(debug) << "!!! Getting attribute not from start tag.";
+		log_entry();
 		return "";
 	}
 	xmlNodePtr node = xmlTextReaderExpand(impl().m_reader.get());

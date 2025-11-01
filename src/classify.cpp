@@ -12,7 +12,8 @@
 #include "classify.h"
 
 #include "boost/algorithm/string/join.hpp"
-#include "log.h"
+#include "log_scope.h"
+#include "serialization_enum.h" // IWYU pragma: keep
 
 namespace docwire
 {
@@ -24,7 +25,7 @@ Classify::Classify(const std::set<std::string>& categories, const std::string& a
 			+ ". Answer with the category name only, exactly as it was written.",
 			api_key, model, temperature, image_detail)
 {
-	docwire_log_func_with_args(categories, temperature);
+	log_scope(categories, model, temperature, image_detail);
 }
 
 } // namespace openai

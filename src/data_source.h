@@ -15,6 +15,7 @@
 #include "core_export.h"
 #include "file_extension.h"
 #include <filesystem>
+#include <functional>
 #include "memory_buffer.h"
 #include <optional>
 #include <string_view>

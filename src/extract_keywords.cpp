@@ -11,7 +11,8 @@
 
 #include "extract_keywords.h"
 
-#include "log.h"
+#include "log_scope.h"
+#include "serialization_enum.h" // IWYU pragma: keep
 
 namespace docwire
 {
@@ -24,7 +25,7 @@ ExtractKeywords::ExtractKeywords(unsigned int max_keywords, const std::string& a
 			" most important keywords or key phrases from every message. The goal is to capture the most relevant and significant terms within the text.",
 			api_key, model, temperature, image_detail)
 {
-	docwire_log_func_with_args(max_keywords, temperature);
+	log_scope(max_keywords, model, temperature, image_detail);
 }
 
 } // namespace openai

@@ -13,9 +13,11 @@
 
 #include "document_elements.h"
 #include "error_tags.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include <math.h>
 #include "misc.h"
+#include "nested_exception.h"
 #include "oshared.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -23,6 +25,7 @@
 #include "throw_if.h"
 #include "wv2/src/textconverter.h"
 #include <vector>
+#include "serialization_data_source.h" // IWYU pragma: keep
 #include <stack>
 #include "thread_safe_ole_stream_reader.h"
 #include "thread_safe_ole_storage.h"
@@ -66,12 +69,13 @@ namespace
 
 	void parseRecord(int rec_type, unsigned long rec_len, ThreadSafeOLEStreamReader& reader, std::string& text, const std::function<void(std::exception_ptr)>& non_fatal_error_handler)
 	{
+		log_scope(rec_type, rec_len);
 		switch(rec_type)
 		{
 			case RT_CSTRING:
 			case RT_TEXT_CHARS_ATOM: 
-			{
-				docwire_log(debug) << "RT_TextCharsAtom or RT_CString";
+			{ 
+				log_scope();
 				std::vector<unsigned char> buf(2);
 				unsigned long text_len = rec_len / 2;
 				if (text_len * 2 > reader.size() - reader.tell())
@@ -99,14 +103,18 @@ namespace
 				break;
 			}
 			case RT_DOCUMENT:
-				docwire_log(debug) << "RT_Document";
-				break;
-			case RT_DRAWING:
-				docwire_log(debug) << "RT_Drawing";
-				break;
-			case RT_END_DOCUMENT_ATOM:
 			{
-				docwire_log(debug) << "RT_DocumentEnd";
+				log_scope();
+				break;
+			}
+			case RT_DRAWING:
+			{
+				log_scope();
+				break;
+			}
+			case RT_END_DOCUMENT_ATOM:
+			{ 
+				log_scope();
 				unsigned long len = rec_len;
 				if (reader.tell() + len > reader.size())
 				{
@@ -117,11 +125,13 @@ namespace
 				break;
 			}
 			case RT_LIST:
-				docwire_log(debug) << "RT_List";
-				break;
-			case RT_MAIN_MASTER:
 			{
-				docwire_log(debug) << "RT_MainMaster";
+				log_scope();
+				break;
+			}
+			case RT_MAIN_MASTER:
+			{ 
+				log_scope();
 				// warning TODO: Make extracting text from main master slide configurable
 				unsigned long len = rec_len;
 				if (reader.tell() + len > reader.size())
@@ -133,16 +143,20 @@ namespace
 				break;
 			}
 			case RT_SLIDE:
-				docwire_log(debug) << "RT_Slide";
+			{
+				log_scope();
 				break;
+			}
 			case RT_SLIDE_BASE:
 				break;
 			case RT_SLIDE_LIST_WITH_TEXT:
-				docwire_log(debug) << "RT_SlideListWithText";
-				break;
-			case RT_TEXT_BYTES_ATOM:
 			{
-				docwire_log(debug) << "RT_TextBytesAtom";
+				log_scope();
+				break;
+			}
+			case RT_TEXT_BYTES_ATOM:
+			{ 
+				log_scope();
 				std::vector<unsigned char> buf(2);
 				unsigned long text_len = rec_len;
 				buf[0] = buf[1] = 0;
@@ -164,17 +178,25 @@ namespace
 				break;
 			}
 			case OFFICE_ART_CLIENT_TEXTBOX:
-				docwire_log(debug) << "OfficeArtClientTextbox";
+			{
+				log_scope();
 				break;
+			}
 			case OFFICE_ART_DG_CONTAINER:
-				docwire_log(debug) << "OfficeArtDgContainer";
+			{
+				log_scope();
 				break;
+			}
 			case OFFICE_ART_SPGR_CONTAINER:
-				docwire_log(debug) << "OfficeArtSpgrContainer";
+			{
+				log_scope();
 				break;
+			}
 			case OFFICE_ART_SP_CONTAINER:
-				docwire_log(debug) << "OfficeArtSpContainer";
+			{
+				log_scope();
 				break;
+			}
 			default:
 				unsigned long len = rec_len;
 				if (reader.tell() + len > reader.size())
@@ -194,6 +216,7 @@ namespace
 
 	void parseOldPPT(ThreadSafeOLEStorage& storage, ThreadSafeOLEStreamReader& reader, std::string& text, const std::function<void(std::exception_ptr)>& non_fatal_error_handler)
 	{
+		log_scope();
 		std::vector<unsigned char> content(reader.size());
 		throw_if (!reader.read(&*content.begin(), reader.size()));	//this stream should only contain text
 		text = std::string(content.begin(), content.end());
@@ -215,6 +238,7 @@ namespace
 
 	void parsePPT(ThreadSafeOLEStreamReader& reader, std::string& text, const std::function<void(std::exception_ptr)>& non_fatal_error_handler)
 	{
+		log_scope();
 		std::vector<unsigned char> rec(8);
 		bool read_status = true;
 		std::stack<long> container_ends;
@@ -231,16 +255,9 @@ namespace
 			}
 			int rec_type = getU16LittleEndian(rec.begin() + 2);
 			U32 rec_len = getU32LittleEndian(rec.begin() + 4);
-			if (log_verbosity_includes(debug))
-			{
-				while (!container_ends.empty() && pos+rec_len-1 > container_ends.top())
-					container_ends.pop();
-				std::string indend;
-				for (int i = 0; i < container_ends.size(); i++)
-					indend += "\t";
-				docwire_log(debug) << indend << "record" << hex() << rec_type << "begin" << pos << "end" << pos + rec_len - 1;
-				container_ends.push(pos + rec_len - 1);
-			}
+			U32 rec_end = pos + rec_len + 8 - 1;
+			log_entry(rec_type, rec_len, pos, rec_end);
+			container_ends.push(rec_end);
 			try
 			{
 				parseRecord(rec_type, rec_len, reader, text, non_fatal_error_handler);
@@ -254,6 +271,7 @@ namespace
 
 	void assertFileIsNotEncrypted(ThreadSafeOLEStorage& storage)
 	{
+		log_scope();
 		std::vector<std::string> dirs;
 		if (storage.getStreamsAndStoragesList(dirs))
 		{
@@ -277,7 +295,7 @@ PPTParser::PPTParser() = default;
 
 void parse(const data_source& data, const message_callbacks& emit_message)
 {	
-	docwire_log(debug) << "Using PPT parser.";
+	log_scope(data);
 	try
 	{
 		std::unique_ptr<ThreadSafeOLEStorage> storage = std::make_unique<ThreadSafeOLEStorage>(data.span());
@@ -330,6 +348,7 @@ namespace
 
 attributes::Metadata metaData(const std::unique_ptr<ThreadSafeOLEStorage>& storage, const message_callbacks& emit_message)
 {
+	log_scope();
 	attributes::Metadata meta;
 		parse_oshared_summary_info(*storage, meta, [emit_message](std::exception_ptr e) { emit_message(std::move(e)); });
 		// If page count not found use slide count as page count

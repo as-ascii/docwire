@@ -26,11 +26,16 @@
 #include <filesystem>
 #include <cstdlib>
 #include <magic_enum/magic_enum_iostream.hpp>
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "lru_memory_cache.h"
 #include <mutex>
+#include "nested_exception.h"
 #include <numeric>
 #include "resource_path.h"
+#include "serialization_data_source.h" // IWYU pragma: keep
+#include "serialization_enum.h" // IWYU pragma: keep
+#include "serialization_message.h" // IWYU pragma: keep
 #include "scoped_stack_push.h"
 #include <tesseract/resultiterator.h>
 #include "throw_if.h"
@@ -46,6 +51,7 @@ class leptonica_stderr_capturer
 public:
     leptonica_stderr_capturer()
     {
+        m_contents.clear();
         leptSetStderrHandler(stderr_handler);
     }
 
@@ -102,6 +108,7 @@ struct pimpl_impl<OCRParser> : with_pimpl_owner<OCRParser>
 
 Pix* pixToGrayscale(Pix* pix)
 {
+    log_scope();
     Pix* output{};
     switch(pix->d)
     {
@@ -130,6 +137,7 @@ Pix* pixToGrayscale(Pix* pix)
 
 Pix* binarizePix(Pix* pix)
 {
+    log_scope();
     Pix* temp{ NULL };
     // 200x200 - size of the binarized tiles; 0, 0 - no smoothing; 0.1 - typical scorefract
     pixOtsuAdaptiveThreshold(pix, 200, 200, 0, 0, 0.1, NULL, &temp);
@@ -138,6 +146,7 @@ Pix* binarizePix(Pix* pix)
 
 Pix* scalePix(Pix* pix)
 {
+    log_scope();
     Pix* scaled{ nullptr };
     if(pix->xres && pix->yres)
     {
@@ -179,10 +188,11 @@ namespace
 
 std::shared_ptr<PIX> load_pix(const data_source& data)
 {
+    log_scope(data);
     static thread_local lru_memory_cache<unique_identifier, std::shared_ptr<PIX>> pix_cache;
     
     return pix_cache.get_or_create(data.id(),
-        [data](const unique_identifier& key)
+        [&data](const unique_identifier& key)
         {
             std::lock_guard<std::mutex> lock { tesseract_libtiff_mutex };
             leptonica_stderr_capturer leptonica_stderr_capturer;
@@ -204,6 +214,7 @@ std::shared_ptr<PIX> load_pix(const data_source& data)
 
 ocr_data_path default_tessdata_path()
 {
+    log_scope();
     std::filesystem::path def_tessdata_path = resource_path("tessdata-fast").string();
     throw_if (!std::filesystem::exists(def_tessdata_path),
         "Could not find tessdata in default location", def_tessdata_path, errors::program_corrupted{});
@@ -228,6 +239,7 @@ OCRParser::OCRParser(const std::vector<Language>& languages,
                      ocr_timeout ocr_timeout_arg,
                      ocr_data_path ocr_data_path_arg)
 {
+    log_scope(languages, ocr_confidence_threshold_arg, ocr_timeout_arg, ocr_data_path_arg);
     impl().m_languages = languages;
     impl().m_ocr_confidence_threshold = ocr_confidence_threshold_arg;
     impl().m_ocr_timeout = ocr_timeout_arg;
@@ -236,6 +248,8 @@ OCRParser::OCRParser(const std::vector<Language>& languages,
 
 void OCRParser::parse(const data_source& data, const std::vector<Language>& languages)
 {
+    log_scope(data, languages);
+
     tessAPIWrapper api{ nullptr, tessAPIDeleter };
     try
     {
@@ -251,7 +265,7 @@ void OCRParser::parse(const data_source& data, const std::vector<Language>& lang
       {
         return acc + (acc.empty() ? "" : "+") + boost::lexical_cast<std::string>(lang);
       });
-    docwire_log_var(langs);
+    log_entry(langs);
 
     {
         std::lock_guard<std::mutex> tesseract_libtiff_mutex_lock{ tesseract_libtiff_mutex };
@@ -312,7 +326,7 @@ void OCRParser::parse(const data_source& data, const std::vector<Language>& lang
 
     std::unique_ptr<tesseract::ResultIterator> rit(api->GetIterator());
     if (!rit) {
-        docwire_log(error) << "Tesseract GetIterator() returned null.";
+        log_entry();
         return;
     }
 
@@ -393,8 +407,10 @@ void OCRParser::parse(const data_source& data, const std::vector<Language>& lang
 
 continuation OCRParser::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
+    log_scope(msg);
+
     auto process = [this](const data_source& data, const message_callbacks& emit_message) {
-        docwire_log(debug) << "Using OCR parser.";
+        log_scope(data);
         scoped::stack_push<context> context_guard{impl().m_context_stack, context{emit_message}};
         emit_message(document::Document{.metadata = []() { return attributes::Metadata{}; }});
         parse(data, impl().m_languages.size() > 0 ? impl().m_languages : std::vector({ Language::eng }));
@@ -404,6 +420,7 @@ continuation OCRParser::operator()(message_ptr msg, const message_callbacks& emi
 
     if (msg->is<data_source>())
     {
+        log_scope();
         const data_source& data = msg->get<data_source>();
         data.assert_not_encrypted();
         if (data.has_highest_confidence_mime_type_in(supported_mime_types))
@@ -413,13 +430,19 @@ continuation OCRParser::operator()(message_ptr msg, const message_callbacks& emi
     }
     else if (msg->is<document::Image>())
     {
+        log_scope();
         document::Image& image = msg->get<document::Image>();
         image.source.assert_not_encrypted();
         if (!image.source.highest_confidence_mime_type().has_value())
+        {
+            log_entry();
             return emit_message(std::move(msg));
+        }
         if (!image.source.has_highest_confidence_mime_type_in(supported_mime_types))
+        {
+            log_entry();
             return emit_message(std::move(msg));
-        docwire_log(debug) << "OCRParser: Setting up streamer for document::Image.";
+        }
         image.structured_content_streamer =
             [process, data = image.source](const message_callbacks& emit_message) -> continuation
             {

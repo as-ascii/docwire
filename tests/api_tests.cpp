@@ -11,8 +11,11 @@
 
 #include "base64.h"
 #include <boost/algorithm/string.hpp>
+#include <boost/config.hpp>
 #include <boost/json.hpp>
 #include "chaining.h"
+#include "concepts.h"
+#include "contains_type.h"
 #include "content_type.h"
 #include "content_type_by_file_extension.h"
 #include "content_type_by_signature.h"
@@ -22,9 +25,11 @@
 #include "content_type_outlook.h"
 #include "content_type_xlsb.h"
 #include "data_source.h"
+#include "diagnostic_message.h"
+#include "ensure.h"
+#include "environment.h"
 #include "error_hash.h" // IWYU pragma: keep
 #include "error_tags.h"
-#include "exception_utils.h"
 #include <exception>
 #include <future>
 #include "fuzzy_match.h"
@@ -41,6 +46,7 @@
 #include <magic_enum/magic_enum_iostream.hpp>
 #include "mail_parser.h"
 #include "meta_data_exporter.h"
+#include "nested_exception.h"
 #include "../src/standard_filter.h"
 #include <optional>
 #include <algorithm>
@@ -49,13 +55,18 @@
 #include "output.h"
 #include "plain_text_exporter.h"
 #include "post.h"
+#include <regex>
 #include "resource_path.h"
+#include "serialization.h"
+#include "serialization_document_elements.h" // IWYU pragma: keep
 #include "throw_if.h"
 #include "tokenizer.h"
 #include "transformer_func.h"
 #include "txt_parser.h"
 #include "input.h"
 #include "log.h"
+#include "log_json_stream_sink.h"
+#include "log_state_saver.h"
 #include "lru_memory_cache.h"
 #include "http_server.h"
 
@@ -474,7 +485,7 @@ TEST_P(MultithreadedTest, ReadFromFileTests)
     for (auto& thread : threads)
     {
         thread.get();
-        docwire_log(info) << "Thread finished successfully.";
+        log_entry(log::audit{}, "Thread finished successfully.");
     }
 }
 
@@ -763,8 +774,8 @@ TEST (errors, throwing)
     }
     catch (const errors::base& e)
     {
-        ASSERT_EQ(e.context_type(), typeid(const char*));
-        ASSERT_EQ(e.context_string(), "test");
+        ASSERT_EQ(e.context_type(0), typeid(const char*));
+        ASSERT_EQ(e.context_string(0), "test");
     }
     try
     {
@@ -773,8 +784,8 @@ TEST (errors, throwing)
     }
     catch (const errors::base& e)
     {
-        ASSERT_EQ(e.context_type(), typeid(std::pair<std::string, std::string>));
-        ASSERT_EQ(e.context_string(), "s: test");
+        ASSERT_EQ(e.context_type(0), typeid(std::pair<std::string, std::string>));
+        ASSERT_EQ(e.context_string(0), "s: test");
     }
     try
     {
@@ -782,8 +793,8 @@ TEST (errors, throwing)
     }
     catch (const errors::base& e)
     {
-        ASSERT_EQ(e.context_type(), typeid(errors::network_failure));
-        ASSERT_EQ(e.context_string(), "network failure error tag");
+        ASSERT_EQ(e.context_type(0), typeid(errors::network_failure));
+        ASSERT_EQ(e.context_string(0), "network failure error tag");
     }
     try
     {
@@ -792,35 +803,20 @@ TEST (errors, throwing)
     }
     catch (const errors::base& e)
     {
-        ASSERT_EQ(e.context_type(), typeid(std::pair<std::string, std::string>));
-        ASSERT_EQ(e.context_string(), "s: test");
-        try
-        {
-            std::rethrow_if_nested(e);
-            FAIL() << "Expected nested exception";
-        }
-        catch (const errors::base& e)
-        {
-            ASSERT_EQ(e.context_type(), typeid(errors::file_encrypted));
-            ASSERT_EQ(e.context_string(), "file encrypted error tag");
-            try
-            {
-                std::rethrow_if_nested(e);
-                FAIL() << "Expected nested exception";
-            }
-            catch (const errors::base& e)
-            {
-                ASSERT_EQ(e.context_type(), typeid(std::pair<std::string, const char*>));
-                ASSERT_EQ(e.context_string(), "triggering_condition: 2 < 3");
-            }
-        }
+        ASSERT_EQ(e.context_count(), 3);
+        ASSERT_EQ(e.context_type(0), typeid(std::pair<std::string, const char *>));
+        ASSERT_EQ(e.context_string(0), "triggering_condition: 2 < 3");
+        ASSERT_EQ(e.context_type(1), typeid(errors::file_encrypted));
+        ASSERT_EQ(e.context_string(1), "file encrypted error tag");
+        ASSERT_EQ(e.context_type(2), typeid(std::pair<std::string, std::string>));
+        ASSERT_EQ(e.context_string(2), "s: test");
     }
 }
 
 TEST(errors, diagnostic_message)
 {
     std::string message;
-    errors::source_location err2_loc, err3_loc;
+    source_location err2_loc, err3_loc;
     try
     {
         try
@@ -831,14 +827,17 @@ TEST(errors, diagnostic_message)
             }
             catch (const std::exception& e)
             {
-                err2_loc = current_location();
-                std::throw_with_nested(make_error("level 2 exception"));
+                std::string string_2{"string data 2"};
+                err2_loc = source_location::current();
+                std::throw_with_nested(make_error("level 2 exception", string_2));
             }
         }
         catch (const std::exception& e)
         {
-            err3_loc = current_location();
-            std::throw_with_nested(make_error("level 3 exception"));
+            std::string string_3{"string data 3"};
+            int int_3 = 3;
+            err3_loc = source_location::current();
+            std::throw_with_nested(make_error("level 3 exception", string_3, int_3, errors::program_logic{}));
         }
     }
     catch (const std::exception& e)
@@ -846,14 +845,18 @@ TEST(errors, diagnostic_message)
         message = errors::diagnostic_message(e);
     }
 	ASSERT_EQ(message,
-        std::string{"Error \"level 1 exception\"\n"} +
-        "No location information available\n"
-        "with context \"level 2 exception\"\n"
-        "in " + err2_loc.function_name() + "\n"
-        "at " + err2_loc.file_name() + ":" + std::to_string(err2_loc.line() + 1) + "\n"
-        "with context \"level 3 exception\"\n"
-        "in " + err3_loc.function_name() + "\n"
-        "at " + + err3_loc.file_name() + ":" + std::to_string(err3_loc.line() + 1) + "\n"
+        std::string{"Error: \"level 1 exception\"\n"} +
+        "No location information available\n" +
+        "wrapping at: " + err2_loc.function_name() + "\n" +
+        "at " + err2_loc.file_name() + ":" + std::to_string(err2_loc.line() + 1) + "\n" +
+		"with context \"level 2 exception\"\n" +
+		"with context \"string_2: string data 2\"\n" +
+        "wrapping at: " + err3_loc.function_name() + "\n" +
+        "at " + err3_loc.file_name() + ":" + std::to_string(err3_loc.line() + 1) + "\n" +
+		"with context \"level 3 exception\"\n" +
+		"with context \"string_3: string data 3\"\n" +
+		"with context \"int_3: 3\"\n" +
+		"with context \"program logic error tag\"\n"
     );
 }
 
@@ -935,11 +938,48 @@ TEST(errors, hashing)
     ASSERT_EQ(hasher(n2), hasher(n2));
 }
 
+namespace
+{
+    void check_caller_location(const docwire::basic_source_location& loc, int expected_line, const char* expected_func_substr)
+    {
+        // `file_name()` may return a full path, so we check the ending.
+        EXPECT_TRUE(std::string(loc.file_name()).ends_with("api_tests.cpp"));
+        // `function_name()` may be decorated, so we check for a substring.
+        EXPECT_THAT(std::string(loc.function_name()), testing::HasSubstr(expected_func_substr));
+        // The line number must be the one passed from the call site.
+        EXPECT_EQ(loc.line(), expected_line);
+    }
+
+    BOOST_NOINLINE void get_location_and_check()
+    {
+        check_caller_location(docwire::basic_source_location::current(), __LINE__, "get_location_and_check");
+    }
+}
+
+TEST(SourceLocation, CustomImplementation)
+{
+    get_location_and_check();
+}
+
+TEST(DiagnosticContext, Concepts)
+{
+    static_assert(context_tag<log::audit>);
+    static_assert(context_tag<log::stderr_redirect>);
+    static_assert(context_tag<errors::program_logic>);
+    static_assert(!context_tag<std::filesystem::path>);
+    static_assert(!context_tag<int>);
+    struct empty_struct {};
+    static_assert(!context_tag<empty_struct>);
+}
+
 std::string sanitize_log_text(const std::string& orig_log_text)
 {
     using namespace boost::json;
+	if (orig_log_text.empty()) {
+		return "[\n]\n";
+	}
 	std::string log_text = "[\n";
-	value log_val = parse(orig_log_text + "]");
+	value log_val = parse(orig_log_text);
 	for (int i = 0; i < log_val.as_array().size(); i++)
 	{
 		if (i > 0)
@@ -953,52 +993,371 @@ std::string sanitize_log_text(const std::string& orig_log_text)
     return log_text;
 }
 
+std::string sanitize_expected_log_text(const std::string& orig_log_text)
+{
+    if constexpr (std::is_same_v<source_location, basic_source_location>)
+    {
+        // When using the fallback basic_source_location, __builtin_FUNCTION() may return a
+        // bare function name (e.g., "TestBody") instead of the fully qualified one.
+        // To make the test pass, we simplify the function name in the expected JSON
+        // to match the actual output on these platforms.
+        static const std::regex re{R"x("function":".*?(\w+)\s*\([^"]*\)")x"};
+        return std::regex_replace(orig_log_text, re, R"y("function":"$1")y");
+    }        
+    else
+    {
+        return orig_log_text;
+    }
+}
+
 TEST(Logging, Dereferenceable)
 {
-	static_assert(is_iterable<std::vector<int>>::value);
-	static_assert(is_iterable<std::list<int>>::value);
-	static_assert(!is_iterable<std::optional<int>>::value);
-	static_assert(!is_iterable<std::unique_ptr<int>>::value);
-
-	static_assert(!is_dereferenceable<std::vector<int>>::value);
-	static_assert(!is_dereferenceable<std::list<int>>::value);
-	static_assert(is_dereferenceable<std::optional<int>>::value);
-	static_assert(is_dereferenceable<std::unique_ptr<int>>::value);
-
 	std::stringstream log_stream;
-	set_log_stream(&log_stream);
-	set_log_verbosity(debug);
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
 
-	docwire_log(debug) << std::optional<int>(1);
-	docwire_log(debug) << std::optional<int>();
-	docwire_log(debug) << std::make_unique<int>(1);
-	docwire_log(debug) << std::unique_ptr<int>();
-	docwire_log(debug) << std::make_shared<int>(1);
-	docwire_log(debug) << std::shared_ptr<int>();
-
-	set_log_verbosity(info);
-	set_log_stream(&std::clog);
+        log_entry(std::optional<int>(1));
+        log_entry(std::optional<int>());
+        log_entry(std::make_unique<int>(1));
+        log_entry(std::unique_ptr<int>());
+        log_entry(std::make_shared<int>(1));
+        log_entry(std::shared_ptr<int>());
+    }
 
     std::string log_text = sanitize_log_text(log_stream.str());
-	ASSERT_EQ(read_test_file("logging_dereferenceable.out.json"), log_text);
+#ifdef NDEBUG
+	ASSERT_EQ("[\n]\n", log_text);
+#else
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_dereferenceable.out.json")), log_text);
+#endif
+}
+
+TEST(Concepts, Basics)
+{
+    // container: Should be true for standard containers, false for others.
+    static_assert(container<std::vector<int>>);
+    static_assert(container<std::list<std::string>>);
+    static_assert(container<std::map<int, double>>); // map is a container of pairs
+    static_assert(container<std::set<char>>);
+    static_assert(container<std::string>); // A string is a container of chars, but should be serialized as a value.
+    static_assert(container<char[10]>); // A C-style array is a container of chars
+
+    static_assert(!container<int>);
+    static_assert(!container<const char*>); // A pointer is not a container
+    static_assert(!container<std::optional<int>>);
+    static_assert(!container<std::unique_ptr<int>>);
+    static_assert(!container<std::filesystem::path>); // Correctly avoids self-recursion
+
+    // dereferenceable: Should be true for pointer-like types.
+    static_assert(dereferenceable<int*>);
+    static_assert(dereferenceable<const int*>);
+    static_assert(dereferenceable<std::unique_ptr<int>>);
+    static_assert(dereferenceable<std::shared_ptr<std::string>>);
+    static_assert(dereferenceable<std::optional<double>>);
+
+    static_assert(!dereferenceable<int>);
+    static_assert(!dereferenceable<std::string>);
+    static_assert(!dereferenceable<std::vector<int>>); // It's a container, not pointer-like
+    static_assert(!dereferenceable<std::filesystem::path>);
+
+    // string_like: Should be true for string types and literals.
+    static_assert(string_like<std::string>);
+    static_assert(string_like<const std::string>);
+    static_assert(string_like<std::string_view>);
+    static_assert(string_like<const char*>);
+    static_assert(string_like<char*>);
+    static_assert(string_like<const char[10]>);
+    static_assert(string_like<char[10]>);
+
+    static_assert(!string_like<int>);
+    static_assert(!string_like<std::vector<char>>);
+}
+
+TEST(Serialization, SpecializationLogic)
+{
+    using namespace docwire::serialization;
+
+    // The combination of concepts should route types to the correct serializer.
+    // We verify this by checking the `kind` of the resolved serializer specialization.
+
+    // Primitives should use the Arithmetic or ValueAlternative serializers.
+    static_assert(serializer<int>::kind == serializer_kind::arithmetic);
+    static_assert(serializer<bool>::kind == serializer_kind::value_alternative);
+
+    // std::string is a direct value alternative. Other string-like types use the string_like serializer.
+    static_assert(serializer<std::string>::kind == serializer_kind::value_alternative);
+    static_assert(serializer<const char*>::kind == serializer_kind::string_like);
+
+    // Containers should use the Container serializer.
+    static_assert(serializer<std::vector<int>>::kind == serializer_kind::container);
+
+    // Pointer-like types should use the Dereferenceable serializer.
+    static_assert(serializer<std::optional<int>>::kind == serializer_kind::dereferenceable);
+    static_assert(serializer<std::unique_ptr<int>>::kind == serializer_kind::dereferenceable);
+}
+
+TEST(Logging, Iterable)
+{
+	std::stringstream log_stream;
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
+
+        log_entry((std::vector<int>{1, 2, 3}));
+        log_entry((std::list<std::string>{"a", "b", "c"}));
+        std::vector<std::pair<std::string, int>> vec_of_pairs = {{"one", 1}, {"two", 2}};
+        log_entry(vec_of_pairs);
+    }
+
+    std::string log_text = sanitize_log_text(log_stream.str());
+#ifdef NDEBUG
+    // In release mode, none of these logs should be generated.
+	ASSERT_EQ("[\n]\n", log_text);
+#else
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_iterable.out.json")), log_text);
+#endif
+}
+
+TEST(Logging, MemberVariable)
+{
+    struct Point { int x; int y; };
+    struct Rect { Point top_left; Point bottom_right; };
+
+    Rect r1 = {{1, 2}, {3, 4}};
+    Rect r2 = {{5, 6}, {7, 8}};
+
+	std::stringstream log_stream;
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
+
+        log_entry(r1.top_left.x, r2.top_left.x);
+    }
+
+    std::string log_text = sanitize_log_text(log_stream.str());
+#ifdef NDEBUG
+    ASSERT_EQ("[\n]\n", log_text);
+#else
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_member_variable.out.json")), log_text);
+#endif
 }
 
 TEST(Logging, CerrLogRedirection)
 {
 	std::stringstream log_stream;
-	set_log_stream(&log_stream);
-	set_log_verbosity(debug);
+    std::stringstream captured_cerr_stream;
+    {
+        log::state_saver saver;
+	    log::set_sink(log::json_stream_sink(log_stream));
+	    log::set_filter("*");
+ 
+        // Redirect cerr to a stringstream to verify that nothing is written to it.
+        std::streambuf* original_cerr_buf = std::cerr.rdbuf(captured_cerr_stream.rdbuf());
 
-    cerr_log_redirection cerr_redirection(docwire_current_source_location());
-	std::cerr << "Cerr test log message line 1" << std::endl;
-    std::cerr << "Cerr test log message line 2" << std::endl;
-	cerr_redirection.restore();
+        {
+            log::cerr_redirection cerr_redirection;
+            std::cerr << "Cerr test log message line 1" << std::endl;
+            std::cerr << "Cerr test log message line 2" << std::endl;
+            // cerr_redirection's destructor will call restore()
+        }
 
-    set_log_verbosity(info);
-	set_log_stream(&std::clog);
+        // Restore original cerr
+        std::cerr.rdbuf(original_cerr_buf);
+    }
+
+	std::string log_text = sanitize_log_text(log_stream.str());
+#ifdef NDEBUG
+	// In release mode, the log entry is compiled out, and cerr output is suppressed.
+	ASSERT_EQ("[\n]\n", log_text);
+	ASSERT_TRUE(captured_cerr_stream.str().empty()) << "stderr should be empty in release mode as it's redirected to a null stream.";
+#else
+	ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_cerr_log_redirection.out.json")), log_text);
+	ASSERT_TRUE(captured_cerr_stream.str().empty()) << "stderr should be empty in debug mode as it's redirected to the log.";
+#endif
+}
+
+TEST(Logging, Basics)
+{
+	std::stringstream log_stream;
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
+
+        int my_var = 123;
+        const char* my_cstr = "a c-string";
+        log_entry("A literal string", my_var, my_cstr);
+    }
 
     std::string log_text = sanitize_log_text(log_stream.str());
-    ASSERT_EQ(read_test_file("logging_cerr_log_redirection.out.json"), log_text);
+#ifdef NDEBUG
+    // In release mode, this log should be compiled out.
+    ASSERT_EQ("[\n]\n", log_text);
+#else
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_basics.out.json")), log_text);
+#endif
+}
+
+TEST(Logging, Scope)
+{
+	std::stringstream log_stream;
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
+
+        int scope_var = 42;
+        {
+            log_scope(scope_var);
+            log_entry("inside scope");
+        }
+    }
+
+    std::string log_text = sanitize_log_text(log_stream.str());
+#ifdef NDEBUG
+    // In release mode, the scope and entry logs should be compiled out.
+    ASSERT_EQ("[\n]\n", log_text);
+#else
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_scope.out.json")), log_text);
+#endif
+}
+
+int function_with_log_return()
+{
+    return log_forward(123, log::return_value{});
+}
+
+TEST(Logging, LogForward)
+{
+	std::stringstream log_stream;
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
+
+        int a = 10;
+        int b = 20;
+        int c = log_forward(a + b);
+        EXPECT_EQ(c, 30);
+
+        int d = log_forward(c * 2, log::audit{});
+        EXPECT_EQ(d, 60);
+
+        EXPECT_EQ(function_with_log_return(), 123);
+    }
+
+    std::string log_text = sanitize_log_text(log_stream.str());
+#ifdef NDEBUG
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_log_forward.release.out.json")), log_text);
+#else
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_log_forward.out.json")), log_text);
+#endif
+}
+
+namespace
+{
+void function_for_log_test()
+{
+    log_entry(log::audit{}, "from function_for_log_test");
+}
+}
+
+TEST(Logging, FilteringByFileAndFunction)
+{
+    std::stringstream log_stream;
+    log::state_saver saver;
+    log::set_sink(log::json_stream_sink(log_stream));
+
+    // Test filename filtering
+    // Also test combined file and function filters
+    log::set_filter("@file:api_tests.cpp, @func:*TestBody*");
+    log_entry(log::audit{}, "file_and_func_exact_match");
+    ASSERT_THAT(log_stream.str(), testing::HasSubstr("file_and_func_exact_match"));
+    log_stream.str("");
+
+    log::set_filter("@file:*_tests.cpp");
+    log_entry(log::audit{}, "file_suffix_wildcard");
+    ASSERT_THAT(log_stream.str(), testing::HasSubstr("file_suffix_wildcard"));
+    log_stream.str("");
+
+    log::set_filter("@file:api_t?sts.cpp");
+    log_entry(log::audit{}, "file_char_wildcard");
+    ASSERT_THAT(log_stream.str(), testing::HasSubstr("file_char_wildcard"));
+    log_stream.str("");
+
+    log::set_filter("-@file:api_tests.cpp");
+    log_entry(log::audit{}, "file_negative_filter");
+    ASSERT_TRUE(log_stream.str().empty());
+    log_stream.str("");
+
+    // Test function name filtering
+    // Note: The exact function name can vary between compilers. Wildcards are essential.
+    log::set_filter("@func:*function_for_log_test*");
+    function_for_log_test();
+    ASSERT_THAT(log_stream.str(), testing::HasSubstr("from function_for_log_test"));
+    log_stream.str("");
+
+    log::set_filter("-@func:*function_for_log_test*");
+    function_for_log_test();
+    ASSERT_TRUE(log_stream.str().empty());
+    log_stream.str("");
+
+}
+
+
+struct include_me { static constexpr std::string_view string() { return "include_me"; } };
+struct special { static constexpr std::string_view string() { return "special"; } };
+
+TEST(Logging, Filtering)
+{
+	std::stringstream log_stream;
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        
+        // Filter to only include 'include_me' and 'scope_exit' tags, but exclude 'special'.
+        log::set_filter("include_me,scope_exit,-special");
+        log_entry("this is excluded");
+        log_entry(log::audit{}, "this is also excluded by filter");
+        log_entry(log::return_value{}, "excluded by tag");
+        log_entry(include_me{}, "this is included");
+        {
+            log_scope(); // scope_enter is excluded by filter
+            log_entry(include_me{}, "another included entry");
+            log_entry(include_me{}, special{}, "this is excluded by negative filter");
+        } // scope_exit is included
+    }
+
+    std::string log_text = sanitize_log_text(log_stream.str());
+#ifdef NDEBUG
+    ASSERT_EQ("[\n]\n", log_text);
+#else
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_filtering.out.json")), log_text);
+#endif
+}
+
+TEST(Logging, AuditInRelease)
+{
+	std::stringstream log_stream;
+    {
+        log::state_saver saver;
+        log::set_sink(log::json_stream_sink(log_stream));
+        log::set_filter("*");
+
+        log_entry("A regular debug log");
+        log_entry(log::audit{}, "An important audit event");
+    }
+
+    std::string log_text = sanitize_log_text(log_stream.str());
+#ifdef NDEBUG
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_audit.release.out.json")), log_text);
+#else
+    ASSERT_EQ(sanitize_expected_log_text(read_test_file("logging_audit.out.json")), log_text);
+#endif
 }
 
 TEST(unique_identifier, generation_uniqueness_copying_and_hashing)
@@ -2308,8 +2667,341 @@ TEST(tokenizer, multilingual_e5)
     }
 }
 
+TEST(Serialization, PureSerialization)
+{
+    using namespace docwire::serialization;
+
+    // Test primitive types
+    value v_int = full(42);
+    ASSERT_TRUE(std::holds_alternative<std::int64_t>(v_int));
+    EXPECT_EQ(std::get<std::int64_t>(v_int), 42);
+
+    value v_str = full(std::string("hello"));
+    ASSERT_TRUE(std::holds_alternative<std::string>(v_str));
+    EXPECT_EQ(std::get<std::string>(v_str), "hello");
+
+    // Test a complex type (data_source)
+    docwire::data_source ds(std::filesystem::path("test.txt"));
+    value v_ds = full(ds);
+    ASSERT_TRUE(std::holds_alternative<object>(v_ds));
+    const auto& obj_ds = std::get<object>(v_ds);
+    // With std::map, fields are sorted alphabetically
+    ASSERT_EQ(obj_ds.v.size(), 2);
+    EXPECT_EQ(std::get<std::string>(std::get<object>(std::get<object>(obj_ds.v.at("file_extension")).v.at("value")).v.at("value")), ".txt");
+    EXPECT_EQ(std::get<std::string>(std::get<object>(obj_ds.v.at("path")).v.at("value")), "test.txt");
+    // Ensure no typeid field is present in pure serialization
+    EXPECT_EQ(obj_ds.v.count("typeid"), 0);
+}
+
+TEST(Serialization, PrimitivesAndEnums)
+{
+    using namespace docwire::serialization;
+
+    // Test bool
+    value v_bool = full(true);
+    ASSERT_TRUE(std::holds_alternative<bool>(v_bool));
+    EXPECT_TRUE(std::get<bool>(v_bool));
+
+    // Test double
+    value v_double = full(3.14);
+    ASSERT_TRUE(std::holds_alternative<double>(v_double));
+    EXPECT_DOUBLE_EQ(std::get<double>(v_double), 3.14);
+
+    // Test enum
+    value v_enum = full(docwire::confidence::very_high);
+    ASSERT_TRUE(std::holds_alternative<std::string>(v_enum));
+    EXPECT_EQ(std::get<std::string>(v_enum), "very_high");
+}
+
+TEST(Serialization, Containers)
+{
+    using namespace docwire::serialization;
+
+    // Test std::vector
+    std::vector<int> vec = {1, 2, 3};
+    value v_vec = full(vec);
+    ASSERT_TRUE(std::holds_alternative<array>(v_vec));
+    const auto& arr = std::get<array>(v_vec);
+    ASSERT_EQ(arr.v.size(), 3);
+    EXPECT_EQ(std::get<std::int64_t>(arr.v[0]), 1);
+    EXPECT_EQ(std::get<std::int64_t>(arr.v[1]), 2);
+    EXPECT_EQ(std::get<std::int64_t>(arr.v[2]), 3);
+
+    // Test std::pair
+    auto p = std::make_pair(std::string("key"), 42);
+    value v_pair = full(p);
+    ASSERT_TRUE(std::holds_alternative<object>(v_pair));
+    const auto& obj_pair = std::get<object>(v_pair);
+    ASSERT_EQ(obj_pair.v.size(), 2);
+    EXPECT_EQ(std::get<std::string>(obj_pair.v.at("first")), "key");
+    EXPECT_EQ(std::get<std::int64_t>(obj_pair.v.at("second")), 42);
+}
+
+TEST(Serialization, PointersAndOptionals)
+{
+    using namespace docwire::serialization;
+
+    // Test std::optional
+    value v_opt_full = full(std::optional<int>(123));
+    ASSERT_TRUE(std::holds_alternative<object>(v_opt_full));
+    EXPECT_EQ(std::get<std::int64_t>(std::get<object>(v_opt_full).v.at("value")), 123);
+
+    value v_opt_empty = full(std::optional<int>());
+    ASSERT_TRUE(std::holds_alternative<std::nullptr_t>(v_opt_empty));
+
+    // Test std::unique_ptr
+    value v_uniq_full = full(std::make_unique<int>(456));
+    ASSERT_TRUE(std::holds_alternative<object>(v_uniq_full));
+    EXPECT_EQ(std::get<std::int64_t>(std::get<object>(v_uniq_full).v.at("value")), 456);
+
+    std::unique_ptr<int> empty_uniq;
+    value v_uniq_empty = full(empty_uniq);
+    ASSERT_TRUE(std::holds_alternative<std::nullptr_t>(v_uniq_empty));
+}
+
+TEST(Serialization, StringLike)
+{
+    using namespace docwire::serialization;
+
+    const char* null_str = nullptr;
+    value result_null = full(null_str);
+    ASSERT_TRUE(std::holds_alternative<std::nullptr_t>(result_null));
+
+    const char* non_null_str = "hello";
+    value result_non_null = full(non_null_str);
+    ASSERT_TRUE(std::holds_alternative<std::string>(result_non_null));
+    EXPECT_EQ(std::get<std::string>(result_non_null), "hello");
+
+    value result_sv = full(std::string_view{"world"});
+    ASSERT_TRUE(std::holds_alternative<std::string>(result_sv));
+    EXPECT_EQ(std::get<std::string>(result_sv), "world");
+}
+
+TEST(Serialization, StdTypes)
+{
+    using namespace docwire::serialization;
+
+    // Test std::filesystem::path
+    value v_path = full(std::filesystem::path("/tmp/test.file"));
+    ASSERT_TRUE(std::holds_alternative<std::string>(v_path));
+    EXPECT_EQ(std::get<std::string>(v_path), "/tmp/test.file");
+
+    // Test std::exception
+    value v_exc = full(std::runtime_error("An error occurred"));
+    ASSERT_TRUE(std::holds_alternative<object>(v_exc));
+    EXPECT_EQ(std::get<std::string>(std::get<object>(v_exc).v.at("what")), "An error occurred");
+}
+
+TEST(Serialization, Time)
+{
+    using namespace docwire::serialization;
+
+    // Test std::tm
+    struct tm test_time = {};
+    test_time.tm_year = 2024 - 1900; // years since 1900
+    test_time.tm_mon = 5;            // months since January [0-11]
+    test_time.tm_mday = 15;
+    test_time.tm_hour = 10;
+    test_time.tm_min = 30;
+    value v_time = full(test_time);
+    ASSERT_TRUE(std::holds_alternative<std::string>(v_time));
+    EXPECT_EQ(std::get<std::string>(v_time), "2024-06-15 10:30:00");
+}
+
+TEST(Serialization, TypedSummaryPrimitives)
+{
+    using namespace docwire::serialization;
+
+    // Test int
+    value v_int = typed_summary(42);
+    ASSERT_TRUE(std::holds_alternative<object>(v_int));
+    const auto& obj_int = std::get<object>(v_int);
+    EXPECT_EQ(std::get<std::string>(obj_int.v.at("typeid")), "int");
+    EXPECT_EQ(std::get<std::int64_t>(obj_int.v.at("value")), 42);
+
+    // Test bool
+    value v_bool = typed_summary(false);
+    ASSERT_TRUE(std::holds_alternative<object>(v_bool));
+    const auto& obj_bool = std::get<object>(v_bool);
+    EXPECT_EQ(std::get<std::string>(obj_bool.v.at("typeid")), "bool");
+    EXPECT_EQ(std::get<bool>(obj_bool.v.at("value")), false);
+
+    // Test string literal
+    value v_literal = typed_summary("literal");
+    ASSERT_TRUE(std::holds_alternative<object>(v_literal));
+    const auto& obj_literal = std::get<object>(v_literal);
+    EXPECT_EQ(std::get<std::string>(obj_literal.v.at("typeid")), "char[8]");
+    EXPECT_EQ(std::get<std::string>(obj_literal.v.at("value")), "literal");
+}
+
+TEST(Serialization, TypedSummaryString)
+{
+    using namespace docwire::serialization;
+    value v_str = typed_summary(std::string("hello"));
+    ASSERT_TRUE(std::holds_alternative<object>(v_str));
+    const auto& obj_str = std::get<object>(v_str);
+    EXPECT_EQ(std::get<std::string>(obj_str.v.at("typeid")), "std::string");
+    EXPECT_EQ(std::get<std::string>(obj_str.v.at("value")), "hello");
+}
+
+TEST(Serialization, TypedSummaryComplex)
+{
+    using namespace docwire::serialization;
+
+    // Test a complex type (data_source)
+    docwire::data_source ds(std::filesystem::path("test.txt"));
+    value v_ds = typed_summary(ds);
+    ASSERT_TRUE(std::holds_alternative<object>(v_ds));
+    const auto& obj_ds = std::get<object>(v_ds);
+    ASSERT_EQ(obj_ds.v.size(), 2); // typeid and value
+    EXPECT_EQ(std::get<std::string>(obj_ds.v.at("typeid")), "docwire::data_source");
+    const auto& inner_val = std::get<object>(obj_ds.v.at("value")); // This is the object containing "path" and "file_extension"
+
+    // Check path within data_source
+    const auto& path_typed_summary = std::get<object>(inner_val.v.at("path")); // typed_summary(data.path())
+    EXPECT_EQ(std::get<std::string>(path_typed_summary.v.at("typeid")), "std::optional<std::filesystem::path>");
+    const auto& path_value_obj = std::get<object>(path_typed_summary.v.at("value")); // typed_summary(*data.path())
+    EXPECT_EQ(std::get<std::string>(path_value_obj.v.at("typeid")), "std::filesystem::path");
+    EXPECT_EQ(std::get<std::string>(path_value_obj.v.at("value")), "test.txt");
+
+    // Check file_extension within data_source
+    const auto& fe_typed_summary = std::get<object>(inner_val.v.at("file_extension")); // typed_summary(data.file_extension())
+    EXPECT_EQ(std::get<std::string>(fe_typed_summary.v.at("typeid")), "std::optional<docwire::file_extension>");
+    const auto& fe_value_obj = std::get<object>(fe_typed_summary.v.at("value")); // typed_summary(*data.file_extension())
+    EXPECT_EQ(std::get<std::string>(fe_value_obj.v.at("typeid")), "docwire::file_extension");
+    const auto& fe_inner_value_obj = std::get<object>(fe_value_obj.v.at("value")); // full(ext)
+    EXPECT_EQ(std::get<std::string>(fe_inner_value_obj.v.at("value")), ".txt");
+
+    // Test nested typed serialization
+    auto pair = std::make_pair(std::string("key"), ds);
+    value v_pair = typed_summary(pair);
+    ASSERT_TRUE(std::holds_alternative<object>(v_pair));
+    const auto& obj_pair = std::get<object>(v_pair);
+    ASSERT_EQ(obj_pair.v.size(), 2); // "typeid" and "value"
+    EXPECT_EQ(std::get<std::string>(obj_pair.v.at("typeid")), "std::pair<std::string,docwire::data_source>");
+    
+    const auto& nested_pair_value_obj = std::get<object>(obj_pair.v.at("value")); // This is the object containing "first" and "second"
+    
+    // Check "first" element of the pair (std::string)
+    const auto& first_elem_typed_summary = std::get<object>(nested_pair_value_obj.v.at("first"));
+    EXPECT_EQ(std::get<std::string>(first_elem_typed_summary.v.at("typeid")), "std::string");
+    EXPECT_EQ(std::get<std::string>(first_elem_typed_summary.v.at("value")), "key");
+
+    // Check that the nested data_source object is also typed
+    const auto& second_elem_typed_summary = std::get<object>(nested_pair_value_obj.v.at("second"));
+    EXPECT_EQ(std::get<std::string>(second_elem_typed_summary.v.at("typeid")), "docwire::data_source");
+    
+    const auto& nested_ds_value_obj = std::get<object>(second_elem_typed_summary.v.at("value")); // This is the object containing "path" and "file_extension" from the nested data_source
+    
+    // Check path within the nested data_source
+    const auto& nested_path_typed_summary = std::get<object>(nested_ds_value_obj.v.at("path"));
+    EXPECT_EQ(std::get<std::string>(nested_path_typed_summary.v.at("typeid")), "std::optional<std::filesystem::path>");
+    const auto& nested_path_value_obj = std::get<object>(nested_path_typed_summary.v.at("value"));
+    EXPECT_EQ(std::get<std::string>(nested_path_value_obj.v.at("typeid")), "std::filesystem::path");
+    EXPECT_EQ(std::get<std::string>(nested_path_value_obj.v.at("value")), "test.txt");
+
+    // Check file_extension within the nested data_source
+    const auto& nested_fe_typed_summary = std::get<object>(nested_ds_value_obj.v.at("file_extension"));
+    EXPECT_EQ(std::get<std::string>(nested_fe_typed_summary.v.at("typeid")), "std::optional<docwire::file_extension>");
+    const auto& nested_fe_value_obj = std::get<object>(nested_fe_typed_summary.v.at("value"));
+    EXPECT_EQ(std::get<std::string>(nested_fe_value_obj.v.at("typeid")), "docwire::file_extension");
+    const auto& nested_fe_inner_value_obj = std::get<object>(nested_fe_value_obj.v.at("value"));
+    EXPECT_EQ(std::get<std::string>(nested_fe_inner_value_obj.v.at("value")), ".txt");
+}
+
+TEST(Serialization, Concepts)
+{
+    using namespace docwire::serialization;
+
+    // Test value_alternative for types that ARE in the variant
+    static_assert(value_alternative<std::nullptr_t>);
+    static_assert(value_alternative<bool>);
+    static_assert(value_alternative<std::int64_t>);
+    static_assert(value_alternative<std::uint64_t>);
+    static_assert(value_alternative<double>);
+    static_assert(value_alternative<std::string>);
+    static_assert(value_alternative<array>);
+    static_assert(value_alternative<object>);
+
+    // Test value_alternative for types that are NOT in the variant
+    static_assert(!value_alternative<int>);
+    static_assert(!value_alternative<float>);
+    static_assert(!value_alternative<char>);
+    static_assert(!value_alternative<const char*>);
+    static_assert(!value_alternative<std::vector<int>>);
+    static_assert(!value_alternative<docwire::data_source>);
+
+    // Test the general variant_alternative with a custom variant
+    using my_variant = std::variant<int, float, std::string>;
+    static_assert(variant_alternative<int, my_variant>);
+    static_assert(!variant_alternative<double, my_variant>);
+}
+
+TEST(Serialization, PrettyName)
+{
+    EXPECT_EQ(type_name::pretty<int>(), "int");
+    EXPECT_EQ(type_name::pretty<const int&>(), "const int&");
+    EXPECT_EQ(type_name::pretty<std::string>(), "std::string");
+    EXPECT_EQ(type_name::pretty<const std::string>(), "const std::string");
+    EXPECT_EQ((type_name::pretty<std::pair<int, float>>()), "std::pair<int,float>");
+    EXPECT_EQ((type_name::pretty<std::pair<std::string, docwire::data_source&&>>()), "std::pair<std::string,docwire::data_source&&>");
+    EXPECT_EQ(type_name::pretty<const char*>(), "const char*");
+    EXPECT_EQ((type_name::pretty<std::pair<int, std::pair<double, std::string>>>()), "std::pair<int,std::pair<double,std::string>>");
+}
+
+struct int_alias { int v; };
+struct string_alias { std::string v; };
+
+TEST(Serialization, StrongTypeAlias)
+{
+    using namespace docwire::serialization;
+
+    // Test pure serialization (full)
+    int_alias my_int{123};
+    value v_full = full(my_int);
+    ASSERT_TRUE(std::holds_alternative<std::int64_t>(v_full));
+    EXPECT_EQ(std::get<std::int64_t>(v_full), 123);
+
+    // Test typed summary
+    value v_typed = typed_summary(my_int);
+    ASSERT_TRUE(std::holds_alternative<object>(v_typed));
+    const auto& obj_typed = std::get<object>(v_typed);
+    EXPECT_EQ(std::get<std::string>(obj_typed.v.at("typeid")), "int_alias");
+    EXPECT_EQ(std::get<std::int64_t>(obj_typed.v.at("value")), 123);
+}
+
+/*
+// This test demonstrates the static_assert for missing serializers.
+// It is commented out because it is designed to fail compilation.
+TEST(Serialization, StaticAssertForMissingSerializer)
+{
+    struct MyCustomTypeWithoutSerializer {};
+
+    // The following line will fail to compile with a clear static_assert message:
+    // "docwire::serialization::serializer<T> is not specialized for this type.
+    //  Please provide a specialization for your type `T`."
+    //
+    // docwire::serialization::value v = docwire::serialization::full(MyCustomTypeWithoutSerializer{});
+}
+*/
+
+TEST(Stringification, StrongTypeAlias)
+{
+    int_alias my_int{123};
+    EXPECT_EQ(stringify(my_int), "123");
+
+    string_alias my_str{"hello"};
+    EXPECT_EQ(stringify(my_str), "hello");
+}
+
 int main(int argc, char* argv[])
 {
+    if (environment::get("DOCWIRE_TESTS_CONSOLE_LOGGING").value_or("0") == "1")
+    {
+        log::set_sink(log::json_stream_sink(std::clog));
+        log::set_filter("*");
+    }
+
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 }
@@ -2397,3 +3089,58 @@ TEST(Http, ServerNonFatalError)
     }
     EXPECT_EQ(success_response_stream.str(), "success data");
 }
+
+TEST(Ensure, CorrectUsage)
+{
+    // Test successful comparisons
+    ASSERT_NO_THROW(ensure(5) == 5);
+    ASSERT_NO_THROW(ensure(5) != 6);
+    ASSERT_NO_THROW(ensure(6) > 5);
+    ASSERT_NO_THROW(ensure(5) < 6);
+    ASSERT_NO_THROW(ensure(5) >= 5);
+    ASSERT_NO_THROW(ensure(6) >= 5);
+    ASSERT_NO_THROW(ensure(5) <= 5);
+    ASSERT_NO_THROW(ensure(5) <= 6);
+    ASSERT_NO_THROW(ensure(std::string("hello world")).contains("world"));
+}
+
+TEST(Ensure, ThrowsOnFailure)
+{
+    // Test failing comparisons
+    ASSERT_THROW(ensure(5) == 6, docwire::errors::base);
+    ASSERT_THROW(ensure(5) != 5, docwire::errors::base);
+    ASSERT_THROW(ensure(5) > 6, docwire::errors::base);
+    ASSERT_THROW(ensure(6) < 5, docwire::errors::base);
+    ASSERT_THROW(ensure(5) >= 6, docwire::errors::base);
+    ASSERT_THROW(ensure(6) <= 5, docwire::errors::base);
+    ASSERT_THROW(ensure(std::string("hello world")).contains("galaxy"), docwire::errors::base);
+}
+
+TEST(Ensure, ThrowsWithCorrectContext)
+{
+    try
+    {
+        int actual = 42;
+        int expected = 100;
+        ensure(actual) == expected;
+        FAIL() << "Expected ensure to throw";
+    }
+    catch (const errors::base& e)
+    {
+        std::string msg = docwire::errors::diagnostic_message(e);
+        EXPECT_THAT(msg, testing::HasSubstr("!(m_value == other)"));
+        EXPECT_THAT(msg, testing::HasSubstr("m_value: 42"));
+        EXPECT_THAT(msg, testing::HasSubstr("other: 100"));
+    }
+}
+
+#ifndef NDEBUG
+TEST(EnsureDeathTest, MisuseDetection)
+{
+    // This test checks that using ensure() without a comparison operator
+    // triggers an assertion failure in debug builds.
+    ASSERT_DEATH(
+        (void)ensure(2 == 3), // Incorrect usage
+        "ensure\\(\\) was called without a comparison operator");
+}
+#endif

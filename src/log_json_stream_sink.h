@@ -9,27 +9,18 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOG_EXCEPTION_H
-#define DOCWIRE_LOG_EXCEPTION_H
+#ifndef DOCWIRE_LOG_JSON_STREAM_SINK_H
+#define DOCWIRE_LOG_JSON_STREAM_SINK_H
 
-#include "log.h"
-#include "exception_utils.h"
+#include "core_export.h"
+#include <functional>
+#include "log_core.h"
+#include <ostream>
+#include "ref_or_owned.h"
 
-namespace docwire
+namespace docwire::log
 {
-
-inline log_record_stream& operator<<(log_record_stream& log_stream, const std::exception_ptr eptr)
-{
-	if (eptr)
-		log_stream << begin_complex() <<
-            docwire_log_streamable_type_of(eptr) <<
-            std::make_pair("diagnostic_message", errors::diagnostic_message(eptr)) <<
-            end_complex();
-	else
-		log_stream << nullptr;
-	return log_stream;
+DOCWIRE_CORE_EXPORT std::function<void(const record&)> json_stream_sink(ref_or_owned<std::ostream> stream);
 }
 
-} // namespace docwire
-
-#endif // DOCWIRE_LOG_EXCEPTION_H
+#endif // DOCWIRE_LOG_JSON_STREAM_SINK_H

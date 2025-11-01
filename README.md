@@ -338,488 +338,144 @@ DocWire SDK's API fosters a seamless synergy between AI and data processing. By 
 Parse file in any format (Office, PDF, mail, etc) having its path, export to plain text and write to string stream:
 
 ```cpp
-#include "docwire.h"
-#include <cassert>
-#include <sstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::stringstream out_stream;
-
-  try
-  {
-    std::filesystem::path("data_processing_definition.doc") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | out_stream;
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-  assert(out_stream.str() == "Data processing refers to the activities performed on raw data to convert it into meaningful information. It involves collecting, organizing, analyzing, and interpreting data to extract useful insights and support decision-making. This can include tasks such as sorting, filtering, summarizing, and transforming data through various computational and statistical methods. Data processing is essential in various fields, including business, science, and technology, as it enables organizations to derive valuable knowledge from large datasets, make informed decisions, and improve overall efficiency.\n\n");
-
-  return 0;
-}
+std::filesystem::path("data_processing_definition.doc") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | out_stream;
+ensure(out_stream.str()) == "Data processing refers to the activities performed on raw data...";
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/path_to_text_stream_8cpp-example.html)
 
 Parse file in any format (Office, PDF, mail, etc) having stream, export to HTML and write to stream:
 
 ```cpp
-#include "docwire.h"
-#include <cassert>
-#include <fstream>
-#include <sstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::stringstream out_stream;
-
-  try
-  {
-    std::ifstream("data_processing_definition.docx", std::ios_base::binary) | content_type::detector{} | office_formats_parser{} | HtmlExporter() | out_stream;
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-  assert(out_stream.str() ==
-    "<!DOCTYPE html>\n"
-    "<html>\n"
-    "<head>\n"
-      "<meta charset=\"utf-8\">\n"
-      "<title>DocWire</title>\n"
-      "<meta name=\"author\" content=\"\">\n"
-      "<meta name=\"creation-date\" content=\"2024-01-14 16:22:52\">\n"
-      "<meta name=\"last-modified-by\" content=\"\">\n"
-      "<meta name=\"last-modification-date\" content=\"2024-01-14 16:35:33\">\n"
-    "</head>\n"
-    "<body>\n"
-      "<p>Data processing refers to the activities performed on raw data to convert it into meaningful information. It involves collecting, organizing, analyzing, and interpreting data to extract useful insights and support decision-making. This can include tasks such as sorting, filtering, summarizing, and transforming data through various computational and statistical methods.</p><p>Data processing is essential in various fields, including business, science, and technology, as it enables organizations to derive valuable knowledge from large datasets, make informed decisions, and improve overall efficiency.</p></body>\n"
-    "</html>\n");
-
-  return 0;
-}
+std::ifstream("data_processing_definition.docx", std::ios_base::binary) | content_type::detector{} | office_formats_parser{} | HtmlExporter() | out_stream;
+ensure(out_stream.str()).contains("Data processing refers to the activities");
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/stream_to_html_8cpp-example.html)
 
 Parse all files in any format inside archives (ZIP, TAR, RAR, GZ, BZ2, XZ) recursively:
 
 ```cpp
-#include "docwire.h"
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  try
-  {
-    std::filesystem::path("test.zip") | content_type::detector{} | archives_parser{} | office_formats_parser{} | OCRParser{} | PlainTextExporter() | std::cout;
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-  return 0;
-}
+std::filesystem::path("test.zip") | content_type::detector{} | archives_parser{} | office_formats_parser{} | OCRParser{} | PlainTextExporter() | std::cout;
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/parse_archives_8cpp-example.html)
 
 Classify file in any format (Office, PDF, mail, etc) to any categories using build-in local AI model:
 
 ```cpp
-#include "docwire.h"
-#include <cassert>
-#include <sstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::stringstream out_stream;
-
-  try
-  {
-    std::filesystem::path("document_processing_market_trends.odt") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | local_ai::model_chain_element("Classify to one of the following categories and answer with exact category name: agreement, invoice, report, legal, user manual, other:\n\n") | out_stream;
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-  assert(out_stream.str() == "report");
-
-  return 0;
-}
+std::filesystem::path("...") | ... | local_ai::model_chain_element("Classify to...: agreement, invoice, report...") | out_stream;
+ensure(out_stream.str()) == "report";
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/local_ai_classify_8cpp-example.html)
 
 Classify file in any format (Office, PDF, mail, etc) to any categories using OpenAI service:
 
 ```cpp
-#include "docwire.h"
-#include <cassert>
-#include <sstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::stringstream out_stream;
-
-  try
-  {
-    std::filesystem::path("document_processing_market_trends.odt") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | openai::Classify({ "agreement", "invoice", "report", "legal", "other"}, std::getenv("OPENAI_API_KEY")) | out_stream;
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-  assert(out_stream.str() == "report\n");
-
-  return 0;
-}
+std::filesystem::path("...") | ... | openai::Classify({ "agreement", "invoice", "report", ...}, ...) | out_stream;
+ensure(out_stream.str()) == "report\n";
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/openai_classify_8cpp-example.html)
 
 Translate document in any format (Office, PDF, mail, etc) to other language using build-in local AI model:
 
 ```cpp
-#include "docwire.h"
-#include <cassert>
-#include <sstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::stringstream out_stream;
-
-  try
-  {
-    std::filesystem::path("data_processing_definition.doc") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | local_ai::model_chain_element("Translate to spanish:\n\n") | out_stream;
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-  assert(fuzzy_match::ratio(out_stream.str(), "La procesación de datos se refiere a las actividades realizadas en el ámbito de los datos en materia de información. Se trata de recoger, organizar, analizar y interpretar los datos para extraer inteligencias y apoyar el procesamiento de decisión. Esto puede incluir tareas como la etiqueta, la filtración, la summarización y la transformación de los datos a través de diversos métodos compuestos y estadounidenses. El procesamiento de datos es esencial en diversos ámbitos, incluyendo el negocio, la ciencia y la tecnologàa, pues permite a las empresas a extraer conocimientos valiosos de grans de datos, hacer decisiones indicadas y mejorar la eficiencia global.") > 80);
-  return 0;
-}
+std::filesystem::path("...") | ... | local_ai::model_chain_element("Translate to spanish:\n\n") | out_stream;
+ensure(fuzzy_match::ratio(out_stream.str(), "La procesación de datos se refiere a las actividades...")) > 80;
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/local_ai_translate_8cpp-example.html)
 
 Translate document in any format (Office, PDF, mail, etc) to other language using OpenAI service:
 
 ```cpp
-#include "docwire.h"
-#include <cassert>
-#include <sstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::stringstream out_stream;
-
-  try
-  {
-    std::filesystem::path("data_processing_definition.doc") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | openai::TranslateTo("spanish", std::getenv("OPENAI_API_KEY")) | out_stream;
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-  assert(fuzzy_match::ratio(out_stream.str(), "El procesamiento de datos se refiere a las actividades realizadas sobre datos en bruto para convertirlos en información significativa. Implica la recopilación, organización, análisis e interpretación de datos para extraer conocimientos útiles y apoyar la toma de decisiones. Esto puede incluir tareas como clasificar, filtrar, resumir y transformar datos mediante diversos métodos computacionales y estadísticos. El procesamiento de datos es esencial en varios campos, incluyendo los negocios, la ciencia y la tecnología, ya que permite a las organizaciones derivar conocimientos valiosos de grandes conjuntos de datos, tomar decisiones informadas y mejorar la eficiencia general.\n") > 80);
-  return 0;
-}
+std::filesystem::path("...") | ... | openai::TranslateTo("spanish", ...) | out_stream;
+ensure(fuzzy_match::ratio(out_stream.str(), "El procesamiento de datos se refiere a las actividades...")) > 80;
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/openai_translate_8cpp-example.html)
 
 Detect sentiment of document in any format (Office, PDF, mail, etc) using build-in local AI model:
 
 ```cpp
-#include "docwire.h"
-#include <cassert>
-#include <sstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::stringstream out_stream;
-
-  try
-  {
-    std::filesystem::path("data_processing_definition.doc") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | local_ai::model_chain_element("Detect sentiment:\n\n") | out_stream;
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-  assert(out_stream.str() == "positive");
-
-  return 0;
-}
+std::filesystem::path("...") | ... | local_ai::model_chain_element("Detect sentiment:\n\n") | out_stream;
+ensure(out_stream.str()) == "positive";
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/local_ai_sentiment_8cpp-example.html)
 
 Detect sentiment of document in any format (Office, PDF, mail, etc) using OpenAI service:
 
 ```cpp
-#include "docwire.h"
-#include <sstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-
-  try
-  {
-    std::filesystem::path("1.doc") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | openai::DetectSentiment(std::getenv("OPENAI_API_KEY")) | std::cout;
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-
-  return 0;
-}
+std::filesystem::path("1.doc") | ... | openai::DetectSentiment(...) | std::cout;
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/openai_sentiment_8cpp-example.html)
 
 Make a summary of document in any format (Office, PDF, mail, etc) using build-in local AI model:
 
 ```cpp
-#include "docwire.h"
-#include <cassert>
-#include <sstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::stringstream out_stream;
-
-  try
-  {
-    std::filesystem::path("data_processing_definition.doc") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | local_ai::model_chain_element("Write a short summary for this text:\n\n") | out_stream;
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-  assert(out_stream.str() == "Data processing is the process of transforming raw data into meaningful information.");
-
-  return 0;
-}
+std::filesystem::path("...") | ... | local_ai::model_chain_element("Write a short summary...") | out_stream;
+ensure(out_stream.str()).is_one_of({ "Data processing is the collection, organization, analysis, and interpretation of data to extract useful insights and support decision-making."...
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/local_ai_summary_8cpp-example.html)
 
 Make a voice summary of document in any format (Office, PDF, mail, etc) in two steps: summarize using GPT model and convert the summary to speech using text to speech model. Result is saved to mp3 file:
 
 ```cpp
-#include "docwire.h"
-#include <fstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  try
-  {
-    std::filesystem::path("1.doc") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | openai::Summarize(std::getenv("OPENAI_API_KEY")) | openai::TextToSpeech(std::getenv("OPENAI_API_KEY")) | std::ofstream("summary.mp3");
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-
-  return 0;
-}
+std::filesystem::path("1.doc") | ... | openai::Summarize(...) | openai::TextToSpeech(...) | std::ofstream("summary.mp3");
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/openai_voice_summary_8cpp-example.html)
 
 Make a text summary of voice recording (e.g. mp3 file with meeting recording) in two steps: convert voice to text and summarize text using OpenAI services (with non-default model selected):
 
 ```cpp
-#include "docwire.h"
-#include <cassert>
-#include <sstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::stringstream out_stream;
-
-  try
-  {
-    std::filesystem::path("data_processing_definition.mp3") | openai::Transcribe(std::getenv("OPENAI_API_KEY")) | PlainTextExporter() | openai::Summarize(std::getenv("OPENAI_API_KEY"), openai::Model::gpt_4o) | out_stream;
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-  assert(fuzzy_match::ratio(out_stream.str(), "Data processing involves converting raw data into meaningful information by collecting, organizing, analyzing, and interpreting it. This process includes tasks like sorting, filtering, summarizing, and transforming data using computational and statistical methods. It is crucial in fields like business, science, and technology, as it helps organizations extract valuable insights from large datasets, make informed decisions, and enhance efficiency.\n") > 80);
-
-  return 0;
-}
+std::filesystem::path("...mp3") | openai::Transcribe(...) | ... | openai::Summarize(..., openai::Model::gpt_4o) | out_stream;
+ensure(fuzzy_match::ratio(out_stream.str(), "Data processing involves converting raw data...")) > 80;
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/openai_transcribe_summary_8cpp-example.html)
 
 Find phrases, objects and events with smart matching in documents in any format (Office, PDF, mail, etc) using build-in local AI model:
 
 ```cpp
-#include "docwire.h"
-#include <cassert>
-#include <sstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::stringstream out_stream;
-
-  try
-  {
-    std::filesystem::path("data_processing_definition.doc") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | local_ai::model_chain_element("Find sentence about \"data convertion\" in the following text:\n\n") | out_stream;
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-  assert(out_stream.str() == "Data processing refers to the activities performed on raw data to convert it into meaningful information.");
-
-  return 0;
-}
+std::filesystem::path("...") | ... | local_ai::model_chain_element("Find sentence about \"data conversion\"...") | out_stream;
+ensure(out_stream.str()).is_one_of({ "Data processing refers to the activities performed on raw data to convert it into meaningful information."...
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/local_ai_find_8cpp-example.html)
 
 Find phrases, objects and events in text or image using GPT model (with non-default model selected):
 
 ```cpp
-#include "docwire.h"
-#include <sstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::stringstream out_stream;
-
-  try
-  {
-    std::filesystem::path("scene_1.png") | content_type::detector{} | openai::Find("tree", std::getenv("OPENAI_API_KEY"), openai::Model::gpt_4o) | out_stream;
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-  assert(fuzzy_match::ratio(out_stream.str(), "2\n- A tree is located on the left side of the image near the people.\n- Another tree is in the background near the center of the image.\n") > 80);
-
-  return 0;
-}
+std::filesystem::path("scene_1.png") | ... | openai::Find("tree", ..., openai::Model::gpt_4o) | out_stream;
+ensure(fuzzy_match::ratio(out_stream.str(), "2\n- A tree is located on the left side...")) > 80;
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/openai_find_image_8cpp-example.html)
 
 Create embedding for document in any format (Office, PDF, mail, etc) using OpenAI service:
 
 ```cpp
-#include "docwire.h"
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::vector<message_ptr> out_msgs;
-
-  try
-  {
-    std::filesystem::path("data_processing_definition.doc") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | openai::embed(std::getenv("OPENAI_API_KEY")) | out_msgs;
-    assert(out_msgs.size() == 1);
-    assert(out_msgs[0]->is<ai::embedding>());
-    auto embedding = out_msgs[0]->get<ai::embedding>();
-    assert(embedding.values.size() == 1536);
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-
-  return 0;
-}
+std::filesystem::path("...") | ... | openai::embed(...) | out_msgs;
+...
+ensure(out_msgs[0]->is<ai::embedding>()) == true;
+ensure(out_msgs[0]->get<ai::embedding>().values.size()) == 1536;
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/openai_embedding_8cpp-example.html)
 
 Create embedding for document in any format (Office, PDF, mail, etc) using build-in local AI model, create embeddings for two queries and calculate similarity:
 
 ```cpp
-#include "docwire.h"
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-
-  try
-  {
-    // 1. Create an embedding for the document (passage) using the default prefix
-    std::vector<message_ptr> passage_msgs;
-    std::filesystem::path("data_processing_definition.doc") | content_type::detector{} | office_formats_parser{} | PlainTextExporter() | local_ai::embed(local_ai::embed::e5_passage_prefix) | passage_msgs;
-    assert(passage_msgs.size() == 1 && passage_msgs[0]->is<ai::embedding>());
-    auto passage_embedding = passage_msgs[0]->get<ai::embedding>();
-    assert(passage_embedding.values.size() == 384);
-    // 2. Create an embedding for a similar query using the query prefix
-    std::vector<message_ptr> similar_query_msgs;
-    docwire::data_source{std::string{"What is data processing?"}, mime_type{"text/plain"}, confidence::highest} | local_ai::embed(local_ai::embed::e5_query_prefix) | similar_query_msgs;
-    assert(similar_query_msgs.size() == 1 && similar_query_msgs[0]->is<ai::embedding>());
-    auto similar_query_embedding = similar_query_msgs[0]->get<ai::embedding>();
-    // 3. Create an embedding for a partially related query
-    std::vector<message_ptr> partial_query_msgs;
-    docwire::data_source{std::string{"How can data analysis improve business efficiency?"}, mime_type{"text/plain"}, confidence::highest} | local_ai::embed(local_ai::embed::e5_query_prefix) | partial_query_msgs;
-    assert(partial_query_msgs.size() == 1 && partial_query_msgs[0]->is<ai::embedding>());
-    auto partial_query_embedding = partial_query_msgs[0]->get<ai::embedding>();
-    // 4. Create an embedding for a dissimilar query
-    std::vector<message_ptr> dissimilar_query_msgs;
-    docwire::data_source{std::string{"What is the best C++ IDE?"}, mime_type{"text/plain"}, confidence::highest} | local_ai::embed(local_ai::embed::e5_query_prefix) | dissimilar_query_msgs;
-    assert(dissimilar_query_msgs.size() == 1 && dissimilar_query_msgs[0]->is<ai::embedding>());
-    auto dissimilar_query_embedding = dissimilar_query_msgs[0]->get<ai::embedding>();
-    // 5. Calculate and check similarities.
-    double sim = cosine_similarity(passage_embedding.values, similar_query_embedding.values);
-    std::cout << "Similarity (passage, similar_query): " << sim << std::endl;
-    double partial_sim = cosine_similarity(passage_embedding.values, partial_query_embedding.values);
-    std::cout << "Similarity (passage, partial_query): " << partial_sim << std::endl;
-    double dissim = cosine_similarity(passage_embedding.values, dissimilar_query_embedding.values);
-    std::cout << "Similarity (passage, dissimilar_query): " << dissim << std::endl;
-    // Check that the scores are within expected ranges.
-    assert(sim > 0.9 && sim < 1.0);
-    assert(partial_sim > 0.8 && partial_sim < 0.9);
-    assert(dissim > 0.7 && dissim < 0.8);
-    // The most important check is the relative order of the scores.
-    assert(sim > partial_sim && partial_sim > dissim);
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-
-  return 0;
-}
+std::filesystem::path("data_processing_definition.doc") | ... | local_ai::embed(local_ai::embed::e5_passage_prefix) | passage_msgs;
+...
+docwire::data_source{std::string{"What is data processing?"}, ...} | local_ai::embed(local_ai::embed::e5_query_prefix) | similar_query_msgs;
+...
+double sim = cosine_similarity(passage_embedding.values, similar_query_embedding.values);
+...
+ensure(sim) > partial_sim;
+ensure(partial_sim) > dissim;
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/local_embedding_similarity_8cpp-example.html)
 
 Reusing single parsing chain to parse multiple input files:
 
 ```cpp
-#include "docwire.h"
-#include <fstream>
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-
-  try
-  {
-    auto chain = content_type::detector{} | office_formats_parser{} | PlainTextExporter() | std::cout;  // create a chain of steps to parse a file
-    for (int i = 1; i < 3; ++i)
-      std::ifstream(std::to_string(i) + ".docx", std::ios_base::binary) | chain; // set the input file as an input stream
-  }
-  catch (const std::exception& e)
-  {
-    std::cerr << errors::diagnostic_message(e) << std::endl;
-    return 1;
-  }
-
-  return 0;
-}
+auto chain = content_type::detector{} | office_formats_parser{} | PlainTextExporter() | std::cout; // create a chain of steps to parse a file
+for (int i = 1; i < 3; ++i)
+  std::ifstream(std::to_string(i) + ".docx", std::ios_base::binary) | chain; // set the input file as an input stream
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/reuse_chain_8cpp-example.html)
 
 Handling errors and warnings:
 
@@ -828,77 +484,37 @@ Handling errors and warnings:
 Using transformer to filter out emails (eg. from Outlook PST mailbox) with subject containing "Hello":
 
 ```cpp
-#include "docwire.h"
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::filesystem::path("1.pst") | content_type::detector{} |
-  mail_parser{} | office_formats_parser{}
-    | [](message_ptr msg, const message_callbacks& emit_message) // Create an input from file path, parser and connect them to transformer
+std::filesystem::path("1.pst") | content_type::detector{} | mail_parser{} | office_formats_parser{}
+  |  // Create an input from file path, parser and connect them to transformer
+    [](message_ptr msg, const message_callbacks& emit_message)
+    {
+      if (msg->is<mail::Mail>()) // if current node is mail
       {
-        if (msg->is<mail::Mail>()) // if current node is mail
-        {
-          auto subject = msg->get<mail::Mail>().subject; // get the subject attribute
-          if (subject) // if subject attribute exists
-          {
-            if (subject->find("Hello") != std::string::npos) // if subject contains "Hello"
-            {
-              return continuation::skip; // skip the current node
-            }
-          }
-        }
-        return emit_message(std::move(msg));
-      }
-    | PlainTextExporter() // sets exporter to plain text
-    | std::cout;
-  return 0;
-}
+        auto subject = msg->get<mail::Mail>().subject; // get the subject attribute
+        if (subject && subject->find("Hello") != std::string::npos) // if subject contains "Hello"
+...
+  | PlainTextExporter() | std::cout;
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/filter_emails_by_subject_8cpp-example.html)
 
 ![Example flow](doc/images/example_flow.png)
 
 Joining transformers to filter out emails (eg. from Outlook PST mailbox) with subject "Hello" and limit the number of mails to 3:
 
 ```cpp
-#include "docwire.h"
-
-int main(int argc, char* argv[])
-{
-  using namespace docwire;
-  std::filesystem::path("1.pst") | content_type::detector{} |
-  mail_parser{} | office_formats_parser{} |
-    [](message_ptr msg, const message_callbacks& emit_message) // Create an input from file path, parser and connect them to transformer
-    {
-      if (msg->is<mail::Mail>()) // if current node is mail
-      {
-        auto subject = msg->get<mail::Mail>().subject; // get the subject attribute
-        if (subject) // if subject attribute exists
-        {
-          if (subject->find("Hello") != std::string::npos) // if subject contains "Hello"
-          {
-            return continuation::skip; // skip the current node
-          }
-        }
-      }
-      return emit_message(std::move(msg));
-    } |
-    [counter = 0, max_mails = 3](message_ptr msg, const message_callbacks& emit_message) mutable // Create a transformer and connect it to previous transformer
-    {
-      if (msg->is<mail::Mail>()) // if current node is mail
-      {
-        if (++counter > max_mails) // if counter is greater than max_mails
-        {
-          return continuation::stop; // cancel the parsing process
-        }
-      }
-      return emit_message(std::move(msg));
-    } |
-    PlainTextExporter() | // sets exporter to plain text
-    std::cout;
- return 0;
-}
+std::filesystem::path("1.pst") | content_type::detector{} | mail_parser{} | office_formats_parser{} |
+  [](message_ptr msg, const message_callbacks& emit_message) // Create an input from file path, parser and connect them to transformer
+  {
+...
+  } |
+  [counter = 0, max_mails = 3](message_ptr msg, const message_callbacks& emit_message) mutable // Create a transformer and connect it to previous transformer
+  {
+...
+  } |
+  PlainTextExporter() | // sets exporter to plain text
+  std::cout;
 ```
+[Full example](https://docwire.readthedocs.io/en/latest/join_transformers_8cpp-example.html)
 
 <a name="awards"></a>
 ## Awards
@@ -927,7 +543,6 @@ By selecting vcpkg, DocWire ensures that programmers benefit from a trusted, use
 - [windows-2022](https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md)
 - [macos-15](https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md)
 - [macos-14](https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md)
-- [macos-13](https://github.com/actions/runner-images/blob/main/images/macos/macos-13-Readme.md)
 
 As the project evolves, we will continue to expand the list of officially supported platforms to ensure broad compatibility and meet the needs of our users.
 
@@ -1069,39 +684,39 @@ To explore the possibilities of an LTS agreement or to discuss specific requirem
 <a name="logging"></a>
 ## Logging
 
-DocWire SDK generate extensive logs that provide insights into the current processing status, warnings, and errors. In the latest version of the SDK, the logging mechanism has been enhanced to output logs in JSON format, offering several advantages.
+DocWire SDK features a powerful, modern, and highly configurable logging framework designed for both deep debugging and zero-overhead production use.
 
-The enhanced logging mechanism in the DocWire SDK provides developers with powerful tools for monitoring and debugging data processing. Whether redirecting logs to a custom stream or leveraging the flexibility of JSON formatting, the logging system is designed to meet the diverse needs of users.
+### Key Features
 
-### JSON Format for Logging
+- **Structured JSON Output**: All log records are generated as structured JSON objects, making them easy to parse, query, and integrate with modern log analysis platforms (e.g., ELK stack, Splunk, Datadog).
+- **Zero-Cost in Release Builds**: By default, most logging calls are completely compiled out in release builds (`NDEBUG` is defined). This means they have zero performance impact on your production code. Only logs explicitly marked with a persistent tag (like `log::audit`) are retained.
+- **Rich Contextual Information**: Logs automatically capture source location (file, line, function), thread ID, and a precise timestamp. You can also add any serializable C++ object to the log context for deep insights.
+- **Sink and Filter Model**: The framework is silent by default. You can programmatically set a "sink" (a callback function that receives log records) and a "filter" (a string that specifies which logs to enable) to control the logging output.
+- **Powerful Filtering**: Filter logs based on source file, function name, or custom tags using a simple wildcard-based syntax.
 
-The logs are now formatted in JSON, providing a structured and machine-readable representation of the information. This format is advantageous for various reasons:
+### Example Log Record
 
-- **Structured Data**: JSON allows for a clear and organized representation of log data, making it easy to extract specific information.
+```json
+{
+    "file": "api_tests.cpp",
+    "function": "void MyTest::TestBody()",
+    "line": 123,
+    "log": [
+        "Processing user",
+        {"user_id": {"typeid": "int", "value": 42}}
+    ],
+    "thread_id": "0x7f...",
+    "timestamp": "2024-05-21T15:30:00.123456+0200"
+}
+```
 
-- **Compatibility**: JSON is widely supported by various tools and platforms, ensuring compatibility and ease of integration into existing workflows.
+### Basic Usage
 
-- **Readability**: The human-readable nature of JSON logs facilitates manual inspection and troubleshooting when needed.
+The framework provides simple macros for logging:
 
-- **Flexibility**: JSON's key-value pair structure accommodates a wide range of log information, enhancing the flexibility of the logging system.
-
-### Configuring Logging
-
-To configure the logging parameters, the SDK provides a set of functions. Users can set the log verbosity level, customize the log stream, and create log record streams with specific severity levels and source locations.
-
-### Log Macros
-
-The SDK includes convenient macros for logging, such as:
-
-- docwire_log(severity): Conditionally logs based on the specified severity level.
-
-- docwire_log_vars(...): Logs variables with associated values.
-
-- docwire_log_func_with_args(...): Logs function entry with associated arguments.
-
-### Additional Logging Features
-
-The SDK introduces new features like logging source locations, custom streamable types, and handling of iterable and dereferenceable objects.
+- `log_entry(...)`: Creates a single log record.
+- `log_scope(...)`: Creates a log entry at the beginning of a scope and another at the end.
+- `log_forward(...)`: Logs the value of an expression and returns it, allowing you to log intermediate values in a chain of calls.
 
 <a name="api-documentation"></a>
 ## API Documentation
@@ -1151,9 +766,9 @@ In addition to std::nested_exception and std::exception_ptr and std::throw_with_
 
 Context values are type-safe, meaning any type, including custom types, can be used in the context value. The context is built from original C++ types, and context objects can be accessed during the error handling process.
 
-[errors::impl](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1impl.html) structure template provides an implementation of the context value mechanism, including support for custom types: `throw errors::impl{custom_type_value}`.
+[errors::impl](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1impl.html) structure template provides an implementation of the context value mechanism, including support for custom types. It is recommended to use the `make_error` macro for construction: `throw make_error(custom_type_value);`.
 
-[errors::base](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1base.html) structure provides a base class for all error types for easy error handling: `catch (docwire::errors::base& e) { ... }`.
+[errors::base](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1base.html) structure provides a base class for all error types for easy error handling: `catch (const docwire::errors::base& e) { ... }`.
 
 ### Embedded context variable names and triggering expressions
 
@@ -1179,16 +794,14 @@ Functions like [errors::diagnostic_message](https://docwire.readthedocs.io/en/la
 
 For example `std::cerr << docwire::errors::diagnostic_message(e) << std::endl;` can give the following results:
 ```
-[ERROR] Error "file encrypted error tag"
-in void docwire::XLSParser::Implementation::processRecord(int, const std::vector<unsigned char>&, std::string&)
-at /docwire/src/xls_parser.cpp:483
-with context "RC4 encryption"
-in void docwire::XLSParser::Implementation::processRecord(int, const std::vector<unsigned char>&, std::string&)
-at /docwire/src/xls_parser.cpp:483
-with context "Error parsing XLS document"
-in std::string docwire::XLSParser::parse(docwire::ThreadSafeOLEStorage&) const
-at /docwire/src/xls_parser.cpp:931
-processing file tests/password_protected.xls
+Error: "triggering_condition: impl().ArchiveFile == NULL"
+in void docwire::ZipReader::open()
+at /home/adrian/Work/docwire/src/zip_reader.cpp:146
+with context "Could not open zip archive"
+wrapping at: void docwire::pimpl_impl<docwire::XLSBParser>::parse(const docwire::data_source&, const docwire::message_callbacks&)
+at /home/adrian/Work/docwire/src/xlsb_parser.cpp:700
+with context "file encrypted error tag"
+with context "Microsoft Office Document Cryptography"
 ```
 
 ### Non-fatal errors and warnings

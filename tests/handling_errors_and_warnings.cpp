@@ -1,5 +1,4 @@
 #include "docwire.h"
-#include <cassert>
 #include <sstream>
 
 int main(int argc, char* argv[])

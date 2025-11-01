@@ -11,7 +11,8 @@
 
 #include "find.h"
 
-#include "log.h"
+#include "log_scope.h"
+#include "serialization_enum.h" // IWYU pragma: keep
 
 namespace docwire
 {
@@ -25,7 +26,7 @@ Find::Find(const std::string& what, const std::string& api_key, Model model, flo
 	       "Do not describe the entire image or text. Focus only on the location of what you were asked to find.",
 	       api_key, model, temperature, image_detail)
 {
-	docwire_log_func_with_args(what);
+	log_scope(what, model, temperature, image_detail);
 }
 
 } // namespace openai

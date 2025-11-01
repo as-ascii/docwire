@@ -13,8 +13,10 @@
 
 #include "data_source.h"
 #include "document_elements.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "make_error.h"
+#include "serialization_message.h" // IWYU pragma: keep
 #include "xml_stream.h"
 
 namespace docwire
@@ -25,18 +27,16 @@ namespace
 
 void parseXmlData(const message_callbacks& emit_message, XmlStream& xml_stream)
 {
+	log_scope();
 	while (xml_stream)
 	{
 		std::string tag_name = xml_stream.name();
 		std::string full_tag_name = xml_stream.fullName();
 		if (tag_name == "#text")
 		{
-			char* content = xml_stream.content();
-			if (content != NULL)
-			{
-				std::string text = content;
+			std::string text = xml_stream.content();
+			if (!text.empty())
 				emit_message(document::Text{ text });
-			}
 		}
 		else if (tag_name != "style" && full_tag_name != "o:DocumentProperties" &&
 			full_tag_name != "o:CustomDocumentProperties" && full_tag_name != "w:binData")
@@ -66,6 +66,8 @@ const std::vector<mime_type> supported_mime_types =
 
 continuation XMLParser::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
+	log_scope(msg);
+
 	if (!msg->is<data_source>())
 		return emit_message(std::move(msg));
 
@@ -75,7 +77,7 @@ continuation XMLParser::operator()(message_ptr msg, const message_callbacks& emi
 	if (!data.has_highest_confidence_mime_type_in(supported_mime_types))
 		return emit_message(std::move(msg));
 
-	docwire_log(debug) << "Using XML parser.";
+	log_entry();
 	try
 	{
 		emit_message(document::Document{});

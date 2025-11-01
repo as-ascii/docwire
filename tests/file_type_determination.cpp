@@ -1,5 +1,4 @@
 #include "docwire.h"
-#include <cassert>
 #include <fstream>
 
 int main()
@@ -16,9 +15,9 @@ int main()
       std::make_shared<std::ifstream>("data_processing_definition.doc", std::ios::binary)
     }};
     content_type::detect(data);
-    std::optional<mime_type> mt = data.highest_confidence_mime_type();
-    assert(mt.has_value());
-    assert(*mt == mime_type { "application/msword" });
+    std::optional<mime_type> mt = data.highest_confidence_mime_type();    
+    ensure(mt.has_value()) == true;
+    ensure(*mt) == mime_type { "application/msword" };
 
     // Bypass file type determination and rely on provided mime-type
     data_source
@@ -29,7 +28,7 @@ int main()
     } |
     office_formats_parser{} | // more parsers can be added
     PlainTextExporter() | out_stream;
-    assert(out_stream.str() == expected_output_1);
+    ensure(out_stream.str()) == expected_output_1;
     out_stream.str("");
 
     // Perform file type determination based on provided file extension
@@ -41,7 +40,7 @@ int main()
     content_type::by_file_extension::detector{} |
     office_formats_parser{} | // more parsers can be added
     PlainTextExporter() | out_stream;
-    assert(out_stream.str() == expected_output_1);
+    ensure(out_stream.str()) == expected_output_1;
     out_stream.str("");
 
     // Perform file type determination based on file extension extracted from file name
@@ -49,7 +48,7 @@ int main()
     content_type::by_file_extension::detector{} |
     office_formats_parser{} | // more parsers can be added
     PlainTextExporter() | out_stream;
-    assert(out_stream.str() == expected_output_1);
+    ensure(out_stream.str()) == expected_output_1;
     out_stream.str("");
 
     // Perform file type determination on a Zip file without also performing it on its contents. 
@@ -58,8 +57,8 @@ int main()
     }};
     content_type::detect(zip_data);
     std::optional<mime_type> zip_data_mt = zip_data.highest_confidence_mime_type();
-    assert(zip_data_mt.has_value());
-    assert(*zip_data_mt == mime_type { "application/zip" });
+    ensure(zip_data_mt.has_value()) == true;
+    ensure(*zip_data_mt) == mime_type { "application/zip" };
 
     // Perform file type determination on all files within a zip and selectively performing document conversion based on the returned file types
     std::filesystem::path{"test.zip"} |
@@ -77,7 +76,7 @@ int main()
     } |
     office_formats_parser{} | // more parsers can be added
     PlainTextExporter() | out_stream;
-    assert(out_stream.str() == expected_output_2);
+    ensure(out_stream.str()) == expected_output_2;
     out_stream.str("");
     
     // ... or
@@ -86,7 +85,7 @@ int main()
     archives_parser{} |
     DOCParser{} | // other formats will be skipped
     PlainTextExporter() | out_stream;
-    assert(out_stream.str() == expected_output_2);
+    ensure(out_stream.str()) == expected_output_2;
   }
   catch (const std::exception& e)
   {

@@ -11,7 +11,8 @@
 
 #include "translate_to.h"
 
-#include "log.h"
+#include "log_scope.h"
+#include "serialization_enum.h" // IWYU pragma: keep
 
 namespace docwire
 {
@@ -21,7 +22,7 @@ namespace openai
 TranslateTo::TranslateTo(const std::string& language, const std::string& api_key, Model model, float temperature, ImageDetail image_detail)
 	: Chat("Your task is to translate every message to " + language + " language.", api_key, model, temperature, image_detail)
 {
-	docwire_log_func_with_args(language);
+	log_scope(language, model, temperature, image_detail);
 }
 
 } // namespace openai

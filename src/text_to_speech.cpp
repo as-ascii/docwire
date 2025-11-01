@@ -13,10 +13,12 @@
 
 #include <boost/json.hpp>
 #include "input.h"
-#include "log.h"
+#include "log_entry.h"
+#include "log_scope.h"
 #include "make_error.h"
 #include "output.h"
 #include "post.h"
+#include "serialization_enum.h" // IWYU pragma: keep
 #include <sstream>
 
 namespace docwire
@@ -40,7 +42,7 @@ namespace openai
 TextToSpeech::TextToSpeech(const std::string& api_key, Model model, Voice voice)
 	: with_pimpl<TextToSpeech>(api_key, model, voice)
 {
-	docwire_log_func();
+	log_scope(model, voice);
 }
 
 namespace
@@ -73,7 +75,7 @@ std::string voice_to_string(TextToSpeech::Voice voice)
 
 std::string prepare_query(const std::string& input, TextToSpeech::Model model, TextToSpeech::Voice voice)
 {
-	docwire_log_func();
+	log_scope(input, model, voice);
 	boost::json::object query
 	{
 		{ "model", model_to_string(model) },
@@ -85,7 +87,7 @@ std::string prepare_query(const std::string& input, TextToSpeech::Model model, T
 
 std::string post_request(const std::string& query, const std::string& api_key)
 {
-	docwire_log_func_with_args(query);
+	log_scope(query);
 	std::ostringstream response_stream{};
 	try
 	{
@@ -104,10 +106,10 @@ std::string post_request(const std::string& query, const std::string& api_key)
 
 continuation TextToSpeech::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
-	docwire_log_func();
+	log_scope();
 	if (!msg->is<data_source>())
 		return emit_message(std::move(msg));
-	docwire_log(debug) << "data_source received";
+	log_entry();
 	const data_source& data = msg->get<data_source>();
 	std::string data_str = data.string();
 	std::string content = post_request(prepare_query(data_str, impl().m_model, impl().m_voice), impl().m_api_key);

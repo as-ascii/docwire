@@ -14,7 +14,9 @@
 #include "ai_elements.h"
 #include "data_source.h"
 #include "error_tags.h"
+#include "log_scope.h"
 #include "resource_path.h"
+#include "serialization_message.h" // IWYU pragma: keep
 #include <string>
 #include "throw_if.h"
 #include <vector>
@@ -49,6 +51,7 @@ embed::embed(std::string prefix)
 
 continuation embed::operator()(message_ptr msg, const message_callbacks& emit_message)
 {
+    log_scope(msg);
     if (!msg->is<data_source>())
         return emit_message(std::move(msg));
 

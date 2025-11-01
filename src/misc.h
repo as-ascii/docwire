@@ -40,10 +40,6 @@ DOCWIRE_CORE_EXPORT std::string ustring_to_string(const UString& s);
 **/
 DOCWIRE_CORE_EXPORT bool string_to_date(const std::string& s, tm& date);
 
-DOCWIRE_CORE_EXPORT std::string date_to_string(const tm& date);
-
-DOCWIRE_CORE_EXPORT std::string uint_to_string(unsigned int value);
-
 DOCWIRE_CORE_EXPORT UString utf8_to_ustring(const std::string& src);
 
 DOCWIRE_CORE_EXPORT std::string unichar_to_utf8(unsigned int unichar);
@@ -69,8 +65,6 @@ inline bool utf16_unichar_has_4_bytes(unsigned int ch)
 {
 	return (ch & 0xFC00) == 0xD800;
 }
-
-DOCWIRE_CORE_EXPORT std::string int_to_str(int i);
 
 DOCWIRE_CORE_EXPORT int str_to_int(const std::string& s);
 
