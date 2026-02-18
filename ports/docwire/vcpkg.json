@@ -1,126 +1,122 @@
 {
-	"name": "docwire",
-	"version-string": "latest",
-	"description": "Data processing library/SDK. Parses DOC, XLS, XLSB, PPT, RTF, ODF (ODT, ODS, ODP), OOXML (DOCX, XLSX, PPTX), iWork (PAGES, NUMBERS, KEYNOTE), ODFXML (FODP, FODS, FODT), PST, OST and more. Contains embedded OCR engine and CLI utiity.",
-	"license": "GPL-2.0-only OR LicenseRef-DocWire-Commercial",
-	"features":
-	{
-		"asan":
-		{
-			"description": "Enable address sanitizer in debug build"
-		},
-		"tsan":
-		{
-			"description": "Enable thread sanitizer in debug build"
-		},
-		"tests":
-		{
-			"description": "Enable automatic tests"
-		},
-		"memcheck":
-		{
-			"description": "Enable valgrind memcheck in automatic tests"
-		},
-		"helgrind":
-		{
-			"description": "Enable valgrind helgrind in automatic tests"
-		},
-		"callgrind":
-		{
-			"description": "Enable valgrind callgrind in automatic tests"
-		}
-	},
-	"dependencies": [
-		{
-			"name": "vcpkg-cmake",
-			"host": true
-		},
-		{
-			"name": "vcpkg-cmake-config",
-			"host": true
-		},
-		{
-			"name": "libcharsetdetect"
-		},
-		{
-			"name": "boost-callable-traits"
-		},
-		{
-			"name": "boost-filesystem"
-		},
-		{
-			"name": "boost-dll"
-		},
-		{
-			"name": "boost-json"
-		},
-		{
-			"name": "boost-program-options"
-		},
-		{
-			"name": "cpp-httplib"
-		},
-		{
-			"name": "magic-enum"
-		},
-		{
-			"name": "pdfium"
-		},
-		{
-			"name": "minizip"
-		},
-		{
-			"name": "lexbor"
-		},
-		{
-			"name": "tesseract"
-		},
-		{
-			"name": "libbfio"
-		},
-		{
-			"name": "libiconv"
-		},
-		{
-			"name": "libpff-unix",
-			"platform": "!windows"
-		},
-		{
-			"name": "libpff",
-			"platform": "windows"
-		},
-		{
-			"name": "mailio"
-		},
-		{
-			"name": "gtest"
-		},
-		{
-			"name": "tessdata-fast"
-		},
-		{
-			"name": "ctranslate2"
-		},
-		{
-			"name": "sentencepiece"
-		},
-		{
-			"name": "flan-t5-large-ct2-int8"
-		},
-		{
-			"name": "multilingual-e5-small-ct2-int8"
-		},
-		{
-			"name": "rapidfuzz-cpp"
-		},
-		{
-			"name": "aklomp-base64"
-		},
-		{
-			"name": "libmagic"
-		},
-		{
-			"name": "libxml2"
-		}
-	]
+    "name": "docwire",
+    "version-string": "latest",
+    "description": "Data processing library/SDK. Parses DOC, XLS, XLSB, PPT, RTF, ODF (ODT, ODS, ODP), OOXML (DOCX, XLSX, PPTX), iWork (PAGES, NUMBERS, KEYNOTE), ODFXML (FODP, FODS, FODT), PST, OST and more. Contains embedded OCR engine and CLI utiity.",
+    "license": "GPL-2.0-only OR LicenseRef-DocWire-Commercial",
+    "features": {
+        "asan": {
+            "description": "Enable address sanitizer in debug build"
+        },
+        "tsan": {
+            "description": "Enable thread sanitizer in debug build"
+        },
+        "tests": {
+            "description": "Enable automatic tests"
+        },
+        "memcheck": {
+            "description": "Enable valgrind memcheck in automatic tests"
+        },
+        "helgrind": {
+            "description": "Enable valgrind helgrind in automatic tests"
+        },
+        "callgrind": {
+            "description": "Enable valgrind callgrind in automatic tests"
+        }
+    },
+    "dependencies": [
+        {
+            "name": "vcpkg-cmake",
+            "host": true
+        },
+        {
+            "name": "vcpkg-cmake-config",
+            "host": true
+        },
+        {
+            "name": "libcharsetdetect"
+        },
+        {
+            "name": "boost-callable-traits"
+        },
+        {
+            "name": "boost-filesystem"
+        },
+        {
+            "name": "boost-dll"
+        },
+        {
+            "name": "boost-json"
+        },
+        {
+            "name": "boost-program-options"
+        },
+        {
+            "name": "cpp-httplib"
+        },
+        {
+            "name": "magic-enum"
+        },
+        {
+            "name": "pdfium"
+        },
+        {
+            "name": "minizip"
+        },
+        {
+            "name": "lexbor"
+        },
+        {
+            "name": "tesseract"
+        },
+        {
+            "name": "libbfio"
+        },
+        {
+            "name": "libiconv"
+        },
+        {
+            "name": "libpff-unix",
+            "platform": "!windows"
+        },
+        {
+            "name": "libpff",
+            "platform": "windows"
+        },
+        {
+            "name": "mailio"
+        },
+        {
+            "name": "gtest"
+        },
+        {
+            "name": "tessdata-fast"
+        },
+        {
+            "name": "ctranslate2"
+        },
+        {
+            "name": "sentencepiece"
+        },
+        {
+            "name": "flan-t5-large-ct2-int8"
+        },
+        {
+            "name": "multilingual-e5-small-ct2-int8"
+        },
+        {
+            "name": "rapidfuzz-cpp"
+        },
+        {
+            "name": "aklomp-base64"
+        },
+        {
+            "name": "libmagic"
+        },
+        {
+            "name": "libxml2"
+        },
+        {
+            "name": "llama-cpp"
+        }
+    ]
 }

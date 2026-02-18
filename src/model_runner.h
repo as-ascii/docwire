@@ -17,6 +17,7 @@
 #include <filesystem>
 #include <vector>
 #include <string>
+#include "ai_runner.h"
 
 namespace docwire::local_ai
 {
@@ -28,7 +29,7 @@ namespace docwire::local_ai
  * Destructor frees memory used by model.
  * It is important not to duplicate the object because memory consumption can be high.
  */
-class DOCWIRE_LOCAL_AI_EXPORT model_runner : public with_pimpl<model_runner>
+class DOCWIRE_LOCAL_AI_EXPORT model_runner :  public ai_runner, public with_pimpl<model_runner>
 {
 public:
     /**
@@ -42,14 +43,14 @@ public:
      * @param input Text to process.
      * @return Processed text.
      */
-    std::string process(const std::string& input);
+    std::string process(const std::string& input) override;
 
     /**
      * @brief Create embedding for the input text using the model.
      * @param input Text to process.
      * @return Vector of embedding values.
      */
-    std::vector<double> embed(const std::string& input);
+    std::vector<double> embed(const std::string& input) override;
 };
 
 } // namespace docwire::local_ai

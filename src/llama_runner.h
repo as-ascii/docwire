@@ -12,38 +12,32 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial */
 /*********************************************************************************************************************************************/
 
-#include "model_chain_element.h"
-#include "data_source.h"
-#include "error_tags.h"
-#include "model_runner.h"
-#include "resource_path.h"
-#include "throw_if.h"
+#ifndef DOCWIRE_LOCAL_AI_LLAMA_RUNNER_H
+#define DOCWIRE_LOCAL_AI_LLAMA_RUNNER_H
+
+#include "ai_runner.h"
+#include "llama_generation_config.h"
+#include "local_ai_export.h"
+#include "pimpl.h"
 
 namespace docwire::local_ai {
+/**
+ * @brief This class is intended to load a Llama model with its correct model path and
+ * respective configuration and run inference on the prompt supplied along with
+ * the model configuration.
+ */
+class DOCWIRE_LOCAL_AI_EXPORT llama_runner : public ai_runner,
+                                             public with_pimpl<llama_runner> {
+public:
+  explicit llama_runner(const llama_generation_config &config);
 
-model_chain_element::model_chain_element(const std::string &prompt)
-    : docwire::local_ai::model_chain_element(
-          prompt, std::make_shared<model_runner>(
-                      resource_path("flan-t5-large-ct2-int8"))) {}
+  std::string process(const std::string &input) override;
 
-// new constructor for llama
-model_chain_element::model_chain_element(const std::string &prompt,
-                                         std::shared_ptr<ai_runner> runner)
-    : m_prompt(prompt), m_model_runner(std::move(runner)) {}
-
-continuation
-model_chain_element::operator()(message_ptr msg,
-                                const message_callbacks &emit_message) {
-  if (!msg->is<data_source>())
-    return emit_message(std::move(msg));
-
-  const data_source &data = msg->get<data_source>();
-  throw_if(!data.has_highest_confidence_mime_type_in({mime_type{"text/plain"}}),
-           errors::program_logic{});
-  std::string input = m_prompt + "\n" + data.string();
-  std::string output = m_model_runner->process(input);
-
-  return emit_message(data_source{std::move(output)});
-}
+  std::vector<double> embed(const std::string &) override {
+    throw std::runtime_error("Embedding not supported currently.");
+  }
+};
 
 } // namespace docwire::local_ai
+
+#endif

@@ -12,38 +12,28 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial */
 /*********************************************************************************************************************************************/
 
-#include "model_chain_element.h"
-#include "data_source.h"
-#include "error_tags.h"
-#include "model_runner.h"
-#include "resource_path.h"
-#include "throw_if.h"
+
+#ifndef DOCWIRE_LOCAL_AI_AI_RUNNER_H
+#define DOCWIRE_LOCAL_AI_AI_RUNNER_H
+
+#include "local_ai_export.h"
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 namespace docwire::local_ai {
 
-model_chain_element::model_chain_element(const std::string &prompt)
-    : docwire::local_ai::model_chain_element(
-          prompt, std::make_shared<model_runner>(
-                      resource_path("flan-t5-large-ct2-int8"))) {}
+class DOCWIRE_LOCAL_AI_EXPORT ai_runner {
+public:
+  virtual ~ai_runner() = default;
 
-// new constructor for llama
-model_chain_element::model_chain_element(const std::string &prompt,
-                                         std::shared_ptr<ai_runner> runner)
-    : m_prompt(prompt), m_model_runner(std::move(runner)) {}
+  virtual std::string process(const std::string &input) = 0;
 
-continuation
-model_chain_element::operator()(message_ptr msg,
-                                const message_callbacks &emit_message) {
-  if (!msg->is<data_source>())
-    return emit_message(std::move(msg));
-
-  const data_source &data = msg->get<data_source>();
-  throw_if(!data.has_highest_confidence_mime_type_in({mime_type{"text/plain"}}),
-           errors::program_logic{});
-  std::string input = m_prompt + "\n" + data.string();
-  std::string output = m_model_runner->process(input);
-
-  return emit_message(data_source{std::move(output)});
-}
+  virtual std::vector<double> embed(const std::string &input) {
+    throw std::runtime_error("Embedding not supported");
+  }
+};
 
 } // namespace docwire::local_ai
+
+#endif
