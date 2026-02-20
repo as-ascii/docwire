@@ -10,36 +10,32 @@
 /*  Project homepage: https://github.com/docwire/docwire */
 /*                                                                                                                                           */
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial */
-/*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOCAL_AI_LLAMA_RUNNER_H
-#define DOCWIRE_LOCAL_AI_LLAMA_RUNNER_H
-
-#include "ai_runner.h"
-#include "local_ai_export.h"
-#include "model_inference_config.h"
-#include "pimpl.h"
+#include "strong_type.h"
+#include <cstddef>
 
 namespace docwire::local_ai
 {
-/**
- * @brief This class is intended to load a Llama model with its correct model path and
- * respective configuration and run inference on the prompt supplied along with
- * the model configuration.
- */
-class DOCWIRE_LOCAL_AI_EXPORT llama_runner : public ai_runner, public with_pimpl<llama_runner>
+struct context_size_tag
 {
-  public:
-    explicit llama_runner(const model_inference_config& config);
-
-    std::string process(const std::string& input) override;
-
-    std::vector<double> embed(const std::string&) override
-    {
-        throw std::runtime_error("Embedding not supported currently.");
-    }
+};
+struct thread_count_tag
+{
+};
+struct token_limit_tag
+{
+};
+struct temperature_tag
+{
+};
+struct min_p_tag
+{
 };
 
-} // namespace docwire::local_ai
+using context_size = strong_type<std::size_t, context_size_tag>;
+using thread_count = strong_type<std::size_t, thread_count_tag>;
+using token_limit = strong_type<std::size_t, token_limit_tag>;
 
-#endif
+using temperature = strong_type<float, temperature_tag>;
+using min_p = strong_type<float, min_p_tag>;
+} // namespace docwire::local_ai

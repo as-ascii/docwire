@@ -21,7 +21,6 @@ find_package(llama CONFIG REQUIRED)
 target_link_libraries(docwire_local_ai
     PRIVATE
         llama
-        docwire_core
 )
 
 install(TARGETS docwire_local_ai EXPORT docwire_targets)

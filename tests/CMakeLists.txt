@@ -173,7 +173,8 @@ foreach(example IN ITEMS
 		openai_embedding
 		reuse_chain
 		join_transformers
-		xml_parsing_example)
+		xml_parsing_example
+		local_ai_llama_integration)
 	message(STATUS "Adding test ${example}")
 	add_executable(${example} ${example}.cpp)
 	target_include_directories(${example} PUBLIC ../src)

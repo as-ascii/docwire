@@ -12,7 +12,6 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial */
 /*********************************************************************************************************************************************/
 
-
 #ifndef DOCWIRE_LOCAL_AI_AI_RUNNER_H
 #define DOCWIRE_LOCAL_AI_AI_RUNNER_H
 
@@ -24,14 +23,12 @@
 namespace docwire::local_ai {
 
 class DOCWIRE_LOCAL_AI_EXPORT ai_runner {
-public:
-  virtual ~ai_runner() = default;
+  public:
+    virtual ~ai_runner() = default;
 
-  virtual std::string process(const std::string &input) = 0;
+    virtual std::string process(const std::string& input) = 0;
 
-  virtual std::vector<double> embed(const std::string &input) {
-    throw std::runtime_error("Embedding not supported");
-  }
+    virtual std::vector<double> embed(const std::string&) = 0;
 };
 
 } // namespace docwire::local_ai

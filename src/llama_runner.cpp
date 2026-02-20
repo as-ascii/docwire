@@ -21,15 +21,17 @@
 #include <llama.h>
 #include <mutex>
 
-namespace docwire {
+namespace docwire
+{
 
-namespace {
+namespace
+{
 
 std::mutex llama_backend_mutex;
 std::condition_variable llama_backend_cv;
 std::size_t runner_count = 0;
 std::size_t active_calls = 0;
-
+bool g_verbose = false;
 /**
  * @brief Manages global lifetime of llama.cpp backend.
  *
@@ -49,33 +51,38 @@ std::size_t active_calls = 0;
  * This prevents undefined behavior if a runner is destroyed while
  * another thread is still performing inference.
  */
-struct llama_backend_guard {
-  llama_backend_guard() {
-    std::lock_guard<std::mutex> lock(llama_backend_mutex);
-    if (runner_count++ == 0) {
-      llama_backend_init();
+struct llama_backend_guard
+{
+    llama_backend_guard()
+    {
+        std::lock_guard<std::mutex> lock(llama_backend_mutex);
+        if (runner_count++ == 0) {
+            llama_backend_init();
+        }
     }
-  }
 
-  ~llama_backend_guard() {
-    std::unique_lock<std::mutex> lock(llama_backend_mutex);
-    if (--runner_count == 0) {
-      llama_backend_cv.wait(lock, [] { return active_calls == 0; });
-      llama_backend_free();
+    ~llama_backend_guard()
+    {
+        std::unique_lock<std::mutex> lock(llama_backend_mutex);
+        if (--runner_count == 0) {
+            llama_backend_cv.wait(lock, [] { return active_calls == 0; });
+            llama_backend_free();
+        }
     }
-  }
 
-  static void acquire_call() {
-    std::lock_guard<std::mutex> lock(llama_backend_mutex);
-    ++active_calls;
-  }
-
-  static void release_call() {
-    std::lock_guard<std::mutex> lock(llama_backend_mutex);
-    if (--active_calls == 0 && runner_count == 0) {
-      llama_backend_cv.notify_all();
+    static void acquire_call()
+    {
+        std::lock_guard<std::mutex> lock(llama_backend_mutex);
+        ++active_calls;
     }
-  }
+
+    static void release_call()
+    {
+        std::lock_guard<std::mutex> lock(llama_backend_mutex);
+        if (--active_calls == 0 && runner_count == 0) {
+            llama_backend_cv.notify_all();
+        }
+    }
 };
 /**
  * @brief Tracks active inference calls.
@@ -93,131 +100,128 @@ struct llama_backend_guard {
  * concurrent inference and deterministic backend shutdown.
  */
 
-struct llama_call_guard {
-  llama_call_guard() { llama_backend_guard::acquire_call(); }
-  ~llama_call_guard() { llama_backend_guard::release_call(); }
+struct llama_call_guard
+{
+    llama_call_guard() { llama_backend_guard::acquire_call(); }
+    ~llama_call_guard() { llama_backend_guard::release_call(); }
 };
 
 } // anonymous namespace
 
-static bool g_verbose = false;
+//static bool g_verbose = false;
 
-template <> struct pimpl_impl<local_ai::llama_runner> : pimpl_impl_base {
-  llama_backend_guard llama_backend;
-  local_ai::llama_generation_config config;
-  local_ai::llama_handle<llama_model> model;
-  local_ai::llama_handle<llama_context> ctx;
-  local_ai::llama_handle<llama_sampler> sampler;
+template <> struct pimpl_impl<local_ai::llama_runner> : pimpl_impl_base
+{
+    llama_backend_guard llama_backend;
+    local_ai::model_inference_config config;
+    local_ai::llama_handle<llama_model> model;
+    local_ai::llama_handle<llama_context> ctx;
+    local_ai::llama_handle<llama_sampler> sampler;
 
-  static void llamaLogCallback(ggml_log_level level, const char *text,
-                               void * /*user*/) {
-    if (g_verbose || level == GGML_LOG_LEVEL_ERROR) {
-      std::cerr << text;
+    static void llamaLogCallback(ggml_log_level level, const char* text, void* /*user*/)
+    {
+        if (g_verbose || level == GGML_LOG_LEVEL_ERROR) {
+            std::cerr << text;
+        }
     }
-  }
-  pimpl_impl(const local_ai::llama_generation_config &cfg) : config(cfg) {
-    // g_verbose = config.verbose;
-    //  Redirect llama.cpp's logs through our callback
-    // llama_log_set(llamaLogCallback, nullptr);
+    pimpl_impl(const local_ai::model_inference_config& cfg) : config(cfg)
+    {
+        g_verbose = config.verbose;
+        //  Redirect llama.cpp's logs through our callback
+        llama_log_set(llamaLogCallback, nullptr);
 
-    llama_model_params model_params = llama_model_default_params();
-    // load model to Llama
-    model = docwire::local_ai::llama_handle<llama_model>(
-        llama_model_load_from_file(config.model_path.c_str(), model_params));
+        llama_model_params model_params = llama_model_default_params();
+        // load model to Llama
+        model = docwire::local_ai::llama_handle<llama_model>(
+            llama_model_load_from_file(config.model_path.c_str(), model_params));
 
-    throw_if(!model, "Failed to load llama model.",
-             errors::program_corrupted{});
-    // Set up context and other parameters
-    llama_context_params ctx_params = llama_context_default_params();
+        throw_if(!model, "Failed to load llama model.", errors::program_corrupted{});
+        // Set up context and other parameters
+        llama_context_params ctx_params = llama_context_default_params();
 
-    ctx_params.n_ctx = config.n_ctx;
-    ctx_params.n_batch = 512;
-    ctx_params.n_threads = config.n_threads;
+        ctx_params.n_ctx = config.n_ctx.get();
+        ctx_params.n_batch = 512;
+        ctx_params.n_threads = config.n_threads.get();
 
-    ctx = docwire::local_ai::llama_handle<llama_context>(
-        llama_init_from_model(model.get(), ctx_params));
+        ctx = docwire::local_ai::llama_handle<llama_context>(
+            llama_init_from_model(model.get(), ctx_params));
 
-    throw_if(!ctx, "Failed to create llama context.",
-             errors::program_corrupted{});
+        throw_if(!ctx, "Failed to create llama context.", errors::program_corrupted{});
 
-    llama_sampler_chain_params sp = llama_sampler_chain_default_params();
+        llama_sampler_chain_params sp = llama_sampler_chain_default_params();
 
-    sampler = docwire::local_ai::llama_handle<llama_sampler>(
-        llama_sampler_chain_init(sp));
-    throw_if(!sampler, "Failed to create sampler.",
-             errors::program_corrupted{});
+        sampler = docwire::local_ai::llama_handle<llama_sampler>(llama_sampler_chain_init(sp));
+        throw_if(!sampler, "Failed to create sampler.", errors::program_corrupted{});
 
-    llama_sampler_chain_add(sampler.get(),
-                            llama_sampler_init_min_p(config.min_p, 1));
+        llama_sampler_chain_add(sampler.get(),
+                                llama_sampler_init_min_p(config.min_probability.get(), 1));
 
-    llama_sampler_chain_add(sampler.get(),
-                            llama_sampler_init_temp(config.temperature));
+        llama_sampler_chain_add(sampler.get(), llama_sampler_init_temp(config.temp.get()));
 
-    llama_sampler_chain_add(sampler.get(),
-                            llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
-  }
+        llama_sampler_chain_add(sampler.get(), llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
+    }
 
-  ~pimpl_impl() {}
+    ~pimpl_impl() {}
 
-  void reset() {
-    // Get the memory handle first
-    llama_memory_t mem = llama_get_memory(ctx.get());
-    // Then clear all sequences
-    llama_memory_seq_rm(mem, -1, -1, -1);
-    llama_sampler_reset(sampler.get());
-  }
+    void reset()
+    {
+        // Get the memory handle first
+        llama_memory_t mem = llama_get_memory(ctx.get());
+        // Then clear all sequences
+        llama_memory_seq_rm(mem, -1, -1, -1);
+        llama_sampler_reset(sampler.get());
+    }
 };
 
-namespace local_ai {
-llama_runner::llama_runner(const llama_generation_config &config)
-    : with_pimpl(config) {}
+namespace local_ai
+{
+llama_runner::llama_runner(const model_inference_config& config) : with_pimpl(config) {}
 
 /*
  * This function runs inference on the given model provided to Llama
  */
-std::string llama_runner::process(const std::string &input) {
-  llama_call_guard guard;
-  auto &impl = this->impl();
+std::string llama_runner::process(const std::string& input)
+{
+    llama_call_guard guard;
+    auto& impl = this->impl();
 
-  impl.reset();
+    impl.reset();
 
-  const llama_vocab *vocab = llama_model_get_vocab(impl.model.get());
+    const llama_vocab* vocab = llama_model_get_vocab(impl.model.get());
 
-  std::vector<llama_token> tokens(input.size());
+    std::vector<llama_token> tokens(input.size());
 
-  int n_tokens = llama_tokenize(vocab, input.c_str(), input.length(),
-                                tokens.data(), tokens.size(), true, false);
+    int n_tokens = llama_tokenize(vocab, input.c_str(), input.length(), tokens.data(),
+                                  tokens.size(), true, false);
 
-  tokens.resize(n_tokens);
+    tokens.resize(n_tokens);
 
-  llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
+    llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
 
-  throw_if(llama_decode(impl.ctx.get(), batch) != 0, "Decode failed",
-           errors::program_logic{});
+    throw_if(llama_decode(impl.ctx.get(), batch) != 0, "Decode failed", errors::program_logic{});
 
-  std::string output;
+    std::string output;
 
-  for (int i = 0; i < impl.config.max_tokens; ++i) {
-    llama_token token =
-        llama_sampler_sample(impl.sampler.get(), impl.ctx.get(), -1);
+    for (int i = 0; i < impl.config.max_tokens.get(); ++i) {
+        llama_token token = llama_sampler_sample(impl.sampler.get(), impl.ctx.get(), -1);
 
-    llama_sampler_accept(impl.sampler.get(), token);
+        llama_sampler_accept(impl.sampler.get(), token);
 
-    if (llama_vocab_is_eog(vocab, token))
-      break;
+        if (llama_vocab_is_eog(vocab, token))
+            break;
 
-    char buf[256];
-    int n = llama_token_to_piece(vocab, token, buf, sizeof(buf), 0, true);
+        char buf[256];
+        int n = llama_token_to_piece(vocab, token, buf, sizeof(buf), 0, true);
 
-    output.append(buf, n);
+        output.append(buf, n);
 
-    batch = llama_batch_get_one(&token, 1);
+        batch = llama_batch_get_one(&token, 1);
 
-    if (llama_decode(impl.ctx.get(), batch) != 0)
-      break;
-  }
-  // std::cout << output << std::endl;
-  return output;
+        if (llama_decode(impl.ctx.get(), batch) != 0)
+            break;
+    }
+    // std::cout << output << std::endl;
+    return output;
 }
 
 } // namespace local_ai

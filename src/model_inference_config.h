@@ -14,6 +14,7 @@
 
 #ifndef DOCWIRE_LOCAL_AI_LLAMA_GENERATION_CONFIG_H
 #define DOCWIRE_LOCAL_AI_LLAMA_GENERATION_CONFIG_H
+#include "model_inference_config_type.h"
 #include <string>
 
 namespace docwire::local_ai
@@ -21,17 +22,14 @@ namespace docwire::local_ai
 /*
  * @brief Handles configuration for llama model initialization and paramters
  */
-struct llama_generation_config
+struct model_inference_config
 {
     std::string model_path;
-
-    int n_ctx = 4096;
-    int n_threads = 4;
-    int max_tokens = 512;
-
-    float temperature = 0.2f;
-    float min_p = 0.05f;
-
+    context_size n_ctx{4096};
+    thread_count n_threads{4};
+    token_limit max_tokens{512};
+    temperature temp{0.2f};
+    min_p min_probability{0.05f};
     bool verbose = false;
 };
 

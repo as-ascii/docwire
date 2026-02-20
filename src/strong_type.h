@@ -10,36 +10,26 @@
 /*  Project homepage: https://github.com/docwire/docwire */
 /*                                                                                                                                           */
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial */
-/*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOCAL_AI_LLAMA_RUNNER_H
-#define DOCWIRE_LOCAL_AI_LLAMA_RUNNER_H
+#ifndef DOCWIRE_STRONG_TYPE_H
+#define DOCWIRE_STRONG_TYPE_H
 
-#include "ai_runner.h"
-#include "local_ai_export.h"
-#include "model_inference_config.h"
-#include "pimpl.h"
-
-namespace docwire::local_ai
+#include <utility>
+namespace docwire
 {
-/**
- * @brief This class is intended to load a Llama model with its correct model path and
- * respective configuration and run inference on the prompt supplied along with
- * the model configuration.
- */
-class DOCWIRE_LOCAL_AI_EXPORT llama_runner : public ai_runner, public with_pimpl<llama_runner>
+template <typename T, typename Tag> class strong_type
 {
   public:
-    explicit llama_runner(const model_inference_config& config);
+    using value_type = T;
 
-    std::string process(const std::string& input) override;
+    explicit constexpr strong_type(T v) noexcept : value_(std::move(v)) {}
 
-    std::vector<double> embed(const std::string&) override
-    {
-        throw std::runtime_error("Embedding not supported currently.");
-    }
+    constexpr T get() const noexcept { return value_; }
+
+  private:
+    T value_;
 };
 
-} // namespace docwire::local_ai
+} // namespace docwire
 
 #endif
