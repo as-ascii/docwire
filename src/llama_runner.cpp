@@ -16,6 +16,7 @@
 #include "error_tags.h"
 #include "llama_handler.h"
 #include "throw_if.h"
+#include <cmath>
 #include <condition_variable>
 #include <iostream>
 #include <llama.h>
@@ -108,7 +109,7 @@ struct llama_call_guard
 
 } // anonymous namespace
 
-//static bool g_verbose = false;
+// static bool g_verbose = false;
 
 template <> struct pimpl_impl<local_ai::llama_runner> : pimpl_impl_base
 {
@@ -142,7 +143,7 @@ template <> struct pimpl_impl<local_ai::llama_runner> : pimpl_impl_base
         ctx_params.n_ctx = config.n_ctx.get();
         ctx_params.n_batch = 512;
         ctx_params.n_threads = config.n_threads.get();
-
+        ctx_params.embeddings = true;
         ctx = docwire::local_ai::llama_handle<llama_context>(
             llama_init_from_model(model.get(), ctx_params));
 
@@ -222,6 +223,73 @@ std::string llama_runner::process(const std::string& input)
     }
     // std::cout << output << std::endl;
     return output;
+}
+
+/**
+ * @brief Generates an embedding vector for the given input string.
+ */
+std::vector<double> llama_runner::embed(const std::string& input)
+{
+    llama_call_guard guard;
+    auto& impl = this->impl();
+
+    impl.reset();
+
+    throw_if(llama_model_n_embd(impl.model.get()) <= 0, "Model has no embedding dimension.",
+             errors::program_logic{});
+
+    const llama_vocab* vocab = llama_model_get_vocab(impl.model.get());
+
+    int n_tokens = llama_tokenize(vocab, input.c_str(), input.length(), nullptr, 0, true, false);
+
+    throw_if(n_tokens <= 0, "Cannot embed empty input.", errors::program_logic{});
+
+    std::vector<llama_token> tokens(n_tokens);
+
+    int written = llama_tokenize(vocab, input.c_str(), input.length(), tokens.data(), tokens.size(),
+                                 true, false);
+
+    throw_if(written != n_tokens, "Tokenization mismatch.", errors::program_logic{});
+
+    llama_batch batch = llama_batch_get_one(tokens.data(), tokens.size());
+
+    throw_if(llama_decode(impl.ctx.get(), batch) != 0, "Decode failed during embedding.",
+             errors::program_logic{});
+
+    const float* all_embeddings = llama_get_embeddings(impl.ctx.get());
+
+    throw_if(!all_embeddings, "Embeddings not available from model.", errors::program_logic{});
+
+    const int n_embd = llama_model_n_embd(impl.model.get());
+
+    std::vector<double> result(n_embd, 0.0);
+
+    //  Mean pooling
+    for (int t = 0; t < n_tokens; ++t) {
+        const float* token_emb = all_embeddings + t * n_embd;
+
+        for (int i = 0; i < n_embd; ++i) {
+            result[i] += static_cast<double>(token_emb[i]);
+        }
+    }
+
+    for (double& v : result) {
+        v /= static_cast<double>(n_tokens);
+    }
+
+    // L2 normalization
+    double norm = 0.0;
+    for (double v : result)
+        norm += v * v;
+
+    norm = std::sqrt(norm);
+
+    if (norm > 1e-6) {
+        for (double& v : result)
+            v /= norm;
+    }
+
+    return result;
 }
 
 } // namespace local_ai

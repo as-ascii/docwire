@@ -14,7 +14,7 @@
 
 #include "chain_element.h"
 #include "local_ai_export.h"
-#include "c2t_runner.h"
+#include "ai_runner.h"
 #include "pimpl.h"
 #include <memory>
 
@@ -39,10 +39,10 @@ public:
     /**
      * @brief Construct a local AI embed chain element with a specific model runner and prefix.
      *
-     * @param c2t_runner The model runner to use for generating embeddings.
+     * @param ai_runner The model runner to use for generating embeddings.
      * @param prefix The string to prepend to the input text. Use an empty string for no prefix.
      */
-    explicit embed(std::shared_ptr<c2t_runner> model_runner, std::string prefix);
+    explicit embed(std::shared_ptr<ai_runner> model_runner, std::string prefix);
 
     /**
      * @brief Construct a local AI embed chain element with a default model runner and prefix.

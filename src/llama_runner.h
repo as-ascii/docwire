@@ -29,15 +29,15 @@ namespace docwire::local_ai
  */
 class DOCWIRE_LOCAL_AI_EXPORT llama_runner : public ai_runner, public with_pimpl<llama_runner>
 {
+  private:
+    bool supports_embeddings() const;
+
   public:
     explicit llama_runner(const model_inference_config& config);
 
     std::string process(const std::string& input) override;
 
-    std::vector<double> embed(const std::string&) override
-    {
-        throw std::runtime_error("Embedding not supported currently.");
-    }
+    std::vector<double> embed(const std::string&) override;
 };
 
 } // namespace docwire::local_ai

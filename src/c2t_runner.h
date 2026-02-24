@@ -23,7 +23,7 @@ namespace docwire::local_ai
 {
 
 /**
- * @brief Class representing the AI model loaded to memory.
+ * @brief Class representing the C2Translate AI model loaded to memory.
  *
  * Constructor loads model to memory and makes it ready for usage.
  * Destructor frees memory used by model.

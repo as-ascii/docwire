@@ -12,6 +12,7 @@
 #include "local_ai_embed.h"
 
 #include "ai_elements.h"
+#include "c2t_runner.h"
 #include "data_source.h"
 #include "error_tags.h"
 #include "log_scope.h"
@@ -27,11 +28,11 @@ namespace docwire
 template<>
 struct pimpl_impl<local_ai::embed> : pimpl_impl_base
 {
-    std::shared_ptr<local_ai::c2t_runner> m_model_runner;
+    std::shared_ptr<local_ai::ai_runner> m_model_runner;
     std::string m_prefix;
 
-    pimpl_impl(std::shared_ptr<local_ai::c2t_runner> c2t_runner, std::string prefix)
-        : m_model_runner(std::move(c2t_runner)), m_prefix(std::move(prefix))
+    pimpl_impl(std::shared_ptr<local_ai::ai_runner> model_runner, std::string prefix)
+        : m_model_runner(std::move(model_runner)), m_prefix(std::move(prefix))
     {}
 };
 
@@ -41,7 +42,7 @@ namespace local_ai
 const std::string embed::e5_passage_prefix = "passage: ";
 const std::string embed::e5_query_prefix = "query: ";
 
-embed::embed(std::shared_ptr<c2t_runner> model_runner, std::string prefix)
+embed::embed(std::shared_ptr<ai_runner> model_runner, std::string prefix)
     : with_pimpl<embed>(std::move(model_runner), std::move(prefix))
 {}
 
