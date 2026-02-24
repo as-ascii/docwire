@@ -9,8 +9,8 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOCAL_AI_MODEL_RUNNER_H
-#define DOCWIRE_LOCAL_AI_MODEL_RUNNER_H
+#ifndef DOCWIRE_LOCAL_AI_C2T_RUNNER_H
+#define DOCWIRE_LOCAL_AI_C2T_RUNNER_H
 
 #include "local_ai_export.h"
 #include "pimpl.h"
@@ -29,14 +29,14 @@ namespace docwire::local_ai
  * Destructor frees memory used by model.
  * It is important not to duplicate the object because memory consumption can be high.
  */
-class DOCWIRE_LOCAL_AI_EXPORT model_runner :  public ai_runner, public with_pimpl<model_runner>
+class DOCWIRE_LOCAL_AI_EXPORT c2t_runner :  public ai_runner, public with_pimpl<c2t_runner>
 {
 public:
     /**
      * @brief Constructor. Loads model to memory.
      * @param model_data_path Path to the folder containing model files.
      */
-    model_runner(const std::filesystem::path& model_data_path);
+    c2t_runner(const std::filesystem::path& model_data_path);
 
     /**
      * @brief Process input text using the model.
@@ -55,4 +55,4 @@ public:
 
 } // namespace docwire::local_ai
 
-#endif // DOCWIRE_LOCAL_AI_MODEL_RUNNER_H
+#endif // DOCWIRE_LOCAL_AI_C2T_RUNNER_H

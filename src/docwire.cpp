@@ -117,7 +117,7 @@ int main(int argc, char* argv[])
 	po::options_description desc("Allowed options");
 	desc.add_options()
 		("help", "display help message")
-		("version", "display DocWire version")		
+		("version", "display DocWire version")
 		("input-file", po::value<std::string>()->required(), "path to file to process")
 		("output_type", po::value<OutputType>()->default_value(OutputType::plain_text), enum_names_str<OutputType>().c_str())
 		("http-post", po::value<std::string>(), "url to process data via http post")
@@ -385,12 +385,12 @@ int main(int argc, char* argv[])
 		{
 			std::string prompt = vm["local-ai-prompt"].as<std::string>();
 
-			auto model_runner = vm.count("local-ai-model") ?
-				std::make_shared<local_ai::model_runner>(vm["local-ai-model"].as<std::string>()) :
-				std::make_shared<local_ai::model_runner>(resource_path("flan-t5-large-ct2-int8"));
-			
+			auto c2t_runner = vm.count("local-ai-model") ?
+				std::make_shared<local_ai::c2t_runner>(vm["local-ai-model"].as<std::string>()) :
+				std::make_shared<local_ai::c2t_runner>(resource_path("flan-t5-large-ct2-int8"));
+
 			chain |=
-				local_ai::model_chain_element(prompt, model_runner);
+				local_ai::model_chain_element(prompt, c2t_runner);
 		}
 		catch(const std::exception& e)
 		{
@@ -404,11 +404,11 @@ int main(int argc, char* argv[])
 		try
 		{
 			std::string prefix = vm["local-ai-embed"].as<std::string>();
-			auto model_runner = vm.count("local-ai-model") ?
-				std::make_shared<local_ai::model_runner>(vm["local-ai-model"].as<std::string>()) :
-				std::make_shared<local_ai::model_runner>(resource_path("multilingual-e5-small-ct2-int8"));
-			
-			chain |= local_ai::embed(model_runner, prefix);
+			auto c2t_runner = vm.count("local-ai-model") ?
+				std::make_shared<local_ai::c2t_runner>(vm["local-ai-model"].as<std::string>()) :
+				std::make_shared<local_ai::c2t_runner>(resource_path("multilingual-e5-small-ct2-int8"));
+
+			chain |= local_ai::embed(c2t_runner, prefix);
 			chain |= [](message_ptr msg, const message_callbacks& emit_message) -> continuation {
 				if (msg->is<ai::embedding>())
 				{

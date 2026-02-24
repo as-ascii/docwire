@@ -27,11 +27,11 @@ namespace docwire
 template<>
 struct pimpl_impl<local_ai::embed> : pimpl_impl_base
 {
-    std::shared_ptr<local_ai::model_runner> m_model_runner;
+    std::shared_ptr<local_ai::c2t_runner> m_model_runner;
     std::string m_prefix;
 
-    pimpl_impl(std::shared_ptr<local_ai::model_runner> model_runner, std::string prefix)
-        : m_model_runner(std::move(model_runner)), m_prefix(std::move(prefix))
+    pimpl_impl(std::shared_ptr<local_ai::c2t_runner> c2t_runner, std::string prefix)
+        : m_model_runner(std::move(c2t_runner)), m_prefix(std::move(prefix))
     {}
 };
 
@@ -41,12 +41,12 @@ namespace local_ai
 const std::string embed::e5_passage_prefix = "passage: ";
 const std::string embed::e5_query_prefix = "query: ";
 
-embed::embed(std::shared_ptr<model_runner> model_runner, std::string prefix)
+embed::embed(std::shared_ptr<c2t_runner> model_runner, std::string prefix)
     : with_pimpl<embed>(std::move(model_runner), std::move(prefix))
 {}
 
 embed::embed(std::string prefix)
-    : with_pimpl<embed>(std::make_shared<model_runner>(resource_path("multilingual-e5-small-ct2-int8")), std::move(prefix))
+    : with_pimpl<embed>(std::make_shared<c2t_runner>(resource_path("multilingual-e5-small-ct2-int8")), std::move(prefix))
 {}
 
 continuation embed::operator()(message_ptr msg, const message_callbacks& emit_message)

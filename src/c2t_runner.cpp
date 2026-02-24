@@ -9,7 +9,7 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
 
-#include "model_runner.h"
+#include "c2t_runner.h"
 
 #include <boost/json.hpp>
 #include <cmath>
@@ -61,7 +61,7 @@ std::variant<ctranslate2::Translator, ctranslate2::Encoder> load_model(const std
 } // anonymous namespace
 
 template<>
-struct pimpl_impl<local_ai::model_runner> : pimpl_impl_base
+struct pimpl_impl<local_ai::c2t_runner> : pimpl_impl_base
 {
 	std::variant<ctranslate2::Translator, ctranslate2::Encoder> m_model;
 	local_ai::tokenizer m_tokenizer;
@@ -156,11 +156,11 @@ struct pimpl_impl<local_ai::model_runner> : pimpl_impl_base
 namespace local_ai
 {
 
-model_runner::model_runner(const std::filesystem::path& model_data_path)
+c2t_runner::c2t_runner(const std::filesystem::path& model_data_path)
     : with_pimpl(model_data_path)
 {}
 
-std::string model_runner::process(const std::string& input)
+std::string c2t_runner::process(const std::string& input)
 {
     log_scope(input);
     std::vector<std::string> input_tokens = impl().m_tokenizer.tokenize(input);
@@ -168,7 +168,7 @@ std::string model_runner::process(const std::string& input)
     return impl().m_tokenizer.detokenize(output_tokens);
 }
 
-std::vector<double> model_runner::embed(const std::string& input)
+std::vector<double> c2t_runner::embed(const std::string& input)
 {
     log_scope(input);
     return impl().embed(input);

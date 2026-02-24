@@ -34,7 +34,7 @@ class DOCWIRE_LOCAL_AI_EXPORT model_chain_element : public ChainElement
      * @brief Construct a model chain element.
      *
      * @param prompt The prompt to append to the input text.
-     * @param model_runner The model runner to use for processing the text.
+     * @param ai_runner The model runner to use for processing the text.
      */
     model_chain_element(const std::string& prompt, std::shared_ptr<ai_runner> runner);
 
