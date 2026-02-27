@@ -20,16 +20,10 @@ int main(int argc, char* argv[])
     auto runner = std::make_shared<docwire::local_ai::llama_runner>(config);
 
     try {
-
+    	std::ofstream ofs("output.txt");
         data_source(std::string("LLMs help process long documents."), mime_type{"text/plain"},
                     confidence::highest) |
-            local_ai::model_chain_element("Summarize:\n\n", runner) | out_stream;
-
-        //  Write to a text file
-        std::ofstream ofs("output.txt");
-        ofs << out_stream.str();
-        ofs.close();
-
+            local_ai::model_chain_element("Summarize:\n\n", runner) | out_stream | ofs;
         std::cout << "Text exported to output.txt" << std::endl;
 
     } catch (const std::exception& e) {

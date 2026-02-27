@@ -12,8 +12,8 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOCAL_AI_LLAMA_GENERATION_CONFIG_H
-#define DOCWIRE_LOCAL_AI_LLAMA_GENERATION_CONFIG_H
+#ifndef DOCWIRE_LOCAL_AI_MODEL_INFERENCE_CONFIG_H
+#define DOCWIRE_LOCAL_AI_MODEL_INFERENCE_CONFIG_H
 #include "model_inference_config_type.h"
 #include <string>
 

@@ -2,6 +2,7 @@ add_library(docwire_local_ai SHARED local_ai_embed.cpp model_chain_element.cpp c
 
 find_package(Boost REQUIRED COMPONENTS filesystem system json)
 find_package(ctranslate2 CONFIG REQUIRED)
+find_package(llama CONFIG REQUIRED)
 find_library(sentencepiece_LIBRARIES sentencepiece REQUIRED)
 if(MSVC)
     find_package(absl CONFIG REQUIRED)
@@ -14,14 +15,7 @@ if(MSVC)
     find_package(protobuf CONFIG REQUIRED)
     list(APPEND sentencepiece_LIBRARIES protobuf::libprotobuf-lite)
 endif()
-target_link_libraries(docwire_local_ai PRIVATE docwire_core docwire_ai Boost::filesystem Boost::json CTranslate2::ctranslate2 ${sentencepiece_LIBRARIES})
-
-find_package(llama CONFIG REQUIRED)
-
-target_link_libraries(docwire_local_ai
-    PRIVATE
-        llama
-)
+target_link_libraries(docwire_local_ai PRIVATE docwire_core docwire_ai Boost::filesystem Boost::json CTranslate2::ctranslate2 ${sentencepiece_LIBRARIES} llama)
 
 install(TARGETS docwire_local_ai EXPORT docwire_targets)
 if(MSVC)

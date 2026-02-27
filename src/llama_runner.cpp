@@ -221,7 +221,6 @@ std::string llama_runner::process(const std::string& input)
         if (llama_decode(impl.ctx.get(), batch) != 0)
             break;
     }
-    // std::cout << output << std::endl;
     return output;
 }
 

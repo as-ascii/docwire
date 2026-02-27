@@ -414,9 +414,6 @@ int main(int argc, char* argv[])
 		{
 			std::string prompt = vm["local-ai-prompt"].as<std::string>();
 
-			// auto c2t_runner = vm.count("local-ai-model") ?
-			// 	std::make_shared<local_ai::c2t_runner>(vm["local-ai-model"].as<std::string>()) :
-			// 	std::make_shared<local_ai::c2t_runner>(resource_path("flan-t5-large-ct2-int8"));
 			auto runner = create_local_runner(vm, "flan-t5-large-ct2-int8");
 			chain |=
 				local_ai::model_chain_element(prompt, runner);

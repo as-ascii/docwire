@@ -11,6 +11,9 @@
 /*                                                                                                                                           */
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial */
 
+#ifndef DOCWIRE_LOCAL_AI_MODEL_INFERENCE_CONFIG_TYPE_H
+#define DOCWIRE_LOCAL_AI_MODEL_INFERENCE_CONFIG_TYPE_H
+
 #include "strong_type.h"
 #include <cstddef>
 
@@ -39,3 +42,5 @@ using token_limit = strong_type<std::size_t, token_limit_tag>;
 using temperature = strong_type<float, temperature_tag>;
 using min_p = strong_type<float, min_p_tag>;
 } // namespace docwire::local_ai
+
+#endif
