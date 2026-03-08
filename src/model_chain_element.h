@@ -19,10 +19,13 @@
 namespace docwire::local_ai
 {
 
+/***
+ * @brief Model usage option for Load/Unload in memory
+ */
 enum class model_lifetime_policy
 {
-    persistent,
-    unload_after_use
+    persistent, // keeps the model in memory, which makes it availabel for next pipeline usage
+    unload_after_use // unloads after current usage
 };
 
 /**
@@ -41,6 +44,7 @@ class DOCWIRE_LOCAL_AI_EXPORT model_chain_element : public ChainElement
      *
      * @param prompt The prompt to append to the input text.
      * @param ai_runner The model runner to use for processing the text.
+     * @param model_lifetime_policy Option to decide whether to unload model after usage or keep it persistent
      */
     model_chain_element(const std::string& prompt, std::shared_ptr<ai_runner> runner, model_lifetime_policy lifetime = model_lifetime_policy::persistent);
 
@@ -51,6 +55,7 @@ class DOCWIRE_LOCAL_AI_EXPORT model_chain_element : public ChainElement
      * `model_runner` configured to use the `flan-t5-large-ct2-int8` model.
      *
      * @param prompt The prompt to append to the input text.
+     * @param model_lifetime_policy Option to decide whether to unload model after usage or keep it persistent
      */
     model_chain_element(const std::string& prompt, model_lifetime_policy lifetime = model_lifetime_policy::persistent);
 
