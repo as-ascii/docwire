@@ -51,6 +51,8 @@ public:
      * @return Vector of embedding values.
      */
     std::vector<double> embed(const std::string& input) override;
+
+    virtual void unload() override;
 };
 
 } // namespace docwire::local_ai

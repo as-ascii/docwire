@@ -1,10 +1,9 @@
 /*********************************************************************************************************************************************/
-/*  DocWire SDK: Award-winning modern data processing in C++20. SourceForge
- * Community Choice & Microsoft support. AI-driven processing.      */
-/*  Supports nearly 100 data formats, including email boxes and OCR. Boost
- * efficiency in text extraction, web data extraction, data mining,  */
-/*  document analysis. Offline processing possible for security and
- * confidentiality                                                          */
+/*  DocWire SDK: Award-winning modern data processing in C++20. SourceForge Community Choice &
+ * Microsoft support. AI-driven processing.      */
+/*  Supports nearly 100 data formats, including email boxes and OCR. Boost efficiency in text
+ * extraction, web data extraction, data mining,  */
+/*  document analysis. Offline processing possible for security and confidentiality */
 /*                                                                                                                                           */
 /*  Copyright (c) SILVERCODERS Ltd, http://silvercoders.com */
 /*  Project homepage: https://github.com/docwire/docwire */
@@ -12,27 +11,23 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOCAL_AI_AI_RUNNER_H
-#define DOCWIRE_LOCAL_AI_AI_RUNNER_H
+#ifndef DOCWIRE_LOCAL_AI_SUMMARIZE_H
+#define DOCWIRE_LOCAL_AI_SUMMARIZE_H
 
 #include "local_ai_export.h"
-#include <stdexcept>
-#include <string>
-#include <vector>
+#include "model_chain_element.h"
 
-namespace docwire::local_ai {
+namespace docwire::local_ai
+{
 
-class DOCWIRE_LOCAL_AI_EXPORT ai_runner {
+class DOCWIRE_LOCAL_AI_EXPORT local_summarize : public model_chain_element
+{
   public:
-    virtual ~ai_runner() = default;
+    explicit local_summarize();
 
-    virtual std::string process(const std::string& input) = 0;
-
-    virtual std::vector<double> embed(const std::string&) = 0;
-
-    virtual void unload() = 0;
+    explicit local_summarize(std::shared_ptr<ai_runner> runner);
 };
 
 } // namespace docwire::local_ai
 
-#endif
+#endif // DOCWIRE_LOCAL_SUMMARIZE_H

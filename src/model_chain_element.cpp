@@ -10,18 +10,19 @@
 /*********************************************************************************************************************************************/
 
 #include "model_chain_element.h"
+#include "c2t_runner.h"
 #include "data_source.h"
 #include "error_tags.h"
-#include "c2t_runner.h"
 #include "resource_path.h"
 #include "throw_if.h"
 
 namespace docwire::local_ai
 {
 
-model_chain_element::model_chain_element(const std::string& prompt)
+model_chain_element::model_chain_element(const std::string& prompt, model_lifetime_policy lifetime)
     : docwire::local_ai::model_chain_element(
-          prompt, std::make_shared<c2t_runner>(resource_path("flan-t5-large-ct2-int8")))
+          prompt, std::make_shared<c2t_runner>(resource_path("flan-t5-large-ct2-int8")),
+          lifetime)
 {
 }
 
@@ -29,8 +30,9 @@ model_chain_element::model_chain_element(const std::string& prompt)
  * @brief constructor to run llama models
  */
 model_chain_element::model_chain_element(const std::string& prompt,
-                                         std::shared_ptr<ai_runner> runner)
-    : m_prompt(prompt), m_model_runner(std::move(runner))
+                                         std::shared_ptr<ai_runner> runner,
+                                         model_lifetime_policy lifetime)
+    : m_prompt(prompt), m_model_runner(std::move(runner)), m_model_lifetime(lifetime)
 {
 }
 
@@ -40,10 +42,13 @@ continuation model_chain_element::operator()(message_ptr msg, const message_call
         return emit_message(std::move(msg));
 
     const data_source& data = msg->get<data_source>();
-	throw_if (!data.has_highest_confidence_mime_type_in({mime_type{"text/plain"}}), errors::program_logic{});
+    throw_if(!data.has_highest_confidence_mime_type_in({mime_type{"text/plain"}}),
+             errors::program_logic{});
     std::string input = m_prompt + "\n" + data.string();
     std::string output = m_model_runner->process(input);
-
+    if (m_model_lifetime == model_lifetime_policy::unload_after_use) {
+        m_model_runner->unload();
+    }
     return emit_message(data_source{std::move(output)});
 }
 

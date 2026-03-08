@@ -38,6 +38,8 @@ class DOCWIRE_LOCAL_AI_EXPORT llama_runner : public ai_runner, public with_pimpl
     std::string process(const std::string& input) override;
 
     std::vector<double> embed(const std::string&) override;
+
+    virtual void unload() override;
 };
 
 } // namespace docwire::local_ai

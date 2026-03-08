@@ -19,6 +19,12 @@
 namespace docwire::local_ai
 {
 
+enum class model_lifetime_policy
+{
+    persistent,
+    unload_after_use
+};
+
 /**
  * @brief A model chain element that processes input text using a model runner.
  *
@@ -36,7 +42,7 @@ class DOCWIRE_LOCAL_AI_EXPORT model_chain_element : public ChainElement
      * @param prompt The prompt to append to the input text.
      * @param ai_runner The model runner to use for processing the text.
      */
-    model_chain_element(const std::string& prompt, std::shared_ptr<ai_runner> runner);
+    model_chain_element(const std::string& prompt, std::shared_ptr<ai_runner> runner, model_lifetime_policy lifetime = model_lifetime_policy::persistent);
 
     /**
      * @brief Construct a model chain element with a default model runner.
@@ -46,7 +52,7 @@ class DOCWIRE_LOCAL_AI_EXPORT model_chain_element : public ChainElement
      *
      * @param prompt The prompt to append to the input text.
      */
-    model_chain_element(const std::string& prompt);
+    model_chain_element(const std::string& prompt, model_lifetime_policy lifetime = model_lifetime_policy::persistent);
 
     /**
      * @brief Process the input.
@@ -74,6 +80,7 @@ class DOCWIRE_LOCAL_AI_EXPORT model_chain_element : public ChainElement
   private:
     std::string m_prompt;
     std::shared_ptr<ai_runner> m_model_runner;
+    model_lifetime_policy m_model_lifetime;
 };
 
 } // namespace docwire::local_ai

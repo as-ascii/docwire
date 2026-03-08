@@ -113,6 +113,7 @@ struct llama_call_guard
 
 template <> struct pimpl_impl<local_ai::llama_runner> : pimpl_impl_base
 {
+    std::mutex model_mutex;
     llama_backend_guard llama_backend;
     local_ai::model_inference_config config;
     local_ai::llama_handle<llama_model> model;
@@ -130,29 +131,37 @@ template <> struct pimpl_impl<local_ai::llama_runner> : pimpl_impl_base
         g_verbose = config.verbose;
         //  Redirect llama.cpp's logs through our callback
         llama_log_set(llamaLogCallback, nullptr);
+    }
+
+    ~pimpl_impl() {}
+
+    void load_model()
+    {
+        std::lock_guard<std::mutex> lock(model_mutex);
+        if (model)
+            return;
 
         llama_model_params model_params = llama_model_default_params();
-        // load model to Llama
-        model = docwire::local_ai::llama_handle<llama_model>(
+
+        model = local_ai::llama_handle<llama_model>(
             llama_model_load_from_file(config.model_path.c_str(), model_params));
 
         throw_if(!model, "Failed to load llama model.", errors::program_corrupted{});
-        // Set up context and other parameters
+
         llama_context_params ctx_params = llama_context_default_params();
 
         ctx_params.n_ctx = config.n_ctx.get();
         ctx_params.n_batch = 512;
         ctx_params.n_threads = config.n_threads.get();
         ctx_params.embeddings = true;
-        ctx = docwire::local_ai::llama_handle<llama_context>(
-            llama_init_from_model(model.get(), ctx_params));
+
+        ctx = local_ai::llama_handle<llama_context>(llama_init_from_model(model.get(), ctx_params));
 
         throw_if(!ctx, "Failed to create llama context.", errors::program_corrupted{});
 
         llama_sampler_chain_params sp = llama_sampler_chain_default_params();
 
-        sampler = docwire::local_ai::llama_handle<llama_sampler>(llama_sampler_chain_init(sp));
-        throw_if(!sampler, "Failed to create sampler.", errors::program_corrupted{});
+        sampler = local_ai::llama_handle<llama_sampler>(llama_sampler_chain_init(sp));
 
         llama_sampler_chain_add(sampler.get(),
                                 llama_sampler_init_min_p(config.min_probability.get(), 1));
@@ -162,8 +171,6 @@ template <> struct pimpl_impl<local_ai::llama_runner> : pimpl_impl_base
         llama_sampler_chain_add(sampler.get(), llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
     }
 
-    ~pimpl_impl() {}
-
     void reset()
     {
         // Get the memory handle first
@@ -172,11 +179,25 @@ template <> struct pimpl_impl<local_ai::llama_runner> : pimpl_impl_base
         llama_memory_seq_rm(mem, -1, -1, -1);
         llama_sampler_reset(sampler.get());
     }
+
+    void llama_unload()
+    {
+        std::lock_guard<std::mutex> lock(model_mutex);
+        sampler.reset();
+        ctx.reset();
+        model.reset();
+    }
 };
 
 namespace local_ai
 {
 llama_runner::llama_runner(const model_inference_config& config) : with_pimpl(config) {}
+
+void llama_runner::unload()
+{
+    auto& impl = this->impl();
+    impl.llama_unload();
+}
 
 /*
  * This function runs inference on the given model provided to Llama
@@ -185,9 +206,8 @@ std::string llama_runner::process(const std::string& input)
 {
     llama_call_guard guard;
     auto& impl = this->impl();
-
+    impl.load_model();
     impl.reset();
-
     const llama_vocab* vocab = llama_model_get_vocab(impl.model.get());
 
     std::vector<llama_token> tokens(input.size());
@@ -221,6 +241,9 @@ std::string llama_runner::process(const std::string& input)
         if (llama_decode(impl.ctx.get(), batch) != 0)
             break;
     }
+    // if (impl.config.lifetime == model_lifetime_policy::unload_after_use) {
+    //     impl.unload();
+    // }
     return output;
 }
 
@@ -232,6 +255,7 @@ std::vector<double> llama_runner::embed(const std::string& input)
     llama_call_guard guard;
     auto& impl = this->impl();
 
+    impl.load_model();
     impl.reset();
 
     throw_if(llama_model_n_embd(impl.model.get()) <= 0, "Model has no embedding dimension.",
@@ -287,6 +311,10 @@ std::vector<double> llama_runner::embed(const std::string& input)
         for (double& v : result)
             v /= norm;
     }
+
+    // if (impl.config.lifetime == model_lifetime_policy::unload_after_use) {
+    //     impl.unload();
+    // }
 
     return result;
 }
