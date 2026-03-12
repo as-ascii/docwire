@@ -11,19 +11,18 @@
 
 #include "c2t_runner.h"
 
-#include "error_tags.h"
-#include "log_entry.h"
-#include "log_scope.h"
-#include "serialization_exception.h"  // IWYU pragma: keep
-#include "serialization_filesystem.h" // IWYU pragma: keep
-#include "throw_if.h"
-#include "tokenizer.h"
 #include <boost/json.hpp>
 #include <cmath>
 #include <ctranslate2/encoder.h>
 #include <ctranslate2/ops/mean.h>
 #include <ctranslate2/translator.h>
-#include <memory>
+#include "error_tags.h"
+#include "log_entry.h"
+#include "log_scope.h"
+#include "serialization_exception.h" // IWYU pragma: keep
+#include "serialization_filesystem.h" // IWYU pragma: keep
+#include "throw_if.h"
+#include "tokenizer.h"
 #include <variant>
 
 namespace docwire

@@ -16,12 +16,12 @@
 namespace docwire::local_ai
 {
 
-constexpr const char* DEFAULT_SUMMARY_PROMPT = "Your task is to summarize the following text:\n\n";
+constexpr const char* summary_prompt = "Your task is to summarize the following text:\n\n";
 
-local_summarize::local_summarize() : model_chain_element(DEFAULT_SUMMARY_PROMPT) {}
+summarize::summarize() : model_chain_element(summary_prompt) {}
 
-local_summarize::local_summarize(std::shared_ptr<ai_runner> runner)
-    : model_chain_element(DEFAULT_SUMMARY_PROMPT, runner)
+summarize::summarize(std::shared_ptr<ai_runner> runner)
+    : model_chain_element(summary_prompt, runner)
 {
 }
 } // namespace docwire::local_ai

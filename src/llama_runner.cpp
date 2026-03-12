@@ -109,8 +109,6 @@ struct llama_call_guard
 
 } // anonymous namespace
 
-// static bool g_verbose = false;
-
 template <> struct pimpl_impl<local_ai::llama_runner> : pimpl_impl_base
 {
     std::mutex model_mutex;
@@ -135,7 +133,7 @@ template <> struct pimpl_impl<local_ai::llama_runner> : pimpl_impl_base
 
     ~pimpl_impl() {}
 
-    void load_model()
+    void ensure_model_loaded()
     {
         std::lock_guard<std::mutex> lock(model_mutex);
         if (model)
@@ -162,6 +160,8 @@ template <> struct pimpl_impl<local_ai::llama_runner> : pimpl_impl_base
         llama_sampler_chain_params sp = llama_sampler_chain_default_params();
 
         sampler = local_ai::llama_handle<llama_sampler>(llama_sampler_chain_init(sp));
+
+        throw_if(!sampler, "Failed to create sampler.", errors::program_corrupted{});
 
         llama_sampler_chain_add(sampler.get(),
                                 llama_sampler_init_min_p(config.min_probability.get(), 1));
@@ -195,8 +195,7 @@ llama_runner::llama_runner(const model_inference_config& config) : with_pimpl(co
 
 void llama_runner::unload()
 {
-    auto& impl = this->impl();
-    impl.llama_unload();
+    impl().llama_unload();
 }
 
 /*
@@ -206,7 +205,7 @@ std::string llama_runner::process(const std::string& input)
 {
     llama_call_guard guard;
     auto& impl = this->impl();
-    impl.load_model();
+    impl.ensure_model_loaded();
     impl.reset();
     const llama_vocab* vocab = llama_model_get_vocab(impl.model.get());
 
@@ -241,9 +240,6 @@ std::string llama_runner::process(const std::string& input)
         if (llama_decode(impl.ctx.get(), batch) != 0)
             break;
     }
-    // if (impl.config.lifetime == model_lifetime_policy::unload_after_use) {
-    //     impl.unload();
-    // }
     return output;
 }
 
@@ -255,7 +251,7 @@ std::vector<double> llama_runner::embed(const std::string& input)
     llama_call_guard guard;
     auto& impl = this->impl();
 
-    impl.load_model();
+    impl.ensure_model_loaded();
     impl.reset();
 
     throw_if(llama_model_n_embd(impl.model.get()) <= 0, "Model has no embedding dimension.",
@@ -311,10 +307,6 @@ std::vector<double> llama_runner::embed(const std::string& input)
         for (double& v : result)
             v /= norm;
     }
-
-    // if (impl.config.lifetime == model_lifetime_policy::unload_after_use) {
-    //     impl.unload();
-    // }
 
     return result;
 }

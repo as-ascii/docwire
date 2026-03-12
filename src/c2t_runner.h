@@ -52,6 +52,10 @@ public:
      */
     std::vector<double> embed(const std::string& input) override;
 
+    /**
+     * @brief Unload the model and free associated resources.
+     * --!Must be thread-safe!-- and safe to call concurrently with process()/embed().
+     */
     virtual void unload() override;
 };
 

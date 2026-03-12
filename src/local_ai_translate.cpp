@@ -16,7 +16,7 @@
 namespace docwire::local_ai
 {
 
-local_translate::local_translate(const std::string& language, std::shared_ptr<ai_runner> runner)
+translate::translate(const std::string& language, std::shared_ptr<ai_runner> runner)
     : model_chain_element(
           "Your task is to translate every message to " + language + " language.\n\n", runner)
 {

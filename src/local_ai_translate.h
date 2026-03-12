@@ -11,8 +11,8 @@
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial */
 /*********************************************************************************************************************************************/
 
-#ifndef DOCWIRE_LOCAL_AI_TRANSLATE_H
-#define DOCWIRE_LOCAL_AI_TRANSLATE_H
+#ifndef DOCWIRE_TRANSLATE_H
+#define DOCWIRE_TRANSLATE_H
 
 #include "local_ai_export.h"
 #include "model_chain_element.h"
@@ -20,12 +20,12 @@
 namespace docwire::local_ai
 {
 
-class DOCWIRE_LOCAL_AI_EXPORT local_translate : public model_chain_element
+class DOCWIRE_LOCAL_AI_EXPORT translate : public model_chain_element
 {
   public:
-    explicit local_translate(const std::string& language, std::shared_ptr<ai_runner> runner);
+    explicit translate(const std::string& language, std::shared_ptr<ai_runner> runner);
 };
 
 } // namespace docwire::local_ai
 
-#endif // DOCWIRE_LOCAL_TRANSLATE_H
+#endif // DOCWIRE_TRANSLATE_H

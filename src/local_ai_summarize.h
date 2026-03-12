@@ -20,12 +20,12 @@
 namespace docwire::local_ai
 {
 
-class DOCWIRE_LOCAL_AI_EXPORT local_summarize : public model_chain_element
+class DOCWIRE_LOCAL_AI_EXPORT summarize : public model_chain_element
 {
   public:
-    explicit local_summarize();
+    explicit summarize();
 
-    explicit local_summarize(std::shared_ptr<ai_runner> runner);
+    explicit summarize(std::shared_ptr<ai_runner> runner);
 };
 
 } // namespace docwire::local_ai
