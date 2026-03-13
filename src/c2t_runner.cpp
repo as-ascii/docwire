@@ -117,7 +117,7 @@ template <> struct pimpl_impl<local_ai::c2t_runner> : pimpl_impl_base
             throw_if(!std::holds_alternative<std::shared_ptr<ctranslate2::Encoder>>(m_model),
                  "Model is not an Encoder, cannot embed.", errors::program_logic{});
 
-            auto encoder_ptr = std::get<std::shared_ptr<ctranslate2::Encoder>>(m_model);
+            encoder_ptr = std::get<std::shared_ptr<ctranslate2::Encoder>>(m_model);
 
 
         }
