@@ -131,8 +131,6 @@ template <> struct pimpl_impl<local_ai::llama_runner> : pimpl_impl_base
         llama_log_set(llamaLogCallback, nullptr);
     }
 
-    ~pimpl_impl() {}
-
     void ensure_model_loaded()
     {
         std::lock_guard<std::mutex> lock(model_mutex);
