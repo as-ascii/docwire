@@ -15,7 +15,7 @@
 #include <fstream>
 #include "ai_runner.h"
 #include "analyze_data.h"
-#include "c2t_runner.h"
+#include "ct2_runner.h"
 #include "classify.h"
 #include "content_type.h"
 #include "csv_exporter.h"
@@ -126,10 +126,10 @@ create_local_runner(const boost::program_options::variables_map& vm,
             return std::make_shared<local_ai::llama_runner>(config);
         }
 
-        return std::make_shared<local_ai::c2t_runner>(model_path);
+        return std::make_shared<local_ai::ct2_runner>(model_path);
     }
 
-    return std::make_shared<local_ai::c2t_runner>(
+    return std::make_shared<local_ai::ct2_runner>(
         resource_path(default_model)
     );
 }
@@ -430,9 +430,6 @@ int main(int argc, char* argv[])
 		try
 		{
 			std::string prefix = vm["local-ai-embed"].as<std::string>();
-			// auto c2t_runner = vm.count("local-ai-model") ?
-			// 	std::make_shared<local_ai::c2t_runner>(vm["local-ai-model"].as<std::string>()) :
-			// 	std::make_shared<local_ai::c2t_runner>(resource_path("multilingual-e5-small-ct2-int8"));
 			auto runner = create_local_runner(vm, "flan-t5-large-ct2-int8");
 			chain |= local_ai::embed(runner, prefix);
 			chain |= [](message_ptr msg, const message_callbacks& emit_message) -> continuation {

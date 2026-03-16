@@ -10,7 +10,7 @@
 /*********************************************************************************************************************************************/
 
 #include "model_chain_element.h"
-#include "c2t_runner.h"
+#include "ct2_runner.h"
 #include "data_source.h"
 #include "error_tags.h"
 #include "resource_path.h"
@@ -21,7 +21,7 @@ namespace docwire::local_ai
 
 model_chain_element::model_chain_element(const std::string& prompt, model_lifetime_policy lifetime)
     : docwire::local_ai::model_chain_element(
-          prompt, std::make_shared<c2t_runner>(resource_path("flan-t5-large-ct2-int8")),
+          prompt, std::make_shared<ct2_runner>(resource_path("flan-t5-large-ct2-int8")),
           lifetime)
 {
 }

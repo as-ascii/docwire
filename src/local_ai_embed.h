@@ -24,7 +24,7 @@ namespace docwire::local_ai
 /**
  * @brief A chain element that generates embeddings for input text using a local AI model.
  *
- * This class is a chain element that takes a c2t_runner to generate a vector
+ * This class is a chain element that takes a ct2_runner to generate a vector
  * embedding for a given text. It is designed to work with sentence-transformer
  * models like `multilingual-e5-small`.
  */
