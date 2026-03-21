@@ -31,38 +31,28 @@
 		},
 		"local-ai":
 		{
-			"description": "Enable local AI runtime (ctranslate2 + sentencepiece)",
+			"description": "Enable local AI runtime (models for translation, text generation and embedding)",
 			"dependencies": [
 			"ctranslate2",
-			"sentencepiece"
-			]
-	    },
-		"embeddings":
-		{
-		    "description": "Enable embedding models",
-		    "dependencies": [
-			"multilingual-e5-small-ct2-int8"
-		    ]
-		},
-	    "text-gen":
-		{
-			"description": "Enable text generation (FLAN-T5)",
-			"dependencies": [
+			"sentencepiece",
+			"multilingual-e5-small-ct2-int8",
 			"flan-t5-large-ct2-int8"
 			]
 	    },
-		"llm":
+		"llama-engine":
 		{
 			"description": "Enable GGUF-based LLM inference (llama.cpp)",
 			"dependencies": [
+			{ "name": "docwire", "features": ["local-ai"] },
 			"llama-cpp"
 			]
 		},
-    	"llm-qwen":
+    	"llama-qwen":
 		{
 			"description": "Install Qwen2 7B GGUF model",
 			"dependencies": [
-			"qwen2-7b-instruct"
+			{ "name": "docwire", "features": ["llama-engine"] },
+			"qwen2-7b-instruct-q4_k_m"
 			]
 		}
 	},
