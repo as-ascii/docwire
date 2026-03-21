@@ -28,6 +28,32 @@
 		"callgrind":
 		{
 			"description": "Enable valgrind callgrind in automatic tests"
+		},
+		"local-ai":
+		{
+			"description": "Enable local AI runtime (models for translation, text generation and embedding)",
+			"dependencies": [
+			"ctranslate2",
+			"sentencepiece",
+			"multilingual-e5-small-ct2-int8",
+			"flan-t5-large-ct2-int8"
+			]
+	    },
+		"llama-engine":
+		{
+			"description": "Enable GGUF-based LLM inference (llama.cpp)",
+			"dependencies": [
+			{ "name": "docwire", "features": ["local-ai"] },
+			"llama-cpp"
+			]
+		},
+    	"llama-qwen":
+		{
+			"description": "Install Qwen2 7B GGUF model",
+			"dependencies": [
+			{ "name": "docwire", "features": ["llama-engine"] },
+			"qwen2-7b-instruct-q4_k_m"
+			]
 		}
 	},
 	"dependencies": [
@@ -97,18 +123,6 @@
 		},
 		{
 			"name": "tessdata-fast"
-		},
-		{
-			"name": "ctranslate2"
-		},
-		{
-			"name": "sentencepiece"
-		},
-		{
-			"name": "flan-t5-large-ct2-int8"
-		},
-		{
-			"name": "multilingual-e5-small-ct2-int8"
 		},
 		{
 			"name": "rapidfuzz-cpp"

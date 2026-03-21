@@ -13,13 +13,16 @@
 #include <boost/program_options.hpp>
 #include <memory>
 #include <fstream>
+#include "ai_runner.h"
 #include "analyze_data.h"
+#include "ct2_runner.h"
 #include "classify.h"
 #include "content_type.h"
 #include "csv_exporter.h"
 #include "archives_parser.h"
 #include "detect_sentiment.h"
 #include "embed.h"
+#include "llama_runner.h"
 #include "local_ai_embed.h"
 #include "extract_entities.h"
 #include "extract_keywords.h"
@@ -33,6 +36,7 @@
 #include "mail_parser.h"
 #include "meta_data_exporter.h"
 #include "model_chain_element.h"
+#include "model_inference_config.h"
 #include "ocr_parser.h"
 #include "office_formats_parser.h"
 #include "output.h"
@@ -105,6 +109,31 @@ std::string enum_names_str()
 	return names_str;
 }
 
+static std::shared_ptr<local_ai::ai_runner>
+create_local_runner(const boost::program_options::variables_map& vm,
+                    const std::string& default_model)
+{
+    if (vm.count("local-ai-model"))
+    {
+        std::string model_path = vm["local-ai-model"].as<std::string>();
+        if (model_path.ends_with(".gguf"))
+        {
+            local_ai::model_inference_config config;
+            config.model_path = model_path;
+            config.n_ctx = local_ai::context_size{4096};
+            config.n_threads = local_ai::thread_count{4};
+
+            return std::make_shared<local_ai::llama_runner>(config);
+        }
+
+        return std::make_shared<local_ai::ct2_runner>(model_path);
+    }
+
+    return std::make_shared<local_ai::ct2_runner>(
+        resource_path(default_model)
+    );
+}
+
 int main(int argc, char* argv[])
 {
 	// Set the default sink to std::clog.
@@ -117,7 +146,7 @@ int main(int argc, char* argv[])
 	po::options_description desc("Allowed options");
 	desc.add_options()
 		("help", "display help message")
-		("version", "display DocWire version")		
+		("version", "display DocWire version")
 		("input-file", po::value<std::string>()->required(), "path to file to process")
 		("output_type", po::value<OutputType>()->default_value(OutputType::plain_text), enum_names_str<OutputType>().c_str())
 		("http-post", po::value<std::string>(), "url to process data via http post")
@@ -385,12 +414,9 @@ int main(int argc, char* argv[])
 		{
 			std::string prompt = vm["local-ai-prompt"].as<std::string>();
 
-			auto model_runner = vm.count("local-ai-model") ?
-				std::make_shared<local_ai::model_runner>(vm["local-ai-model"].as<std::string>()) :
-				std::make_shared<local_ai::model_runner>(resource_path("flan-t5-large-ct2-int8"));
-			
+			auto runner = create_local_runner(vm, "flan-t5-large-ct2-int8");
 			chain |=
-				local_ai::model_chain_element(prompt, model_runner);
+				local_ai::model_chain_element(prompt, runner);
 		}
 		catch(const std::exception& e)
 		{
@@ -404,11 +430,8 @@ int main(int argc, char* argv[])
 		try
 		{
 			std::string prefix = vm["local-ai-embed"].as<std::string>();
-			auto model_runner = vm.count("local-ai-model") ?
-				std::make_shared<local_ai::model_runner>(vm["local-ai-model"].as<std::string>()) :
-				std::make_shared<local_ai::model_runner>(resource_path("multilingual-e5-small-ct2-int8"));
-			
-			chain |= local_ai::embed(model_runner, prefix);
+			auto runner = create_local_runner(vm, "flan-t5-large-ct2-int8");
+			chain |= local_ai::embed(runner, prefix);
 			chain |= [](message_ptr msg, const message_callbacks& emit_message) -> continuation {
 				if (msg->is<ai::embedding>())
 				{

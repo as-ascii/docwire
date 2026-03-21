@@ -10,8 +10,10 @@ endif()
 
 vcpkg_check_features(OUT_FEATURE_OPTIONS FEATURE_OPTIONS
 	FEATURES
-		asan ADDRESS_SANITIZER
-		tsan THREAD_SANITIZER
+		asan 			ADDRESS_SANITIZER
+		tsan 			THREAD_SANITIZER
+		local-ai      	DOCWIRE_LOCAL_CT2
+        llama-engine  	DOCWIRE_LLAMA
 )
 
 vcpkg_cmake_configure(

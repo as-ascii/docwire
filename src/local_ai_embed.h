@@ -14,7 +14,7 @@
 
 #include "chain_element.h"
 #include "local_ai_export.h"
-#include "model_runner.h"
+#include "ai_runner.h"
 #include "pimpl.h"
 #include <memory>
 
@@ -24,7 +24,7 @@ namespace docwire::local_ai
 /**
  * @brief A chain element that generates embeddings for input text using a local AI model.
  *
- * This class is a chain element that takes a model_runner to generate a vector
+ * This class is a chain element that takes a ct2_runner to generate a vector
  * embedding for a given text. It is designed to work with sentence-transformer
  * models like `multilingual-e5-small`.
  */
@@ -39,10 +39,10 @@ public:
     /**
      * @brief Construct a local AI embed chain element with a specific model runner and prefix.
      *
-     * @param model_runner The model runner to use for generating embeddings.
+     * @param ai_runner The model runner to use for generating embeddings.
      * @param prefix The string to prepend to the input text. Use an empty string for no prefix.
      */
-    explicit embed(std::shared_ptr<model_runner> model_runner, std::string prefix);
+    explicit embed(std::shared_ptr<ai_runner> model_runner, std::string prefix);
 
     /**
      * @brief Construct a local AI embed chain element with a default model runner and prefix.
