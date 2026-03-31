@@ -23,6 +23,11 @@ if(DOCWIRE_LLAMA)
     target_compile_definitions(docwire_local_ai PRIVATE DOCWIRE_LLAMA)
 endif()
 
+# Enable access to SDK headers
+target_include_directories(docwire_local_ai PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src> # during building headers are in the source tree
+    $<INSTALL_INTERFACE:include>) # after installation headers are in include/docwire
+
 install(TARGETS docwire_local_ai EXPORT docwire_targets)
 if(MSVC)
     install(FILES $<TARGET_PDB_FILE:docwire_local_ai> DESTINATION bin CONFIGURATIONS Debug)

@@ -1,7 +1,4 @@
-#include <docwire/ai_runner.h>
-#include <docwire/docwire.h>
-#include <docwire/llama_runner.h>
-#include <docwire/model_inference_config.h>
+#include "docwire.h"
 #include <fstream>
 #include <iostream>
 #include <sstream>
