@@ -13,7 +13,15 @@
 #define DOCWIRE_DOCWIRE_H
 
 // IWYU pragma: begin_exports
+#ifdef DOCWIRE_LOCAL_CT2
 #include "ai_runner.h"
+#include "local_ai_embed.h"
+#include "model_chain_element.h"
+#include "model_inference_config.h"
+#endif
+#ifdef DOCWIRE_LLAMA
+#include "llama_runner.h"
+#endif
 #include "ai_elements.h"
 #include "classify.h"
 #include "concepts.h"
@@ -34,14 +42,10 @@
 #include "find.h"
 #include "fuzzy_match.h"
 #include "input.h"
-#include "llama_runner.h"
-#include "local_ai_embed.h"
 #include "log.h"
 #include "output.h"
 #include "mail_elements.h"
 #include "mail_parser.h"
-#include "model_chain_element.h"
-#include "model_inference_config.h"
 #include "ocr_parser.h"
 #include "office_formats_parser.h"
 #include "plain_text_exporter.h"

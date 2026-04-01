@@ -184,29 +184,42 @@ while (TRUE)
 
 endwhile()
 
-foreach(example IN ITEMS
-		handling_errors_and_warnings
-		file_type_determination
-		path_to_text_stream
-		local_embedding_similarity
-		filter_emails_by_subject
-		stream_to_html
-		parse_archives
-		local_ai_classify
-		openai_classify
-		local_ai_translate
-		openai_translate
-		local_ai_sentiment
-		openai_sentiment
-		local_ai_summary
-		openai_voice_summary
-		openai_transcribe_summary
-		local_ai_find
-		openai_find_image
-		openai_embedding
-		reuse_chain
-		join_transformers
-		xml_parsing_example)
+set(common_examples
+    handling_errors_and_warnings
+    file_type_determination
+    path_to_text_stream
+    filter_emails_by_subject
+    stream_to_html
+    parse_archives
+    openai_classify
+    openai_translate
+    openai_sentiment
+    openai_voice_summary
+    openai_transcribe_summary
+    openai_find_image
+    openai_embedding
+    reuse_chain
+    join_transformers
+    xml_parsing_example
+)
+
+set(local_ai_examples
+    local_embedding_similarity
+    local_ai_classify
+    local_ai_translate
+    local_ai_sentiment
+    local_ai_summary
+    local_ai_find
+)
+
+# Merge lists conditionally
+set(all_examples ${common_examples})
+
+if(DOCWIRE_LOCAL_CT2)
+    list(APPEND all_examples ${local_ai_examples})
+endif()
+
+foreach(example IN LISTS all_examples)
 	message(STATUS "Adding test ${example}")
 	add_executable(${example} ${example}.cpp)
 	target_include_directories(${example} PUBLIC ../src)
