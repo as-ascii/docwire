@@ -8,6 +8,7 @@ target_link_libraries(api_tests PRIVATE docwire_core docwire_office_formats docw
 # Only link local_ai when enabled
 if(DOCWIRE_LOCAL_CT2)
     target_link_libraries(api_tests PRIVATE docwire_local_ai)
+	target_compile_definitions(api_tests PRIVATE DOCWIRE_LOCAL_CT2)
 endif()
 target_compile_definitions(api_tests PRIVATE DOCWIRE_ENABLE_SHORT_MACRO_NAMES)
 
