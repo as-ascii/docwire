@@ -8,22 +8,29 @@
 /*                                                                                                                                           */
 /*  SPDX-License-Identifier: GPL-2.0-only OR LicenseRef-DocWire-Commercial                                                                   */
 /*********************************************************************************************************************************************/
-
+#ifdef DOCWIRE_LOCAL_CT2
+#include "ai_runner.h"
+#include "ct2_runner.h"
+#include "local_ai_embed.h"
+#include "model_chain_element.h"
+#include "model_inference_config.h"
+#endif
+#ifdef DOCWIRE_LLAMA
+#include "llama_runner.h"
+#endif
 #include "ai_elements.h"
 #include <boost/program_options.hpp>
 #include <memory>
 #include <fstream>
-#include "ai_runner.h"
 #include "analyze_data.h"
-#include "ct2_runner.h"
 #include "classify.h"
 #include "content_type.h"
 #include "csv_exporter.h"
 #include "archives_parser.h"
 #include "detect_sentiment.h"
 #include "embed.h"
-#include "llama_runner.h"
-#include "local_ai_embed.h"
+
+
 #include "extract_entities.h"
 #include "extract_keywords.h"
 #include "find.h"
@@ -35,8 +42,6 @@
 #include <magic_enum/magic_enum_iostream.hpp>
 #include "mail_parser.h"
 #include "meta_data_exporter.h"
-#include "model_chain_element.h"
-#include "model_inference_config.h"
 #include "ocr_parser.h"
 #include "office_formats_parser.h"
 #include "output.h"
@@ -108,7 +113,7 @@ std::string enum_names_str()
 	}
 	return names_str;
 }
-
+#ifdef DOCWIRE_LOCAL_CT2
 static std::shared_ptr<local_ai::ai_runner>
 create_local_runner(const boost::program_options::variables_map& vm,
                     const std::string& default_model)
@@ -118,12 +123,15 @@ create_local_runner(const boost::program_options::variables_map& vm,
         std::string model_path = vm["local-ai-model"].as<std::string>();
         if (model_path.ends_with(".gguf"))
         {
-            local_ai::model_inference_config config;
-            config.model_path = model_path;
-            config.n_ctx = local_ai::context_size{4096};
-            config.n_threads = local_ai::thread_count{4};
-
-            return std::make_shared<local_ai::llama_runner>(config);
+	        #ifdef DOCWIRE_LLAMA
+	            local_ai::model_inference_config config;
+	            config.model_path = model_path;
+	            config.n_ctx = local_ai::context_size{4096};
+	            config.n_threads = local_ai::thread_count{4};
+	            return std::make_shared<local_ai::llama_runner>(config);
+	        #else
+	            throw std::runtime_error("GGUF model support requires the llama-engine feature");
+	        #endif
         }
 
         return std::make_shared<local_ai::ct2_runner>(model_path);
@@ -133,6 +141,7 @@ create_local_runner(const boost::program_options::variables_map& vm,
         resource_path(default_model)
     );
 }
+#endif
 
 int main(int argc, char* argv[])
 {
@@ -407,7 +416,7 @@ int main(int argc, char* argv[])
 				vm.count("openai-temperature") ? vm["openai-temperature"].as<float>() : 0,
 				image_detail);
 	}
-
+	#ifdef DOCWIRE_LOCAL_CT2
 	if (vm.count("local-ai-prompt"))
 	{
 		try
@@ -455,6 +464,7 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 	}
+	#endif
 
 	if (vm.count("openai-find"))
 	{

@@ -2,8 +2,13 @@ find_package(GTest CONFIG REQUIRED)
 
 add_executable(api_tests api_tests.cpp)
 target_link_libraries(api_tests PRIVATE docwire_core docwire_office_formats docwire_mail docwire_ocr docwire_archives
-	docwire_fuzzy_match docwire_base64 docwire_content_type docwire_http docwire_local_ai docwire_openai
+	docwire_fuzzy_match docwire_base64 docwire_content_type docwire_http docwire_openai
 	GTest::gtest GTest::gmock)
+
+# Only link local_ai when enabled
+if(DOCWIRE_LOCAL_CT2)
+    target_link_libraries(api_tests PRIVATE docwire_local_ai)
+endif()
 target_compile_definitions(api_tests PRIVATE DOCWIRE_ENABLE_SHORT_MACRO_NAMES)
 
 find_package(Boost REQUIRED COMPONENTS json)
@@ -200,14 +205,18 @@ foreach(example IN ITEMS
 		openai_embedding
 		reuse_chain
 		join_transformers
-		xml_parsing_example
-		local_ai_llama_integration)
+		xml_parsing_example)
 	message(STATUS "Adding test ${example}")
 	add_executable(${example} ${example}.cpp)
 	target_include_directories(${example} PUBLIC ../src)
 	target_link_libraries(${example} PRIVATE docwire_core docwire_office_formats docwire_mail
-		docwire_ocr docwire_archives docwire_ai docwire_local_ai docwire_openai docwire_fuzzy_match
+		docwire_ocr docwire_archives docwire_ai docwire_openai docwire_fuzzy_match
 		docwire_content_type docwire_http)
+
+ 	# Only link docwire_local_ai when it is actually enabled
+    if(DOCWIRE_LOCAL_CT2)
+        target_link_libraries(${example} PRIVATE docwire_local_ai)
+    endif()
 
 	# Read the example file to check for OpenAI and local AI usage.
 	file(READ ${example}.cpp example_content)
@@ -231,3 +240,17 @@ foreach(example IN ITEMS
 		message(STATUS "Skipping test for ${example} because it uses OpenAI and OPENAI_API_KEY is not set.")
 	endif()
 endforeach()
+
+if(DOCWIRE_LOCAL_CT2 AND DOCWIRE_LLAMA)
+    message(STATUS "Adding Llama integration test")
+    add_executable(local_ai_llama_integration local_ai_llama_integration.cpp)
+    target_include_directories(local_ai_llama_integration PRIVATE ../src)
+    target_link_libraries(local_ai_llama_integration PRIVATE
+        docwire_core
+        docwire_ai
+        docwire_local_ai
+        docwire_openai
+    )
+    add_test(NAME local_ai_llama_integration COMMAND local_ai_llama_integration)
+    set_property(TEST local_ai_llama_integration PROPERTY LABELS "is_example;uses_model_runner")
+endif()
