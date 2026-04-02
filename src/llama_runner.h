@@ -16,7 +16,7 @@
 #define DOCWIRE_LOCAL_AI_LLAMA_RUNNER_H
 
 #include "ai_runner.h"
-#include "local_ai_export.h"
+#include "ai_export.h"
 #include "model_inference_config.h"
 #include "pimpl.h"
 
@@ -27,7 +27,7 @@ namespace docwire::local_ai
  * respective configuration and run inference on the prompt supplied along with
  * the model configuration.
  */
-class DOCWIRE_LOCAL_AI_EXPORT llama_runner : public ai_runner, public with_pimpl<llama_runner>
+class DOCWIRE_AI_EXPORT llama_runner : public ai_runner, public with_pimpl<llama_runner>
 {
   private:
     bool supports_embeddings() const;

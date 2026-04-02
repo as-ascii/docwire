@@ -464,6 +464,15 @@ int main(int argc, char* argv[])
 			return 1;
 		}
 	}
+	#else
+	if (vm.count("local-ai-prompt") || vm.count("local-ai-embed"))
+	{
+		std::cerr << "Error: Local AI features requested, but this build does not include "
+		             "DOCWIRE_LOCAL_CT2 support.\n"
+		             "Rebuild with DOCWIRE_LOCAL_CT2 enabled to use --local-ai-prompt or "
+		             "--local-ai-embed." << std::endl;
+		return 1;
+	}
 	#endif
 
 	if (vm.count("openai-find"))

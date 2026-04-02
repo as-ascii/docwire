@@ -15,7 +15,7 @@
 #ifndef DOCWIRE_LOCAL_AI_AI_RUNNER_H
 #define DOCWIRE_LOCAL_AI_AI_RUNNER_H
 
-#include "local_ai_export.h"
+#include "ai_export.h"
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -42,7 +42,7 @@ namespace docwire::local_ai {
  *   calls; prefer explicit lifetime management (guards) or documented external
  *   synchronization.
  */
-class DOCWIRE_LOCAL_AI_EXPORT ai_runner {
+class DOCWIRE_AI_EXPORT ai_runner {
   public:
     /**
      * @brief Virtual destructor.

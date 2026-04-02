@@ -14,7 +14,7 @@
 
 #include "ai_runner.h"
 #include "chain_element.h"
-#include "local_ai_export.h"
+#include "ai_export.h"
 
 namespace docwire::local_ai
 {
@@ -36,7 +36,7 @@ enum class model_lifetime_policy
  * passing the text to the model runner. The output of the model runner is
  * then emitted as a new message_ptr object.
  */
-class DOCWIRE_LOCAL_AI_EXPORT model_chain_element : public ChainElement
+class DOCWIRE_AI_EXPORT model_chain_element : public ChainElement
 {
   public:
     /**

@@ -12,7 +12,7 @@
 #ifndef DOCWIRE_LOCAL_AI_CT2_RUNNER_H
 #define DOCWIRE_LOCAL_AI_CT2_RUNNER_H
 
-#include "local_ai_export.h"
+#include "ai_export.h"
 #include "pimpl.h"
 #include <filesystem>
 #include <vector>
@@ -29,7 +29,7 @@ namespace docwire::local_ai
  * Destructor frees memory used by model.
  * It is important not to duplicate the object because memory consumption can be high.
  */
-class DOCWIRE_LOCAL_AI_EXPORT ct2_runner :  public ai_runner, public with_pimpl<ct2_runner>
+class DOCWIRE_AI_EXPORT ct2_runner :  public ai_runner, public with_pimpl<ct2_runner>
 {
 public:
     /**

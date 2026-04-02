@@ -12,7 +12,7 @@
 #ifndef DOCWIRE_LOCAL_AI_TOKENIZER_H
 #define DOCWIRE_LOCAL_AI_TOKENIZER_H
 
-#include "local_ai_export.h"
+#include "ai_export.h"
 #include "pimpl.h"
 #include <filesystem>
 #include <string>
@@ -21,7 +21,7 @@
 namespace docwire::local_ai
 {
 
-class DOCWIRE_LOCAL_AI_EXPORT tokenizer : public with_pimpl<tokenizer>
+class DOCWIRE_AI_EXPORT tokenizer : public with_pimpl<tokenizer>
 {
 public:
     tokenizer(const std::filesystem::path& model_data_path);

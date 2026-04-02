@@ -31,7 +31,7 @@
 		},
 		"local-ai":
 		{
-			"description": "Enable local AI runtime (models for translation, text generation and embedding)",
+			"description": "Enable local AI runtime",
 			"dependencies": [
 			"ctranslate2",
 			"sentencepiece",

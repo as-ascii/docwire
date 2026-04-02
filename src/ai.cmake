@@ -9,6 +9,8 @@ file(GENERATE OUTPUT ${EMPTY_SOURCE} CONTENT "
 ")
 add_library(docwire_ai SHARED ${EMPTY_SOURCE})
 
+target_link_libraries(docwire_ai PUBLIC docwire_core)
+
 target_compile_features(docwire_ai PUBLIC cxx_std_20)
 if(MSVC)
     target_compile_options(docwire_ai PUBLIC /Zc:__cplusplus /Zc:preprocessor)

@@ -14,13 +14,13 @@
 #ifndef DOCWIRE_TRANSLATE_H
 #define DOCWIRE_TRANSLATE_H
 
-#include "local_ai_export.h"
+#include "ai_export.h"
 #include "model_chain_element.h"
 
 namespace docwire::local_ai
 {
 
-class DOCWIRE_LOCAL_AI_EXPORT translate : public model_chain_element
+class DOCWIRE_AI_EXPORT translate : public model_chain_element
 {
   public:
     explicit translate(const std::string& language, std::shared_ptr<ai_runner> runner);

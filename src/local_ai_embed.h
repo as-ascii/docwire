@@ -13,7 +13,7 @@
 #define DOCWIRE_LOCAL_AI_EMBED_H
 
 #include "chain_element.h"
-#include "local_ai_export.h"
+#include "ai_export.h"
 #include "ai_runner.h"
 #include "pimpl.h"
 #include <memory>
@@ -28,7 +28,7 @@ namespace docwire::local_ai
  * embedding for a given text. It is designed to work with sentence-transformer
  * models like `multilingual-e5-small`.
  */
-class DOCWIRE_LOCAL_AI_EXPORT embed : public ChainElement, public with_pimpl<embed>
+class DOCWIRE_AI_EXPORT embed : public ChainElement, public with_pimpl<embed>
 {
 public:
     /// Common prefix for passage embeddings with E5 models.
