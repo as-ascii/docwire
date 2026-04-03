@@ -1,5 +1,6 @@
 add_library(docwire_local_ai INTERFACE)
 target_link_libraries(docwire_local_ai INTERFACE docwire_ai)
+install(TARGETS docwire_local_ai EXPORT docwire_targets)
 
 if(DOCWIRE_LOCAL_CT2)
 
