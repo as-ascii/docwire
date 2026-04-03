@@ -2,8 +2,9 @@ find_package(GTest CONFIG REQUIRED)
 
 add_executable(api_tests api_tests.cpp)
 target_link_libraries(api_tests PRIVATE docwire_core docwire_office_formats docwire_mail docwire_ocr docwire_archives
-	docwire_fuzzy_match docwire_base64 docwire_content_type docwire_http docwire_local_ai docwire_openai
-	GTest::gtest GTest::gmock)
+	docwire_fuzzy_match docwire_base64 docwire_content_type docwire_http docwire_openai
+	GTest::gtest GTest::gmock docwire_local_ai)
+
 target_compile_definitions(api_tests PRIVATE DOCWIRE_ENABLE_SHORT_MACRO_NAMES)
 
 find_package(Boost REQUIRED COMPONENTS json)
@@ -178,35 +179,50 @@ while (TRUE)
 
 endwhile()
 
-foreach(example IN ITEMS
-		handling_errors_and_warnings
-		file_type_determination
-		path_to_text_stream
-		local_embedding_similarity
-		filter_emails_by_subject
-		stream_to_html
-		parse_archives
-		local_ai_classify
-		openai_classify
-		local_ai_translate
-		openai_translate
-		local_ai_sentiment
-		openai_sentiment
-		local_ai_summary
-		openai_voice_summary
-		openai_transcribe_summary
-		local_ai_find
-		openai_find_image
-		openai_embedding
-		reuse_chain
-		join_transformers
-		xml_parsing_example)
+set(common_examples
+    handling_errors_and_warnings
+    file_type_determination
+    path_to_text_stream
+    filter_emails_by_subject
+    stream_to_html
+    parse_archives
+    openai_classify
+    openai_translate
+    openai_sentiment
+    openai_voice_summary
+    openai_transcribe_summary
+    openai_find_image
+    openai_embedding
+    reuse_chain
+    join_transformers
+    xml_parsing_example
+)
+
+set(local_ai_examples
+    local_embedding_similarity
+    local_ai_classify
+    local_ai_translate
+    local_ai_sentiment
+    local_ai_summary
+    local_ai_find
+)
+
+# Merge lists conditionally
+set(all_examples ${common_examples})
+
+if(TARGET docwire_ai_ct2)
+    list(APPEND all_examples ${local_ai_examples})
+endif()
+
+foreach(example IN LISTS all_examples)
 	message(STATUS "Adding test ${example}")
 	add_executable(${example} ${example}.cpp)
 	target_include_directories(${example} PUBLIC ../src)
 	target_link_libraries(${example} PRIVATE docwire_core docwire_office_formats docwire_mail
-		docwire_ocr docwire_archives docwire_ai docwire_local_ai docwire_openai docwire_fuzzy_match
+		docwire_ocr docwire_archives docwire_ai docwire_openai docwire_fuzzy_match
 		docwire_content_type docwire_http)
+
+	target_link_libraries(${example} PRIVATE docwire_local_ai)
 
 	# Read the example file to check for OpenAI and local AI usage.
 	file(READ ${example}.cpp example_content)
@@ -230,3 +246,17 @@ foreach(example IN ITEMS
 		message(STATUS "Skipping test for ${example} because it uses OpenAI and OPENAI_API_KEY is not set.")
 	endif()
 endforeach()
+
+if(TARGET docwire_ai_ct2 AND TARGET docwire_ai_llama)
+    message(STATUS "Adding Llama integration test")
+    add_executable(local_ai_llama_integration local_ai_llama_integration.cpp)
+    target_include_directories(local_ai_llama_integration PRIVATE ../src)
+    target_link_libraries(local_ai_llama_integration PRIVATE
+        docwire_core
+        docwire_ai
+        docwire_local_ai
+        docwire_openai
+    )
+    add_test(NAME local_ai_llama_integration COMMAND local_ai_llama_integration)
+    set_property(TEST local_ai_llama_integration PROPERTY LABELS "is_example;uses_model_runner")
+endif()

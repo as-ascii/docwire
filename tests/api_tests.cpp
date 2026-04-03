@@ -63,7 +63,9 @@
 #include "serialization.h"
 #include "serialization_document_elements.h" // IWYU pragma: keep
 #include "throw_if.h"
+#ifdef DOCWIRE_LOCAL_CT2
 #include "tokenizer.h"
+#endif
 #include "transformer_func.h"
 #include "txt_parser.h"
 #include "input.h"
@@ -114,9 +116,9 @@ testing::PolymorphicMatcher<MessagePtrWithMatcher<T>> MessagePtrWith(const testi
 void escape_test_name(std::string& str)
 {
     std::transform(str.cbegin(), str.cend(), str.begin(), [](const auto ch)
-        {   if(ch == '.') return '_'; 
+        {   if(ch == '.') return '_';
             else if(ch == '-') return '_';
-            else return ch; 
+            else return ch;
         }
     );
 }
@@ -261,7 +263,7 @@ INSTANTIATE_TEST_SUITE_P(
     ),
     [](const ::testing::TestParamInfo<DocumentParsingTests::ParamType>& info) {
         std::string file_name = info.param;
-        escape_test_name(file_name); 
+        escape_test_name(file_name);
         return file_name;
     });
 
@@ -271,8 +273,8 @@ protected:
 
     static constexpr std::array<std::string_view, 2> names
     {
-        "meta_libreoffice_3.5_created", 
-        "meta_libreoffice_3.5_modified" 
+        "meta_libreoffice_3.5_created",
+        "meta_libreoffice_3.5_modified"
     };
 };
 
@@ -287,7 +289,7 @@ TEST_P(MetadataTest, ParseFromPathTest)
 
         std::ifstream ifs{ file_name + ".out" };
         ASSERT_TRUE(ifs.good()) <<  "File " << file_name << ".out" << " not found\n";
-        
+
         std::string expected_text{ std::istreambuf_iterator<char>{ifs},
             std::istreambuf_iterator<char>{}};
 
@@ -332,7 +334,7 @@ TEST_P(CallbackTest, ParseFromPathTest)
 
     std::ifstream ifs{ output_name };
     ASSERT_TRUE(ifs.good()) <<  "File " << file_name << ".out" << " not found\n";
-    
+
     std::string expected_text{ std::istreambuf_iterator<char>{ifs},
         std::istreambuf_iterator<char>{}};
 
@@ -370,7 +372,7 @@ TEST_P(HTMLWriterTest, ParseFromPathTest)
 
     std::ifstream ifs{ file_name + ".out.html" };
     ASSERT_TRUE(ifs.good()) <<  "File " << file_name << ".out.html" << " not found\n";
-    
+
     std::string expected_text{ std::istreambuf_iterator<char>{ifs},
         std::istreambuf_iterator<char>{}};
 
@@ -384,7 +386,7 @@ TEST_P(HTMLWriterTest, ParseFromPathTest)
         office_formats_parser{} | mail_parser{} | OCRParser{} |
         HtmlExporter() |
         output_stream;
-        
+
     // THEN
     EXPECT_EQ(expected_text, output_stream.str());
 }
@@ -420,7 +422,7 @@ TEST_P(PasswordProtectedTest, MajorTestingModule)
     // WHEN
     std::ostringstream output_stream{};
 
-    try 
+    try
     {
         std::filesystem::path{file_name} |
             content_type::by_file_extension::detector{} |
@@ -433,7 +435,7 @@ TEST_P(PasswordProtectedTest, MajorTestingModule)
     {
         ASSERT_TRUE(errors::contains_type<errors::file_encrypted>(ex))
             << "Thrown exception diagnostic message:\n" << errors::diagnostic_message(ex);
-    }   
+    }
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -703,7 +705,7 @@ protected:
             http::server(addr, port, create_routes());
 
         ScopedServer server_runner{std::move(server)};
-    
+
         std::ostringstream response_stream;
         std::string expected_response_body;
         const std::filesystem::path doc_path{"1.doc"};
@@ -733,7 +735,7 @@ protected:
         {
             FAIL() << "Client pipeline threw an exception: " << errors::diagnostic_message(e);
         }
-    
+
         EXPECT_EQ(response_stream.str(), expected_response_body);
     }
 
@@ -1012,7 +1014,7 @@ std::string sanitize_expected_log_text(const std::string& orig_log_text)
         // to match the actual output on these platforms.
         static const std::regex re{R"x("function":".*?(\w+)\s*\([^"]*\)")x"};
         return std::regex_replace(orig_log_text, re, R"y("function":"$1")y");
-    }        
+    }
     else
     {
         return orig_log_text;
@@ -1163,7 +1165,7 @@ TEST(Logging, CerrLogRedirection)
         log::state_saver saver;
 	    log::set_sink(log::json_stream_sink(log_stream));
 	    log::set_filter("*");
- 
+
         // Redirect cerr to a stringstream to verify that nothing is written to it.
         std::streambuf* original_cerr_buf = std::cerr.rdbuf(captured_cerr_stream.rdbuf());
 
@@ -1327,7 +1329,7 @@ TEST(Logging, Filtering)
     {
         log::state_saver saver;
         log::set_sink(log::json_stream_sink(log_stream));
-        
+
         // Filter to only include 'include_me' and 'scope_exit' tags, but exclude 'special'.
         log::set_filter("include_me,scope_exit,-special");
         log_entry("this is excluded");
@@ -1772,7 +1774,7 @@ TEST(Input, path_ref)
 
 TEST(Input, path_temp)
 {
-    std::ostringstream output_stream{};    
+    std::ostringstream output_stream{};
     std::filesystem::path{"1.doc"} | content_type::by_file_extension::detector{} |
         DOCParser{} | PlainTextExporter{} | output_stream;
     ASSERT_EQ(output_stream.str(), read_test_file("1.doc.out"));
@@ -1790,7 +1792,7 @@ TEST(Input, vector_ref)
 
 TEST(Input, vector_temp)
 {
-    std::ostringstream output_stream{};    
+    std::ostringstream output_stream{};
     std::string str = read_binary_file("1.doc");
     std::vector<std::byte>{reinterpret_cast<const std::byte*>(str.data()), reinterpret_cast<const std::byte*>(str.data()) + str.size()} |
         content_type::by_signature::detector{} |
@@ -1810,7 +1812,7 @@ TEST(Input, span_ref)
 
 TEST(Input, span_temp)
 {
-    std::ostringstream output_stream{};    
+    std::ostringstream output_stream{};
     std::string str = read_binary_file("1.doc");
     std::span<const std::byte>{reinterpret_cast<const std::byte*>(str.data()), str.size()} |
         content_type::by_signature::detector{} |
@@ -1829,7 +1831,7 @@ TEST(Input, string_ref)
 
 TEST(Input, string_temp)
 {
-    std::ostringstream output_stream{};    
+    std::ostringstream output_stream{};
     read_binary_file("1.doc") | content_type::by_signature::detector{} |
         DOCParser{} | PlainTextExporter{} | output_stream;
     ASSERT_EQ(output_stream.str(), read_test_file("1.doc.out"));
@@ -1847,7 +1849,7 @@ TEST(Input, string_view_ref)
 
 TEST(Input, string_view_temp)
 {
-    std::ostringstream output_stream{};    
+    std::ostringstream output_stream{};
     std::string_view{read_binary_file("1.doc")} | content_type::by_signature::detector{} |
         DOCParser{} | PlainTextExporter{} | output_stream;
     ASSERT_EQ(output_stream.str(), read_test_file("1.doc.out"));
@@ -2026,7 +2028,7 @@ TEST(TXTParser, paragraphs)
         MessagePtrWith<document::Text>(testing::Field(&document::Text::text, StrEq("Line"))),
         MessagePtrWith<document::BreakLine>(_),
         MessagePtrWith<document::CloseDocument>(_)
-    ));    
+    ));
 }
 
 TEST(HTMLParser, table)
@@ -2256,7 +2258,7 @@ TEST(OCRParser, leptonica_stderr_capturer)
 {
     try
     {
-        data_source{std::string{"Incorrect image data"}, 
+        data_source{std::string{"Incorrect image data"},
             mime_type{"image/jpeg"}, confidence::highest} |
             OCRParser{} | std::vector<message_ptr>{};
         FAIL() << "OCRParser should have thrown an exception";
@@ -2618,7 +2620,7 @@ TEST(stringification, enums)
 {
     ASSERT_EQ(stringify(confidence::very_high), "very_high");
 }
-
+#ifdef DOCWIRE_LOCAL_CT2
 TEST(tokenizer, flan_t5)
 {
     docwire::local_ai::tokenizer tokenizer { resource_path("flan-t5-large-ct2-int8") };
@@ -2683,7 +2685,7 @@ TEST(tokenizer, multilingual_e5)
         FAIL() << errors::diagnostic_message(e);
     }
 }
-
+#endif
 TEST(Convert, Chrono)
 {
     using namespace docwire::serialization;
@@ -2891,9 +2893,9 @@ TEST(Serialization, TypedSummaryComplex)
     const auto& obj_pair = std::get<object>(v_pair);
     ASSERT_EQ(obj_pair.v.size(), 2); // "typeid" and "value"
     EXPECT_EQ(std::get<std::string>(obj_pair.v.at("typeid")), "std::pair<std::string,docwire::data_source>");
-    
+
     const auto& nested_pair_value_obj = std::get<object>(obj_pair.v.at("value")); // This is the object containing "first" and "second"
-    
+
     // Check "first" element of the pair (std::string)
     const auto& first_elem_typed_summary = std::get<object>(nested_pair_value_obj.v.at("first"));
     EXPECT_EQ(std::get<std::string>(first_elem_typed_summary.v.at("typeid")), "std::string");
@@ -2902,9 +2904,9 @@ TEST(Serialization, TypedSummaryComplex)
     // Check that the nested data_source object is also typed
     const auto& second_elem_typed_summary = std::get<object>(nested_pair_value_obj.v.at("second"));
     EXPECT_EQ(std::get<std::string>(second_elem_typed_summary.v.at("typeid")), "docwire::data_source");
-    
+
     const auto& nested_ds_value_obj = std::get<object>(second_elem_typed_summary.v.at("value")); // This is the object containing "path" and "file_extension" from the nested data_source
-    
+
     // Check path within the nested data_source
     const auto& nested_path_typed_summary = std::get<object>(nested_ds_value_obj.v.at("path"));
     EXPECT_EQ(std::get<std::string>(nested_path_typed_summary.v.at("typeid")), "std::optional<std::filesystem::path>");
