@@ -16,7 +16,7 @@
 #include "log_entry.h"
 #include "log_scope.h"
 #include <math.h>
-#include "misc.h"
+#include "detail/ustring_conversions.h"
 #include "nested_exception.h"
 #include "oshared.h"
 #include <stdio.h>
@@ -27,8 +27,8 @@
 #include <vector>
 #include "serialization_data_source.h" // IWYU pragma: keep
 #include <stack>
-#include "thread_safe_ole_stream_reader.h"
-#include "thread_safe_ole_storage.h"
+#include "detail/thread_safe_ole_stream_reader.h"
+#include "detail/thread_safe_ole_storage.h"
 
 namespace docwire
 {

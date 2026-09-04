@@ -1,40 +1,15 @@
 add_library(docwire_core SHARED
-    charset_converter.cpp
-    convert_chrono.cpp
-    convert_numeric.cpp
-    cosine_similarity.cpp
-    data_source.cpp
-    debug_assert.cpp
-    diagnostic_message.cpp
-    entities.cpp
-    environment.cpp
+    iconv_wrapper.cpp
+    minizip_wrapper.cpp
+    unique_identifier_globals.cpp
     error.cpp
-    json_serialization.cpp
-    log_core.cpp
-    log_cerr_redirection.cpp
-    log_json_stream_sink.cpp
-    misc.cpp
-    thread_safe_ole_storage.cpp
-    thread_safe_ole_stream_reader.cpp
-    data_stream.cpp
-    csv_writer.cpp
-    plain_text_writer.cpp
-    standard_filter.cpp
-    output.cpp
-    plain_text_exporter.cpp
-    csv_exporter.cpp
-    meta_data_exporter.cpp
-    transformer_func.cpp
-    meta_data_writer.cpp
-    chain_element.cpp
-    parsing_chain.cpp
-    resource_path.cpp
-    serialization_thread_id.cpp
-    serialization_typeindex.cpp
-    type_name.cpp
-    unique_identifier.cpp
-    zip_reader.cpp
-    input.cpp)
+    log_filter_globals.cpp
+    log_cerr_redirection_globals.cpp
+    log_sink_globals.cpp
+    boost_datetime_wrapper.cpp
+    boost_dll_wrapper.cpp
+    boost_json_wrapper.cpp
+    boost_demangle_wrapper.cpp)
 
 target_compile_features(docwire_core PUBLIC cxx_std_20)
 if(MSVC)
@@ -42,15 +17,13 @@ if(MSVC)
     target_compile_options(docwire_core PUBLIC /Zc:__cplusplus /Zc:preprocessor)
 endif()
 
-target_include_directories(docwire_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/wv2/src>)
-
 find_package(Boost REQUIRED COMPONENTS filesystem system json)
 find_package(magic_enum CONFIG REQUIRED)
 find_package(unofficial-minizip CONFIG REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(Iconv REQUIRED)
 target_link_libraries(docwire_core PRIVATE
-    docwire_wv2 Boost::filesystem Boost::system Boost::json magic_enum::magic_enum unofficial::minizip::minizip
+    Boost::filesystem Boost::system Boost::json magic_enum::magic_enum unofficial::minizip::minizip
     ZLIB::ZLIB Iconv::Iconv)
 target_link_libraries(docwire_core PUBLIC magic_enum::magic_enum)
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")

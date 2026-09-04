@@ -18,7 +18,8 @@
 #include "log_scope.h"
 #include <map>
 #include <math.h>
-#include "misc.h"
+#include "detail/ustring_conversions.h"
+#include "time_utils.h"
 #include <mutex>
 #include "nested_exception.h"
 #include "oshared.h"
@@ -32,8 +33,8 @@
 #include "wv2/src/utilities.h"
 #include <vector>
 #include <time.h>
-#include "thread_safe_ole_stream_reader.h"
-#include "thread_safe_ole_storage.h"
+#include "detail/thread_safe_ole_stream_reader.h"
+#include "detail/thread_safe_ole_storage.h"
 
 using namespace wvWare;
 

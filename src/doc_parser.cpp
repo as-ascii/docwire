@@ -16,7 +16,7 @@
 #include "log_cerr_redirection.h"
 #include "log_entry.h"
 #include "log_scope.h"
-#include "misc.h"
+#include "detail/ustring_conversions.h"
 #include "nested_exception.h"
 #include "throw_if.h"
 #include "wv2/src/parser.h"
@@ -38,8 +38,8 @@
 #include "xls_parser.h"
 #include "serialization_data_source.h" // IWYU pragma: keep
 #include "serialization_enum.h" // IWYU pragma: keep
-#include "thread_safe_ole_stream_reader.h"
-#include "thread_safe_ole_storage.h"
+#include "detail/thread_safe_ole_stream_reader.h"
+#include "detail/thread_safe_ole_storage.h"
 
 namespace docwire
 {
