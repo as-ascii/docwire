@@ -30,7 +30,7 @@ add_executable(docwire_tests
 target_link_libraries(docwire_tests PRIVATE
 	docwire_core docwire_office_formats docwire_mail docwire_ocr docwire_archives
 	docwire_fuzzy_match docwire_base64 docwire_content_type docwire_http
-	docwire_openai docwire_xml
+	docwire_openai docwire_xml docwire_openrouter
 	GTest::gtest GTest::gmock Boost::json
 )
 
@@ -213,6 +213,7 @@ set(common_examples
     openai_transcribe_summary
     openai_find_image
     openai_embedding
+    openrouter_classify
     reuse_chain
     join_transformers
     xml_parsing_example
@@ -240,7 +241,7 @@ foreach(example IN LISTS all_examples)
 	target_include_directories(${example} PUBLIC ../src)
 	target_link_libraries(${example} PRIVATE docwire_core docwire_office_formats docwire_mail
 		docwire_ocr docwire_archives docwire_ai docwire_openai docwire_fuzzy_match
-		docwire_content_type docwire_http)
+		docwire_content_type docwire_http docwire_openrouter)
 
 	if(TARGET docwire_local_ai)
         target_link_libraries(${example} PRIVATE docwire_local_ai)
@@ -250,9 +251,21 @@ foreach(example IN LISTS all_examples)
 	file(READ ${example}.cpp example_content)
 	string(FIND "${example_content}" "openai::" openai_pos)
 	string(FIND "${example_content}" "OPENAI_API_KEY" openai_key_pos)
+	string(FIND "${example_content}" "openrouter::" openrouter_pos)
+	string(FIND "${example_content}" "OPENROUTER_API_KEY" openrouter_key_pos)
+
+	set(openai_requirement_met FALSE)
+	if ((openai_pos EQUAL -1 AND openai_key_pos EQUAL -1) OR NOT "$ENV{OPENAI_API_KEY}" STREQUAL "")
+		set(openai_requirement_met TRUE)
+	endif()
+
+	set(openrouter_requirement_met FALSE)
+	if ((openrouter_pos EQUAL -1 AND openrouter_key_pos EQUAL -1) OR NOT "$ENV{OPENROUTER_API_KEY}" STREQUAL "")
+		set(openrouter_requirement_met TRUE)
+	endif()
 
 	# Conditionally add the test, skipping OpenAI examples if the key is not set.
-	if ((openai_pos EQUAL -1 AND openai_key_pos EQUAL -1) OR NOT "$ENV{OPENAI_API_KEY}" STREQUAL "")
+	if (openai_requirement_met AND openrouter_requirement_met)
 		add_test(NAME ${example} COMMAND ${example})
 		if(WIN32)
 			set_property(TEST ${example} APPEND PROPERTY ENVIRONMENT "${docwire_test_env_path}")
@@ -265,7 +278,12 @@ foreach(example IN LISTS all_examples)
 			set_property(TEST ${example} PROPERTY LABELS "is_example")
 		endif()
 	else()
-		message(STATUS "Skipping test for ${example} because it uses OpenAI and OPENAI_API_KEY is not set.")
+		if (NOT openai_requirement_met)
+			message(STATUS "Skipping test for ${example} because it uses OpenAI and OPENAI_API_KEY is not set.")
+		endif()
+		if (NOT openrouter_requirement_met)
+			message(STATUS "Skipping test for ${example} because it uses OpenRouter and OPENROUTER_API_KEY is not set.")
+		endif()
 	endif()
 endforeach()
 

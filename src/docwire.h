@@ -70,6 +70,12 @@
 #include "translate_to.h"
 #include "type_name.h"
 #include "xml.h"
+#include "openrouter_classify.h"
+#include "openrouter_detect_sentiment.h"
+#include "openrouter_extract_entities.h"
+#include "openrouter_extract_keywords.h"
+#include "openrouter_find.h"
+#include "openrouter_summarize.h"
 // IWYU pragma: end_exports
 
 /**

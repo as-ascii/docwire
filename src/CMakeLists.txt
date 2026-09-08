@@ -42,6 +42,7 @@ include(content_type.cmake)
 
 include(http.cmake)
 include(openai.cmake)
+include(openrouter.cmake)
 include(cli.cmake)
 
 file(GLOB HEADERS "*.h")
