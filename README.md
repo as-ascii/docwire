@@ -1,179 +1,120 @@
 # DocWire SDK
 
-DocWire SDK: Award-winning modern data processing in C++20. SourceForge Community Choice & Microsoft support. AI-driven processing. Supports nearly 100 data formats, including email boxes and OCR in more than 100 languages. Boost efficiency in text extraction, web data extraction, data mining, document analysis. Offline processing possible for security and confidentiality.
+**Deterministic, auditable, and secure data processing in C++20.**
 
-**Embark on an exciting journey with DocWire SDK, where the philosophies of C++ converge with the power of data processing innovation. Explore the limitless possibilities today and witness the substantial enhancements that set it apart from its predecessor, DocToText.**
+**On-premise by default. No compromises on computational speed.**
 
-Explore the latest updates, contribute to the community, and find the most up-to-date information on our [GitHub project page](https://github.com/docwire/docwire).
+<a name="what-is-docwire-sdk"></a>
+## What is DocWire SDK?
 
-## Table Of Contents
-- [The Goal](#the-goal)
+DocWire SDK is an embeddable software development kit (SDK): a set of reusable C++ building blocks for building data-processing pipelines and infrastructure. It is not a single parser, ETL service, or cloud tool. You compile it into your own application and control how data flows through it.
+
+DocWire treats data processing in the broad sense used by modern data-protection frameworks: collection, organisation, structuring, storage, adaptation, alteration, retrieval, consultation, use, disclosure by transmission, combination, restriction, erasure, and destruction. The goal is for DocWire components to cover the complete data-processing life cycle. Parts of that life cycle are available today; the rest are defined in the roadmap.
+
+### What you can do with DocWire today
+
+- **Ingest** files, email boxes, archives, HTTP request payloads, JSON, XML, CSV, and more.
+- **Normalize and structure** raw input using format detection, parsers, OCR, document element extraction, and structured-data handling.
+- **Transform** data with filters, translations, summaries, classification, entity extraction, sentiment analysis, embeddings, and optional local or cloud AI steps.
+- **Export or act** through plain text, HTML, CSV, metadata, stdout, files, HTTP POST, or the built-in HTTP server.
+- **Compose pipelines** with `operator|` and embed them directly into your own C++20 application.
+- **Run on-premise by default**; cloud processing is used only when you explicitly add a cloud pipeline step.
+
+### Built on three principles
+
+1. **It is an SDK.** Reusable, embeddable components—not a closed black-box product.
+2. **It is data infrastructure.** The same pipeline model is intended to cover documents, structured records, streams, sensors, and hardware effects.
+3. **It is mechanically sympathetic.** The design follows DocWire’s engineering principles of predictability, auditability, edge optimization, and graceful degradation.
+
+DocWire is production-tested today and is continuously extending its architectural core.
+
+## Table of Contents
+
+- [What is DocWire SDK?](#what-is-docwire-sdk)
+- [Manifesto](#manifesto)
+- [Engineering Principles](#engineering-principles)
+- [Why DocWire and Key Benefits](#why-docwire-and-key-benefits)
 - [Features](#features)
-- [Revolutionary API Concept](#api-concept)
+- [Roadmap](#roadmap)
+- [API Concept](#api-concept)
 - [Examples](#examples)
-- [Awards](#awards)
 - [Installation](#installation)
 - [Versioning](#versioning)
 - [Logging](#logging)
-- [Error handling: robust and secure](#error-handling)
+- [Error handling: robust and secure](#error-handling-robust-and-secure)
 - [API documentation](#api-documentation)
-- [Console application (CLI)](#console-application)
+- [Console application](#console-application)
 - [License](#license)
 - [Authors](#authors)
 - [External links](#external-links)
 
-<a name="the-goal"></a>
-## The Goal
+<a name="manifesto"></a>
+## Manifesto
 
-Introducing DocWire SDK: Revolutionizing Data Processing in C++20
+DocWire exists because modern data processing often trades predictable execution, memory ownership, and auditability for framework convenience.
 
-Unlock the future of data processing with the DocWire SDK, an award-winning, cutting-edge framework that builds upon the legacy of the acclaimed DocToText library. Committed to pushing the boundaries of modern C++ dialects, we are dedicated to enhancing productivity, simplifying development, and delivering a seamless experience for both developers and businesses.
+Most data processing stacks are built for the easy case: clean inputs, unlimited cloud resources, and a human in the loop when something breaks. The real world looks different:
 
-### The Power of C++
+- A **medical wearable** cannot drain its battery parsing a malformed data stream.
+- A **compliance system** cannot hallucinate an audit trail.
+- A **trading platform** cannot tolerate a garbage-collection pause at the wrong moment.
+- An **autonomous system** cannot crash because of an undocumented proprietary file format.
 
-In the dynamic landscape of data processing, the selection of a programming language is pivotal. We proudly embrace C++ as the backbone of DocWire SDK for several compelling reasons:
-- **C++ is renowned for its high performance**, making it the language of choice for applications where speed is paramount. DocWire SDK leverages this performance to ensure swift and efficient data processing, even with large datasets.
-- **C++ offers a fine balance between low-level memory manipulation and high-level abstractions**. This versatility allows us to create a robust and flexible SDK that caters to a wide range of data processing needs, from simple tasks to complex algorithms.
-- **Efficiency Through "You Only Pay for What You Use"**: C++ adheres to the philosophy of "you only pay for what you use," emphasizing efficiency by enabling developers to have fine-grained control over resources. This philosophy translates into a lean and optimized SDK, ensuring that users can tailor their data processing solutions without unnecessary overhead.
-- **Static Typing for Robustness**: The static typing inherent in C++ contributes to the robustness of DocWire SDK. By catching potential errors at compile-time, developers can build more reliable and maintainable data processing applications.
-- **Multiparadigm Approach**: C++ is celebrated for its multiparadigm nature, allowing developers to seamlessly blend procedural, object-oriented, and generic programming styles. This flexibility aligns perfectly with the diverse requirements of data processing, ensuring that DocWire SDK accommodates a broad spectrum of development needs.
-- **Industry Proven**: C++ is the language of choice for well-known companies in the development of serious, mission-critical, and performance-sensitive applications. By leveraging the robustness and scalability of C++, DocWire SDK positions itself as a trusted solution for demanding data processing tasks, ensuring reliability in mission-critical scenarios.
+These are not edge cases. They are the normal operating conditions of any system that runs in production, at scale, in a regulated or time-critical environment. DocWire SDK is built for exactly these conditions.
 
-### For Developers: Elevate Your Capabilities
+We are building a toolkit with **mechanical sympathy** for the hardware it runs on:
 
-If you've experienced the power of DocToText, brace yourself for a substantial upgrade. Staying ahead with C++20, we integrate advanced features such as ranges and concurrency. DocWire SDK evolves to handle a spectrum of data processing tasks, including robust HTTP capabilities, comprehensive network APIs, efficient web data extraction, and running local AI models.
+- **Predictability** – deterministic execution, no hidden allocations.
+- **Auditability** – visible data flow and injected audit output.
+- **Edge optimization** – zero-copy pipelines, allocator-aware memory.
+- **Graceful degradation** – malformed input returns errors, not crashes.
 
-With the addition of local LLM models, DocWire SDK now enables developers to leverage state-of-the-art natural language processing capabilities right in their C++ applications. This feature allows developers to perform tasks such as text classification, sentiment analysis, named entity recognition, and many more, directly on their data without the need for remote API calls.
+[Read the full manifesto →](https://docwire.readthedocs.io/en/latest/manifesto.html)
+[Read the engineering rules →](https://docwire.readthedocs.io/en/latest/coding_guidelines.html)
 
-We understand the need for comprehensive solutions in today's development landscape. DocWire SDK seamlessly integrates into C++ applications, providing solutions for text extraction, data conversion, data scraping, data mining, and more.
+<a name="engineering-principles"></a>
+## Engineering Principles
 
-### Optimized for NLP and AI Projects
+### Predictability
 
-DocWire SDK is engineered to be the cornerstone of your NLP and AI projects. With its advanced data preparation capabilities, it ensures that your input data is of the highest quality, which is crucial for the performance of your models.
+DocWire rejects hidden allocations, background work, and implicit global state. Pipelines are built around `operator|` and are designed for deterministic execution. Today, core pipeline flows use this model, and we are migrating all existing format handlers to the same rules.
 
-- **Data Cleaning and Preprocessing**: Before feeding data into your NLP models, it's essential to clean and preprocess it. DocWire SDK provides powerful tools to remove noise, correct formatting issues, and standardize data, ensuring that your models are trained on clean and relevant datasets.
+### Auditability
 
-- **Content Filtering and Removal**: Unwanted content can skew the results of your NLP models. DocWire SDK allows you to define rules to filter out irrelevant sections, such as boilerplate text, disclaimers, or headers and footers, ensuring that only pertinent content is passed to your models.
+DocWire gives developers control over diagnostics and audit output. The SDK avoids hidden global state and provides structured logging and configurable sinks. A dependency-injected `Audit` interface is under active development.
 
-- **Local LLM Model**: DocWire SDK integrates support for local LLM models, allowing you to leverage state-of-the-art natural language processing capabilities right in your C++ applications. This feature allows developers to perform tasks such as text classification, sentiment analysis, named entity recognition, and many more, directly on their data without the need for remote API calls.
+### Edge Optimization
 
-- **Tokenization and Detokenization**: DocWire SDK provides a convenient interface for tokenizing and detokenizing your data. Tokenization breaks down text into individual words or tokens, which can then be fed into your NLP models. After processing, the SDK's detokenization feature allows you to reconstruct the original text from the tokenized output, ensuring that the integrity and context of the document are preserved.
+Non-owning views already avoid copies across many pipeline boundaries. The architecture is moving toward fully injected allocator policies, including arena-backed low-latency allocation, while retaining standard heap allocator support.
 
-- **Output Sanitization**: When integrating NLP models into production systems, it's vital to sanitize outputs to prevent the leakage of sensitive information. DocWire SDK offers features to detect and redact personal data, confidential information, and other sensitive content from your outputs.
+### Graceful Degradation
 
-- **Downstream Application Readiness**: The quality of data not only affects model training but also the performance of downstream applications. DocWire SDK prepares and sanitizes your data to ensure that it meets the requirements of subsequent systems, whether they are analytics platforms, customer relationship management tools, or content management systems.
+Untrusted input is normalized at SDK boundaries. Malformed or encrypted data is reported as an error without crashing the host process. Structural validation of incoming data is always required; it can never be disabled by optimized build modes.
 
-By incorporating DocWire SDK into your workflow, you can significantly enhance the quality of your NLP and AI applications, leading to more accurate insights and better decision-making.
+<a name="why-docwire-and-key-benefits"></a>
+## Why DocWire and Key Benefits
 
-### Enhanced Support for Embeddings and AI/NLP Integration
+**For Developers:** DocWire provides a flexible C++ API to build data processing pipelines. It supports custom chain elements and integrates with existing codebases.
 
-DocWire SDK provides a robust foundation for AI/NLP developers to build upon. By utilizing the SDK's capabilities in partitioning and chunking document elements, developers can create embeddings for each element, which are essential for advanced AI applications such as Retrieval Augmented Generation (RAG), semantic search, and more.
+**Optimized for NLP and AI Projects:** DocWire includes structured document element extraction, content filtering, and pluggable message transformations. Planned enhancements include tokenization/detokenization, output sanitization, and customizable data cleaning pipelines. It can prepare datasets for AI training, inference, and embedding workflows.
 
-- **Partitioning for Embeddings**: DocWire SDK's partitioning feature allows for the detection of distinct document elements, which can then be fed into embedding models to generate vector representations. These embeddings can be used to understand the semantic meaning of each element, facilitating tasks like document clustering and similarity analysis.
+**Enhanced AI/NLP Integration:** DocWire supports structured document element extraction. Semantic partitioning and context-aware chunking are under active development. Extracted elements can be used to generate embeddings for semantic search, retrieval augmented generation (RAG), document clustering, and similarity analysis.
 
-- **Chunking for Contextual Embeddings**: The SDK's chunking functionality groups related document elements, enabling the generation of contextual embeddings. This is particularly useful for applications that require an understanding of the document's structure and thematic content, such as summarization and topic modeling.
+**The layer your AI pipeline is missing:** Raw documents are rarely LLM-ready. Dirty PDFs, malformed email archives, legacy Office files, OCR scans, and mixed-format datasets must be normalized before they can be embedded, chunked, or summarized. DocWire ingests and structures that unstructured input into clean, typed document elements—on-premise by default, with structured logging today and an injected audit interface under active development—and optional cloud AI steps.
 
-- **Embeddings in AI Workflows**: By integrating DocWire SDK with popular machine learning frameworks, developers can streamline the process of obtaining embeddings for their NLP models. This integration simplifies the workflow, from data extraction to embedding generation, making it more efficient and developer-friendly.
+**For Businesses:** DocWire processes unstructured, semi-structured, and structured data from diverse sources including PDF, Office documents, email boxes, web services, JSON, XML, CSV, and more. It integrates cloud and local AI models as explicit processing steps. Direct database, ERP, message-queue, and industrial-stream connectors are planned extensions.
 
-- **Use Cases and Applications**: The ability to obtain embeddings from partitioned or chunked document elements opens up a plethora of use cases. For instance, in Retrieval Augmented Generation (RAG), embeddings can be used to retrieve relevant document segments to augment the generation process. Similarly, in semantic search, embeddings enable the matching of query intent with document content, improving search relevance and accuracy.
+**Input and Output Sources:** Email boxes, local filesystem, structured files such as JSON, XML, and CSV, and HTTP/web services can be connected to DocWire pipelines today. Cloud drives, ERP systems, relational databases, message queues, and industrial data streams are planned extensions. A pipeline can end in an exporter or in an effect, such as posting data, publishing a message, sending an email, or commanding hardware. Cloud AI providers are supported through explicit pipeline integrations, not hidden background calls.
 
-By enhancing DocWire SDK with these capabilities, we aim to provide a comprehensive toolkit for AI/NLP developers, enabling them to leverage the full potential of embeddings in their projects.
-
-### For Businesses: A Quantum Leap in Data Processing
-
-DocWire SDK transcends being a mere successor; it's a quantum leap in addressing complex data processing tasks. Our support for diverse document formats is expanding, including PDF, DOC, XLS, and more. Extracting insights from email boxes, databases, websites, and harnessing the latest AI features are pivotal components of our commitment.
-
-### Project Plans for the Future
-
-- **Comprehensive Data Import/Export**: DocWire SDK empowers users to seamlessly import/export data from/to all known sources and destinations, ensuring flexibility and compatibility.
-- **Advanced Data Processing**: Harness the power of standard algorithms and AI models within DocWire SDK, offering a spectrum of data processing capabilities for diverse needs.
-- **Online Integrations and Offline Processing**: Enjoy the best of both worlds. Access advanced, resource-hungry AI models online, or opt for intranet/offline processing with locally operating AI models, providing flexibility without compromising performance.
-- **Multiplatform Support**: DocWire SDK seamlessly integrates across servers, personal computers, and mobile devices, offering a consistent experience across diverse environments.
-- **Embedded Opensource Libraries**: We understand the power of existing opensource libraries in speeding up development. DocWire SDK strategically embeds high-quality opensource data processing libraries, ensuring a consistent API, mitigating potential issues and safeguarding license compliance for SDK users.
-- **Enhanced Cloud Integration**: Develop features to seamlessly integrate with various cloud platforms, allowing users to leverage cloud resources for scalable and efficient data processing.
-- **Improved NLP Integration**: Building on our existing OpenAI integration, we aim to enhance natural language processing capabilities for even more accurate and insightful data extraction.
-- **Powerhouse for data processing**: With continued support for various import formats and expanded export options, DocWire SDK is evolving into a powerhouse for data processing.
-- **Enhanced Structured Content Extraction for AI Applications**: We are committed to advancing the capabilities of DocWire SDK to meet the growing demands of AI and NLP developers. Our roadmap includes the development of more sophisticated algorithms for structured content extraction, enabling the SDK to identify and categorize document elements with greater precision. This will include improved recognition of semantic structures within the text, such as headings, subheadings, and thematic breaks, which are crucial for training AI models in tasks like document summarization, topic modeling, and content classification.
-- **Customizable Content Selection for Model Training**: Recognizing the diverse needs of AI applications, we plan to introduce customizable content selection features within the SDK. This will empower developers to specify which document elements should be included or excluded during the data extraction process, tailoring the dataset to the specific requirements of their AI models. Whether it's extracting dialogue from scripts, narrative passages from articles, or key points from reports, DocWire SDK will provide the flexibility needed for targeted model training.
-
-- **Future Enhancements for Chunking and Semantic Analysis**: Looking ahead, DocWire SDK will continue to evolve its chunking and semantic analysis capabilities. We plan to introduce more nuanced algorithms that can detect and utilize specific knowledge about each document format, further refining the partitioning of documents into semantic units. This will enable developers to work with even more granular and contextually relevant data segments, tailored to the unique demands of their AI and NLP projects.
-
-- **Intelligent Partitioning for Diverse Document Formats**: As part of our commitment to supporting nearly 100 data formats, future iterations of DocWire SDK will feature enhanced partitioning logic that is acutely aware of the idiosyncrasies of each document type. Whether dealing with structured spreadsheets, narrative-rich articles, or hybrid formats, the SDK will offer tailored chunking strategies that respect the inherent structure and intended use of the content.
-
-- **Seamless Integration with LLMs and NLP Libraries**: We are dedicated to ensuring that DocWire SDK remains at the forefront of compatibility with leading Large Language Models (LLMs) and NLP libraries. Future updates will focus on streamlining the integration process, allowing developers to effortlessly incorporate the SDK's chunking and semantic analysis features into their AI-driven workflows.
-
-- **Integration with Advanced NLP Libraries**: To further support the development of AI and NLP applications, DocWire SDK will integrate with advanced NLP libraries, providing out-of-the-box support for common NLP tasks such as tokenization, part-of-speech tagging, named entity recognition, and sentiment analysis. This integration will streamline the workflow for developers, allowing them to preprocess and analyze text within the same framework used for data extraction.
-- **Support for Custom AI Model Deployment**: As AI models become increasingly specialized, there is a need for frameworks that can accommodate custom model deployment. DocWire SDK will offer support for integrating custom-trained AI models, enabling developers to leverage their proprietary algorithms within the data processing pipeline. This will facilitate a seamless transition from model training to deployment, ensuring that developers can maximize the performance and accuracy of their AI applications.
-
-- **Embeddings Extraction Interface**: Extend existing interface within DocWire SDK that simplifies the process of extracting embeddings from document elements. This interface will allow developers to plug in their preferred embedding models and obtain embeddings directly from the SDK's output.
-
-- **Embeddings-Based Retrieval**: Develop functionalities that leverage embeddings for document retrieval, enabling applications such as RAG to efficiently find and utilize relevant document segments based on semantic similarity.
-
-- **Embeddings Storage and Management**: Implement storage solutions within DocWire SDK for managing and querying embeddings, making it easier for developers to handle large volumes of embedding data.
-
-- **Embeddings Visualization Tools**: Provide visualization tools that help developers understand and analyze the embeddings generated from document elements, aiding in model tuning and data exploration.
-
-- **Top-notch Documentation and Support**: Expect nothing but the best. We are committed to providing high-quality documentation and fanatical customer support, ensuring a smooth and efficient experience for every user.
-
-### Examples of Input and Output Sources
-- **Email Boxes**: Effortlessly extract valuable information from email boxes, streamlining the integration of email data into your processing workflows.
-- **Cloud Drives**: Seamlessly import/export data from popular cloud drives, ensuring that your data processing isn't bound by storage location.
-- **Local Filesystem**: Process data directly from local filesystems, providing flexibility in handling data stored locally.
-- **ERP Systems**: Integrate with ERP systems for streamlined data processing in enterprise resource planning.
-- **Databases**: Connect seamlessly with databases, enabling efficient extraction and manipulation of structured data.
-- **Web Services**: Extract data from web services, providing real-time integration capabilities.
-
-### Research and Development Goals
-
-In our pursuit of excellence, DocWire SDK is committed to ongoing Research and Development. Our R&D goals are designed to address the evolving challenges in data processing and to leverage cutting-edge technologies to provide our users with a robust and efficient toolkit. Our current R&D goals include:
-
-- **Enhanced AI Capabilities**: We are continuously pushing the boundaries of AI integration by exploring new models and refining existing ones to provide state-of-the-art data processing. This includes running large AI models locally, which presents challenges such as managing model size, optimizing speed, and ensuring high-quality outputs. Addressing these issues is crucial for enabling powerful on-device AI without the need for constant cloud connectivity.
-
-- **Advanced Data Sanitization Techniques**: We are developing sophisticated data sanitization techniques to further enhance the safety and privacy of AI models. These techniques will enable the SDK to automatically detect and redact sensitive information, ensuring that data used for training and inference is free from personal identifiers and confidential content.
-
-- **Customizable Data Preparation Workflows**: Recognizing the diverse needs of AI and NLP applications, we are working on customizable data preparation workflows. These workflows will allow developers to define and automate the steps required to clean, preprocess, and format data for their specific use cases, streamlining the path from raw data to actionable insights.
-
-- **Enhanced Support for Multilingual Data Processing**: As AI applications become increasingly global, the need for multilingual data processing grows. We are enhancing DocWire SDK's capabilities to handle a wide range of languages and scripts, ensuring that developers can prepare data for multilingual models with ease and accuracy.
-
-- **Long-Term Memory for AI Models**: To enhance the performance of AI models, we are researching the integration of vector databases and other innovative solutions that can provide long-term memory capabilities. This will allow AI models to retain and access vast amounts of data efficiently, improving their predictive accuracy and contextual understanding.
-
-- **AI Document Layout Analysis**: Recognizing the importance of extracting information from unstructured data, we are developing AI-driven document layout analysis tools. These tools will enable the SDK to understand and process various document formats, making it easier to extract and utilize information from diverse data sources.
-
-- **Advanced Semantic Partitioning**: Our R&D team is exploring cutting-edge techniques for advanced semantic partitioning of documents. This research aims to enhance the SDK's ability to understand and delineate semantic units within a wide array of document types, facilitating more effective data segmentation for AI and NLP applications.
-
-- **Embeddings Optimization**: Research techniques to optimize the generation of embeddings from document elements, focusing on speed and accuracy to support real-time NLP applications.
-
-- **Contextual Embeddings Research**: Investigate advanced methods for generating contextual embeddings that capture the document's narrative flow and thematic elements, providing richer inputs for AI models.
-
-- **Embeddings for Cross-Lingual Applications**: Explore the development of embeddings that support cross-lingual NLP tasks, enabling applications to process and understand documents in multiple languages.
-
-- **Embeddings in Unsupervised Learning**: Study the use of embeddings in unsupervised learning scenarios, such as clustering and anomaly detection, to uncover hidden patterns and insights within large document corpora.
-
-- **Context-Aware Chunking Algorithms**: We are developing context-aware chunking algorithms that can intelligently segment documents while preserving the narrative flow and logical connections between sections. This will enable AI models to process and generate content with a higher degree of coherence and relevance.
-
-- **Document Element Detection and Classification**: To further improve the SDK's chunking capabilities, we are working on algorithms for the detection and classification of document elements. This will allow the SDK to identify headers, footers, sidebars, and other structural components, enabling more precise and meaningful data extraction for AI applications.
-
-- **Optimization with C++ Meta-Programming**: Utilizing C++ meta-programming techniques, we aim to optimize data processing speed by enabling compile-time optimizations and reducing runtime overhead. This can lead to significant performance gains in data-intensive applications.
-
-- **Caching Techniques**: We are exploring advanced caching techniques for time-consuming and costly operations. By intelligently storing and reusing data, we can reduce latency and improve the efficiency of repeated processes, which is especially beneficial in scenarios with limited computational resources.
-
-- **Processing of Encrypted Data**: To address the growing need for privacy and security, we are developing algorithms that enable the processing of encrypted data, allowing for zero-knowledge processing. This will ensure that sensitive data can be analyzed and processed without compromising its confidentiality.
-
-- **Quantum Computing Integration**: We continue to investigate the potential benefits of quantum computing techniques for accelerating data processing tasks. By staying abreast of developments in quantum algorithms, we aim to position DocWire SDK at the forefront of technological advancements.
-
-- **Blockchain Integration**: We are exploring the utilization of blockchain technology for secure and transparent data processing. Blockchain can provide a decentralized and tamper-proof ledger, which is particularly useful for applications requiring high levels of data integrity and traceability.
-
-- **IoT Device Support**: We are expanding the integration of DocWire SDK with IoT devices, enabling it to process data generated by the Internet of Things. This will facilitate real-time data analysis and decision-making in IoT ecosystems, unlocking new possibilities for smart applications.
-
-By focusing on these R&D goals, DocWire SDK aims to solve significant problems faced by developers, such as handling large-scale data, ensuring data privacy, and optimizing processing speeds. Our commitment to innovation will help users harness the full potential of modern data processing technologies.
-
-**Embark on an exciting journey with DocWire SDK, where the philosophies of C++ converge with the power of data processing innovation. Explore the limitless possibilities today and witness the substantial enhancements that set it apart from its predecessor, DocToText.**
 
 <a name="features"></a>
 ## Features
 
-- **Secure and privacy-preserving data processing** - all operations can be done locally without sending data to the cloud
+Features marked **(planned)** are on the public roadmap and may not be fully available in the current release.
+
+- **Local-first and privacy-preserving data processing** - the goal is for every processing stage to support an on-premise implementation. Today, parsing, OCR, local document AI, and local text embeddings can run fully offline. A few AI capabilities, such as image/audio understanding and the largest cloud LLM models, are available only through explicit OpenAI integration. No data is sent to a cloud service unless a cloud transformer is explicitly added to the pipeline. Hybrid privacy workflows, such as local anonymization before optional cloud processing, are planned.
 - Able to extract/import and export **text, images, formatting, and metadata along with annotations**
+- **Handles unstructured and structured payloads**: documents, images, web content, JSON, XML, CSV, and other structured or semi-structured formats can be processed in the same pipeline model.
 - **Data can be transformed** between import and export (filtering, aggregating, translation, text classification, sentiment analysis, named entity recognition etc).
 
 - **Equipped with multiple parsers**:
@@ -206,17 +147,17 @@ Additionally, the SDK provides functionality to convert a MIME type back to a fi
 
 - **Modern C++20 XML Parsing**: A new, expressive, and safe API for parsing XML documents. It features a single-pass, forward-only reader and utilizes C++20 ranges and views for efficient and elegant node filtering and manipulation. [You can find example how to parse XML documents here](https://docwire.readthedocs.io/en/latest/xml_parsing_example_8cpp-example.html).
 
-- **Configurable Safety Policies**: The SDK introduces a general concept of safety policies (`strict` vs. `relaxed`) to allow developers to choose between robust error-checking and maximum performance. In `strict` mode, operations are checked for validity (e.g., dereferencing null pointers, out-of-bounds access) and throw exceptions on violation. In `relaxed` mode, these checks are omitted for zero-overhead performance. This feature is currently available for XML-based parsers and will be expanded to other components.
+- **Configurable Safety Policies**: The SDK provides `strict` and `relaxed` safety policies for XML-based parsers, with other components to follow. In `strict` mode, developer contract violations throw typed exceptions through the current error framework. In `relaxed` mode, trusted developer checks are compiled out for zero overhead. Relaxed mode should be used only for trusted XML input; untrusted input should use strict validation. The SDK is evolving toward injectable error policies that will also support `docwire::expected`-based propagation.
 
-- **Llama.cpp Integration**: The SDK integrates seamlessly with llama.cpp, to allow the users of SDK to select a model of their choice and integrate within the workflow using `llama` wrapper provided in the SDK. **Llama.cpp integration comes as an optional feature.**
+- **Llama.cpp Integration** (optional `local-ai-llama` feature): The SDK integrates seamlessly with llama.cpp, allowing users to select a model of their choice and integrate it within the workflow using the `llama` wrapper provided in the SDK. This feature is optional and must be enabled at build time.
 
-- **Optional powerful IBM Granite 4.0 1B model**: This compact yet capable language model can be installed as an optional feature for a wide range of natural language processing tasks, including text extraction, classification, question answering, summarization, and more. It runs via **llama.cpp** and is optimized for CPU inference on lower-end desktops without GPU acceleration.
+- **Optional powerful IBM Granite 4.0 1B model** (via `local-ai-model-granite` feature): This compact yet capable language model can be installed as an optional feature for a wide range of natural language processing tasks, including text extraction, classification, question answering, summarization, and more. It runs via **llama.cpp** and is optimized for CPU inference on lower-end desktops without GPU acceleration.
 
-- **Flan-t5-large model**: This state-of-the-art transformer-based model is designed for a wide range of natural language processing tasks, including text translation, question answering, summarization, text generation, and more. It has been trained on a diverse range of data sources and can handle complex linguistic phenomena such as word order, syntax, and semantics. The model's versatility and ability to perform multiple tasks make it a valuable addition to the DocWire SDK, allowing developers to leverage its capabilities for a variety of NLP tasks within their applications. **This model is the default model for local AI feature with SDK and is optimized to run with descent speed on lower-end desktops and mobile devices without GPU acceleration and consuming less than 1 GB of memory**
+- **Flan-t5-large model** (via `local-ai-ct2` feature): This state-of-the-art transformer-based model is designed for a wide range of natural language processing tasks, including text translation, question answering, summarization, text generation, and more. It has been trained on a diverse range of data sources and can handle complex linguistic phenomena such as word order, syntax, and semantics. The model's versatility and ability to perform multiple tasks make it a valuable addition to the DocWire SDK, allowing developers to leverage its capabilities for a variety of NLP tasks within their applications. It is provided as part of the optional `local-ai-ct2` feature and is optimized to run with decent speed on lower-end desktops and mobile devices without GPU acceleration and consuming less than 1 GB of memory.
 
-- **Powerful multilingual-e5-small model**: This powerful and efficient multilingual text embedding model is designed to generate high-quality vector representations (embeddings) for text in over 100 languages. These embeddings are crucial for a wide range of NLP tasks, including semantic search, retrieval-augmented generation (RAG), text clustering, and similarity comparison. The `multilingual-e5-small` model is optimized for performance, making it suitable for applications where both speed and accuracy are important. **This model is default model for embedding in the SDK.**
+- **Powerful multilingual-e5-small model** (via `local-ai-ct2` feature): This powerful and efficient multilingual text embedding model is designed to generate high-quality vector representations (embeddings) for text in over 100 languages. These embeddings are crucial for a wide range of NLP tasks, including semantic search, retrieval-augmented generation (RAG), text clustering, and similarity comparison. The `multilingual-e5-small` model is optimized for performance, making it suitable for applications where both speed and accuracy are important. It is included with the `local-ai-ct2` feature.
 
-- **Support for running locally more powerful AI models using ctranslate2 technology**: This technology is designed to be highly scalable and efficient on CPU and GPU, enabling efficient deployment of language models on resource-constrained devices. Quantization allows maintaining accuracy with smaller model sizes making it suitable for desktop and mobile applications. Parallel and asynchronous execution enables efficient utilization of hardware resources.
+- **Support for running locally more powerful AI models using CTranslate2 technology** (included in `local-ai-ct2` feature): This technology is designed to be highly scalable and efficient on CPU and GPU, enabling efficient deployment of language models on resource-constrained devices. Quantization allows maintaining accuracy with smaller model sizes making it suitable for desktop and mobile applications. Parallel and asynchronous execution enables efficient utilization of hardware resources.
 
 - **Equipped with a high-grade, scriptable, and trainable local OCR** that has LSTM neural networks-based character recognition OCR capabilities in more than 100 languages and multiple languages in single picture.
 
@@ -238,110 +179,197 @@ Additionally, the SDK provides functionality to convert a MIME type back to a fi
     - transcribe: Convert spoken language (voice) into written text (transcription, Automatic Speech Recognition).
     - embed: Generate embedding of text via OpenAI.
    
-   Supports multiple Open AI LLM models: gpt-5, gpt-5-mini, gpt-5-nano, gpt-5-chat-latest, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, gpt-4o, gpt-4o-mini, o3, o3-pro, o3-deep-research, o3-mini, o4-mini, o4-mini-deep-research, gpt-4o-transcribe, gpt-4o-mini-transcribe, whisper-1, gpt-4o-transcribe, tts-1, tts-1-hd, text-embedding-3-small, text-embedding-3-large, text-embedding-ada-002. More are coming.
+   OpenAI services support multiple model families, including chat models (GPT-5, GPT-5 mini, GPT-5 nano, GPT-5 Chat Latest, GPT-4.1, GPT-4.1 mini, GPT-4.1 nano, GPT-4o, GPT-4o mini, o3, o3-pro, o3-deep-research, o3-mini, o4-mini, o4-mini-deep-research), transcribe models (gpt-4o-transcribe, gpt-4o-mini-transcribe, whisper-1), TTS models (gpt-4o-mini-tts, tts-1, tts-1-hd), and embedding models (text-embedding-3-small, text-embedding-3-large, text-embedding-ada-002). More are coming.
 
+- **OpenRouter support (planned)**: Expanding optional cloud LLM integrations to support a wide range of open and commercial models through OpenRouter. Cloud integrations remain opt-in and do not change the local-first core behavior.
 - **Incremental parsing** returning data as soon as they are available
 
 - **Structured Content Extraction**: DocWire SDK excels in transforming unstructured documents into structured content. By breaking down documents into discernible elements such as titles, paragraphs, list items, tables, and metadata, the SDK facilitates a granular level of control over the data extraction process. This feature is particularly beneficial for developers working with NLP and LLM models, as it allows them to selectively retain content that is most relevant to their application. For instance, when training a summarization model, users may opt to focus solely on narrative text, excluding headers, footers, and other non-essential elements. The SDK's structured content extraction capability ensures that the integrity and context of the document are preserved, enabling more accurate and meaningful interactions with AI-driven projects.
 
-- **Preprocessing for Embeddings**: Use DocWire SDK to clean and preprocess text data, ensuring that the input to your embedding models is of high quality and free from noise.
+- **Preprocessing for Embeddings (planned)**: DocWire will provide built-in cleaning and preprocessing utilities to ensure high-quality input for embedding models. Current extraction already yields structured text; advanced tokenization/detokenization and output sanitization are under development.
 
 - **Document Element Extraction**: Extract specific document elements such as paragraphs, headings, and lists, which can then be used to generate embeddings for each element.
 
-- **Semantic Chunking**: Group related content using the SDK's chunking feature to create contextually rich embeddings that capture the nuances of the document's structure.
+- **Semantic Chunking (planned)**: Group related content using the SDK's chunking feature to create contextually rich embeddings that capture the nuances of the document's structure.
 
-- **Integration with Embedding Models**: Once the data is preprocessed and structured, you can use [openai::embed](https://docwire.readthedocs.io/en/latest/classdocwire_1_1openai_1_1embed.html) or [local_ai::embed](https://docwire.readthedocs.io/en/latest/classdocwire_1_1local__ai_1_1embed.html) or integrate with your choice of embedding models, such as word2vec, GloVe, or BERT, to generate embeddings that can be used in various NLP tasks.
+- **Integration with Embedding Models**: Once the data is preprocessed and structured, you can use [openai::embed](https://docwire.readthedocs.io/en/latest/classdocwire_1_1openai_1_1embed.html), the local embedding steps `ai::local::passage::embedder` and `ai::local::query::embedder`, or integrate with your choice of embedding models, such as word2vec, GloVe, or BERT. Generated embeddings can be used in various NLP tasks.
 
 - **Enhancing AI/NLP Pipelines**: Embeddings obtained from DocWire SDK can be used to enhance AI/NLP pipelines, enabling more accurate and context-aware applications such as document classification, sentiment analysis, and information retrieval.
 
-- **Advanced Document Chunking**: DocWire SDK introduces sophisticated chunking capabilities, leveraging metadata and document elements to partition documents into smaller, semantically coherent parts. This feature is invaluable for applications such as Retrieval Augmented Generation (RAG), where the ability to process and retrieve information from specific document segments can significantly enhance the performance of AI models. By understanding the structure and semantics of each document, DocWire SDK can intelligently divide content into meaningful units, preserving the context and coherence necessary for high-quality AI interactions.
+- **Advanced Document Chunking (planned)**: DocWire SDK introduces sophisticated chunking capabilities, leveraging metadata and document elements to partition documents into smaller, semantically coherent parts. This feature is invaluable for applications such as Retrieval Augmented Generation (RAG), where the ability to process and retrieve information from specific document segments can significantly enhance the performance of AI models. By understanding the structure and semantics of each document, DocWire SDK can intelligently divide content into meaningful units, preserving the context and coherence necessary for high-quality AI interactions.
 
-- **Semantic Unit Coherence**: The SDK's chunking mechanism is designed to maintain the coherence of semantic units established during partitioning. This ensures that when a document is sp
-lit into chunks, each piece retains its contextual integrity, making it suitable for use cases where understanding the flow and connection between segments is crucial, such as in conversat
-ional AI, document summarization, and topic extraction.
+- **Semantic Unit Coherence (planned)**: The SDK's chunking mechanism is designed to maintain the coherence of semantic units established during partitioning. This ensures that when a document is split into chunks, each piece retains its contextual integrity, making it suitable for use cases where understanding the flow and connection between segments is crucial, such as in conversational AI, document summarization, and topic extraction.
 
 - **NLP Model Training Data Preparation**: Prepare your training data with precision. DocWire SDK's structured content extraction is ideal for preparing datasets for NLP model training. By extracting only the relevant sections of text, you can create clean, focused datasets that lead to more effective and efficient model training.
 
-- **Data Sanitization for AI Safety**: Ensure the safety and integrity of your AI models. DocWire SDK's data sanitization capabilities help prevent the introduction of biased, sensitive, or inappropriate content into your models, safeguarding the quality and reliability of your AI applications.
+- **Data Sanitization for AI Safety (planned)**: Ensure the safety and integrity of your AI models. DocWire SDK's data sanitization capabilities help prevent the introduction of biased, sensitive, or inappropriate content into your models, safeguarding the quality and reliability of your AI applications.
 
-- **Customizable Data Cleaning Pipelines**: Tailor your data cleaning process to fit the unique needs of your project. With DocWire SDK, you can build customizable pipelines that automate the cleaning, normalization, and transformation of your data, saving time and reducing the potential for human error.
+- **Customizable Data Cleaning Pipelines (planned)**: Tailor your data cleaning process to fit the unique needs of your project. With DocWire SDK, you can build customizable pipelines that automate the cleaning, normalization, and transformation of your data, saving time and reducing the potential for human error.
 
-- **Seamless Integration with AI and NLP Libraries**: DocWire SDK is designed to work hand-in-hand with popular AI and NLP libraries. Its flexible API allows for easy integration, enabling you to preprocess data within the same framework used for model training and inference.
+- **Seamless Integration with AI and NLP Libraries (in progress)**: DocWire SDK is designed to work hand-in-hand with popular AI and NLP libraries. Its flexible API allows for easy integration, enabling you to preprocess data within the same framework used for model training and inference.
 
-- **Enhanced AI and NLP Support**: DocWire SDK is not only a tool for data extraction but also a powerful ally for AI and NLP developers. With its advanced chunking and semantic unit preservation, the SDK is perfectly suited for preparing data for AI models that require a deep understanding of document structure and content. Whether you're working on machine learning, deep learning, or any other AI project, DocWire SDK provides the features you need to ensure your data is ready for the challenge.
+- **Enhanced AI and NLP Support (planned)**: DocWire SDK is not only a tool for data extraction but also a powerful ally for AI and NLP developers. With its advanced chunking and semantic unit preservation, the SDK is perfectly suited for preparing data for AI models that require a deep understanding of document structure and content. Whether you're working on machine learning, deep learning, or any other AI project, DocWire SDK provides the features you need to ensure your data is ready for the challenge.
 
-- **Cross-platform**: Linux, Windows, MacOSX, and more to come
+- **Cross-platform**: Linux, Windows, macOS, and more to come
 - **Can be embedded** in your application (SDK)
 - **Can be integrated** with other data mining and data analytics applications
 - **Parsing process can be easily designed** by connecting objects with the pipe `|` operator into a chain
 - **Custom parsing chain elements can be added** (parsers, transformers, exporters)
 - **Small binaries, fast** native C++ code
 
+<a name="roadmap"></a>
+## Roadmap
+
+DocWire is actively evolving to meet future data processing demands.
+
+### Future Capabilities
+
+- Comprehensive Data Import/Export to all known sources and destinations.
+- Advanced Data Processing using standard algorithms and AI models.
+- Online Integrations and Offline Processing with locally operating AI models.
+- Multiplatform Support across servers, personal computers, and mobile devices.
+- Embedded Opensource Libraries for consistent API and license compliance.
+- Enhanced Cloud Integration.
+- Improved NLP Integration.
+- Powerhouse for data processing across formats.
+- Enhanced Structured Content Extraction for AI Applications.
+- Customizable Content Selection for Model Training.
+- Future Enhancements for Chunking and Semantic Analysis.
+- Intelligent Partitioning for Diverse Document Formats.
+- Seamless Integration with LLMs and NLP Libraries.
+- Integration with Advanced NLP Libraries.
+- Support for Custom AI Model Deployment.
+- Embeddings Extraction Interface.
+- Embeddings-Based Retrieval.
+- Embeddings Storage and Management.
+- Embeddings Visualization Tools.
+- Top-notch Documentation and Support.
+
+### Backend, Edge, Embedded, and Real-Time Data Flows
+
+- Audio and speech-to-text connectors and processors.
+- Video container decoding and frame extraction.
+- Sensor, camera, and microphone input adapters.
+- Time-series and event-stream processing.
+- Database, message-queue, and industrial-protocol connectors.
+- Filesystem, object-store, queue, email, webhook, and actuator destinations.
+- Deterministic on-device AI inference for constrained edge workflows.
+- Time-aware and event-driven processing while preserving local-first execution.
+
+### Research and Development Goals
+
+- Enhanced AI Capabilities: Exploring new models, optimizing local model size, speed, and quality.
+- Advanced Data Sanitization Techniques: Detecting and redacting sensitive information automatically.
+- Hybrid Privacy Workflows: Locally anonymize or redact sensitive data before optionally sending non-sensitive context to a cloud LLM, then merge the returned results locally.
+- Customizable Data Preparation Workflows: Defining and automating data cleaning and formatting steps.
+- Enhanced Support for Multilingual Data Processing: Handling a wide range of languages and scripts.
+- Long-Term Memory for AI Models: Integrating vector databases for efficient long-term context.
+- AI Document Layout Analysis: Understanding and processing various document formats.
+- Advanced Semantic Partitioning: Enhancing semantic unit detection and delineation.
+- Embeddings Optimization: Improving speed and accuracy of embeddings generation.
+- Contextual Embeddings Research: Generating contextual embeddings for richer AI inputs.
+- Embeddings for Cross-Lingual Applications: Supporting multilingual NLP tasks.
+- Embeddings in Unsupervised Learning: Clustering and anomaly detection.
+- Context-Aware Chunking Algorithms: Preserving narrative flow in document segmentation.
+- Document Element Detection and Classification: Identifying headers, footers, sidebars, etc.
+- Optimization with C++ Meta-Programming: Compile-time optimizations and zero-overhead abstractions.
+- Caching Techniques: Reducing latency for repeated operations.
+- Processing of Encrypted Data: Zero-knowledge processing while preserving confidentiality.
+- Quantum Computing Integration: Investigating quantum algorithms for data processing.
+- Blockchain Integration: Secure and transparent data processing.
+- IoT Device Support: Real-time data analysis in IoT ecosystems.
+
 <a name="api-concept"></a>
-## Revolutionary API concept
+## API Concept
 
-### Seamless Integration of PipeChain and DataTree
+DocWire is infrastructure, not a wrapper. You control the parsing chain, memory ownership, and data flow instead of depending on an opaque third-party service. The SDK processes data as a typed, lazy pipeline. You connect sources, parsers, transformers, and destinations using `operator|`. Building the pipeline does not execute it. Execution happens only when the pipeline is invoked.
 
-Welcome to the DocWire SDK, where we redefine document processing through groundbreaking API concepts. In this chapter, let's delve into the two pillars shaping our approach: PipeChain and DataTree. Revolutionize your document processing with an SDK that seamlessly blends familiar development practices like C++ ranges, DOM tree and SAX parser-inspired processing model providing an unparalleled and dynamic coding experience. Explore the revolutionary synergy between PipeChain and DataTree.
+### PipeChain and DataTree
 
-### PipeChain: Streamlining Data Flow
+DocWire combines two views of data processing:
 
-**Expressive Code Flow**:
-Unlock the power of PipeChain, a concept inspired by C++ ranges that brings a familiar and expressive coding experience.
+- **PipeChain** is the pipeline assembly line. Parsers, transformers, and exporters are connected by `operator|` into a reusable, ordered processing path.
+- **DataTree** is the structured information flow inside that pipeline. Messages represent data elements such as files, folders, emails, attachments, documents, pages, paragraphs, tables, links, images, structured records, and metadata.
 
-**Versatile Chain Elements**:
-Break free from rigidity. Our chain elements transcend traditional boundaries, accommodating everything from document parsers to custom exporters. Just as manipulating DOM elements, you'll find these versatile elements provide unparalleled flexibility.
+This gives the flexibility of streaming SAX-style processing with the structural clarity of a DOM-like tree, without copying large input payloads.
 
-**Extensible Functionality**:
-Expand your capabilities effortlessly. Our chain elements support a variety of functionalities, allowing you to seamlessly integrate new components, akin to extending SAX parser or DOM tree iterator behavior.
+### Pipeline as an assembly line
 
-**Examples of Information Flowing Through PipeChain**:
-- **Emails**: Process and analyze email content seamlessly within the chain, extracting key information like subject, sender, and attachments.
-- **Email Attachments**: Dive into attachments effortlessly, extracting details such as file types, sizes, and embedded content.
-- **Folders**: Navigate through folders, organizing and processing documents or emails stored within them.
-- **Archives**: Unpack archives with ease, whether they contain documents, images, or nested folders.
-- **Mailboxes**: Manage entire mailboxes as a cohesive unit, transforming and exporting data efficiently.
-- **Pages**: Navigate through pages of documents, extracting text, styles, and metadata.
-- **Paragraphs**: Process paragraphs individually, extracting and transforming text, styles, and more.
-- **Tables**: Efficiently handle tabular data, extracting, transforming, and exporting information seamlessly.
-- **Links**: Navigate through hyperlinks, capturing URLs, anchor text, and associated metadata.
-- **Images**: Process images effortlessly, extracting details like format, dimensions, and embedded text.
+Every object in the chain is a pipeline element: a source, a step, or a destination. When connected with `operator|`, each element receives messages and can emit further messages. The pipeline is inspired by C++20 ranges and value-oriented data processing.
 
-### DataTree: Navigating the Information Landscape
+Current SDK elements may be chain element objects or callable transformers. The API is evolving toward noun-style step names such as `plain_text_exporter{}` while preserving today's function-style elements.
 
-**Tree of Information Flow**:
-Dive into the structured information universe with DataTree, reminiscent of navigating the DOM tree in HTML. Beyond the document tree, our API handles the intricate tree of documents within archives, attachments within emails, and more.
+### Message-driven information flow
 
-**Transformative Chain Elements**:
-Explore the transformative power of DataTree with document parsers, custom transformers, and dynamic exporters. Each chain element acts as a SAX parser, providing a dynamic and efficient approach to processing. Like SAX parsers, our chain elements efficiently traverse and process data as it flows through the pipeline.
+Instead of copying whole data payloads between stages, DocWire emits lightweight message nodes that represent the structured data flow. These nodes provide typed access to the underlying data and can be filtered, transformed, or forwarded by later pipeline elements.
 
-**Unified Transformation**:
-Harmonize your processing across different levels of the information tree, similar to traversing the DOM tree. Whether it's a document page or an attachment within an email, our unified transformation approach ensures coherence throughout.
+For nested formats, the messages form a tree-like flow:
 
-**AI-Enhanced Chunking and Semantic Analysis**:
-The DocWire SDK API is designed to facilitate the integration of AI-enhanced chunking and semantic analysis directly into the PipeChain. This allows developers to apply AI-driven logic to the partitioning of documents, ensuring that chunks are created with a keen understanding of the content's meaning and structure. By incorporating AI models into the chunking process, developers can create data segments that are primed for high-level AI tasks such as summarization, question answering, and knowledge extraction.
+- mailbox
+  - folder
+    - email
+      - attachment
+        - document
+          - page
+            - paragraph, table, image, link, metadata
 
-### Uniting PipeChain and DataTree: Elevate Your Processing
+This DataTree model gives one consistent API for documents, email boxes, archives, web content, structured files, and HTTP/API payloads. Parsers convert each level into messages. Exporters and transformers consume only the message types they understand.
 
-**Comprehensive Structure**:
-Merge the structured flow of PipeChain with the depth of information in DataTree, creating a revolutionary approach that is as comfortable as working with the DOM tree in HTML. Embrace a comprehensive system that navigates, transforms, and exports data seamlessly.
+### Lazy, reusable pipelines
 
-**Effortless Adaptability**:
-Experience the synergy of PipeChain and DataTree, effortlessly adapting to diverse document structures. Elevate your document processing game with a harmonious blend of expressive code, structured information, and an efficient SAX parser-inspired processing model.
+A pipeline object is a graph definition. It can be assigned to a variable, reused for multiple inputs, and executed only when called.
 
-### AI-Enhanced Document Processing
+For example, connecting elements does not start parsing. The same parsed chain can later process several files without recreating the configuration.
 
-**AI-Driven Insights and Transformations**:
-DocWire SDK's API is designed to accommodate the integration of AI-driven insights and transformations. By incorporating AI models directly into the PipeChain, developers can enrich the data processing pipeline with advanced capabilities such as semantic analysis, context-aware summarization, and intelligent content categorization. This integration allows for the dynamic application of AI insights at various stages of the document processing workflow, enhancing the overall value and utility of the extracted data.
+### Custom pipeline elements
 
-**Custom AI Model Integration**:
-The API concept extends to support custom AI model integration, enabling developers to inject their own trained models into the processing chain. This flexibility ensures that the SDK can adapt to the unique requirements of specialized AI applications, providing a tailored processing environment that aligns with the developer's vision.
+Developers can add custom parsers, transformers, and exporters as chain elements. A transformer can inspect a message, decide whether to forward it, replace it with a different message, or emit multiple derived messages.
 
-**Seamless AI and Data Processing Synergy**:
-DocWire SDK's API fosters a seamless synergy between AI and data processing. By blending AI functionalities with traditional data extraction, the API offers a unified approach to document processing that leverages the best of both worlds. This synergy is particularly advantageous for developers working on cutting-edge AI projects, as it allows them to harness the full potential of their models within a robust data processing framework.
+This makes it possible to filter email messages, transform document content, generate embeddings, or integrate custom business logic directly into the processing pipeline.
+
+### AI and document understanding as pipeline steps
+
+AI capabilities are normal pipeline elements. A local or remote AI model can be inserted wherever a transformer fits.
+
+This allows common workflows such as:
+
+- classification,
+- summarization,
+- translation,
+- sentiment analysis,
+- entity and keyword extraction,
+- embeddings.
+
+Semantic chunking and document segmentation are planned extensions of the same pipeline model.
+
+Because these are pipeline steps, they can be combined with parsing, OCR, filtering, and exporting in one reusable processing chain.
+
+### Memory and policy-based execution
+
+DocWire is designed around explicit, injectable execution policies. The SDK exposes pipeline components as objects, so they can be composed with allocator, audit, and error-policy selection as the architecture evolves.
+
+This allows host applications to choose deterministic memory and error behavior without changing the parsing or export logic.
+
+### Beyond Documents: A General Data-Processing Foundation
+
+DocWire’s pipeline model is intentionally generic. A source can be a file, socket, sensor stream, camera, audio stream, database cursor, message queue, or API. A destination can export data or perform an effect: publish a message, send an email, write a record, call a webhook, raise an alert, or command hardware.
+
+The SDK is organized around a small number of long-lived component families:
+
+- **Connectors and sources** – files, HTTP endpoints, structured data, and, over time, message queues, databases, sensors, cameras, microphones, and industrial protocols.
+- **Normalizers and parsers** – Office documents, PDF, email, archives, OCR, JSON, XML, CSV, and other structured or semi-structured payloads. Planned additions include audio, video, time-series, schema validation, and industrial/medical formats.
+- **Transformers and processors** – filtering, aggregation, translation, classification, sentiment analysis, entity extraction, embedding, and other AI steps.
+- **Destinations and effects** – exporters such as plain text, HTML, CSV, HTTP POST, and metadata, with planned database writers, queue publishers, email senders, webhooks, filesystem/object stores, and actuator commands.
+- **Execution policies** – allocator, error, audit, safety, and resource-lifecycle policies that control determinism, memory behavior, and observability.
+- **Resource and model management** – explicit resource factories for files, models, network resources, and future device/stream lifecycles.
+- **Orchestration primitives** – reusable pipeline fragments, branching, filtering, and composition, without imposing a host threading model or global runtime.
+
+A pipeline may end in a destination that exports data, or in an effect that acts on it. This distinction keeps document extraction, AI orchestration, real-time event processing, and embedded control on the same architecture.
 
 <a name="examples"></a>
 ## Examples
+
+The examples below reflect the current public API. DocWire is introducing injectable error policies, allocator policies, and audit policies. Existing parsers, transformers, and exporters remain supported during this transition.
 
 Parse file in any format (Office, PDF, mail, etc) having its path, export to plain text and write to string stream:
 
@@ -366,7 +394,7 @@ std::filesystem::path("test.zip") | content_type::detector{} | archives_parser{}
 ```
 [Full example](https://docwire.readthedocs.io/en/latest/parse_archives_8cpp-example.html)
 
-Classify file in any format (Office, PDF, mail, etc) to any categories using build-in local AI model:
+Classify file in any format (Office, PDF, mail, etc) to any categories using built-in local AI model:
 
 ```cpp
 std::filesystem::path("...") | ... | ai::local::task("Classify to...: agreement, invoice, report...") | out_stream;
@@ -382,7 +410,7 @@ ensure(out_stream.str()) == "report\n";
 ```
 [Full example](https://docwire.readthedocs.io/en/latest/openai_classify_8cpp-example.html)
 
-Translate document in any format (Office, PDF, mail, etc) to other language using build-in local AI model:
+Translate document in any format (Office, PDF, mail, etc) to other language using built-in local AI model:
 
 ```cpp
 std::filesystem::path("...") | ... | ai::local::translate("spanish") | out_stream;
@@ -398,7 +426,7 @@ ensure(fuzzy_match::ratio(out_stream.str(), "El procesamiento de datos se refier
 ```
 [Full example](https://docwire.readthedocs.io/en/latest/openai_translate_8cpp-example.html)
 
-Detect sentiment of document in any format (Office, PDF, mail, etc) using build-in local AI model:
+Detect sentiment of document in any format (Office, PDF, mail, etc) using built-in local AI model:
 
 ```cpp
 std::filesystem::path("...") | ... | ai::local::task("Detect sentiment:\n\n") | out_stream;
@@ -413,7 +441,7 @@ std::filesystem::path("1.doc") | ... | openai::detect_sentiment(...) | std::cout
 ```
 [Full example](https://docwire.readthedocs.io/en/latest/openai_sentiment_8cpp-example.html)
 
-Make a summary of document in any format (Office, PDF, mail, etc) using build-in local AI model:
+Make a summary of document in any format (Office, PDF, mail, etc) using built-in local AI model:
 
 ```cpp
 std::filesystem::path("...") | ... | ai::local::summarize() | out_stream;
@@ -436,7 +464,7 @@ ensure(fuzzy_match::ratio(out_stream.str(), "Data processing involves converting
 ```
 [Full example](https://docwire.readthedocs.io/en/latest/openai_transcribe_summary_8cpp-example.html)
 
-Find phrases, objects and events with smart matching in documents in any format (Office, PDF, mail, etc) using build-in local AI model:
+Find phrases, objects and events with smart matching in documents in any format (Office, PDF, mail, etc) using built-in local AI model:
 
 ```cpp
 std::filesystem::path("...") | ... | ai::local::task("Find sentence about \"data conversion\"...") | out_stream;
@@ -462,7 +490,7 @@ ensure(out_msgs[0]->get<ai::embedding>().values.size()) == 1536;
 ```
 [Full example](https://docwire.readthedocs.io/en/latest/openai_embedding_8cpp-example.html)
 
-Create embedding for document in any format (Office, PDF, mail, etc) using build-in local AI model, create embeddings for two queries and calculate similarity:
+Create embedding for document in any format (Office, PDF, mail, etc) using built-in local AI model, create embeddings for two queries and calculate similarity:
 
 ```cpp
 std::filesystem::path("data_processing_definition.doc") | ... | ai::local::passage::embedder{} | passage_msgs;
@@ -559,12 +587,6 @@ for (auto product_node : products)
 ```
 [Full example](https://docwire.readthedocs.io/en/latest/xml_parsing_example_8cpp-example.html)
 
-<a name="awards"></a>
-## Awards
-
-- SourceForge Community Choice (2023) - project has qualified for this award out of over 500,000 open source projects on SourceForge
-- Microsoft for Startups grant (2022) - project was selected by Microsoft to accelerate its grow by providing Expert Guidance, development tools, Azure and GitHub cloud infrastructure and OpenAI machine learning utilities
-
 <a name="installation"></a>
 ## Installation
 
@@ -578,14 +600,24 @@ DocWire has embraced vcpkg as the preferred installation method for several comp
 By selecting vcpkg, DocWire ensures that programmers benefit from a trusted, user-friendly, and well-supported solution that guarantees a smooth installation experience.
 
 ### Supported Platforms
- DocWire SDK is compatible with a variety of operating systems. Windows, Linux, and macOS are supported officially (Supported triplets are: x64-linux-dynamic, x64-windows, x64-osx-dynamic and arm64-osx-dynamic). but in theory it can be run on other operating systems as well. To ensure compatibility our continuous integration tests run on the following GitHub runners:
 
+DocWire SDK is compatible with a variety of operating systems. Windows, Linux, and macOS are supported officially. The officially supported and CI-tested triplets are:
+
+- `x64-linux-dynamic`
+- `x64-windows`
+- `arm64-osx-dynamic`
+
+Other configurations may work, including `x64-osx-dynamic` on Intel macOS via the build script, but they are not part of the automated CI matrix and are therefore not considered officially supported at this time.
+
+To ensure compatibility, our continuous integration tests run on the following GitHub runners:
+
+- [ubuntu-26.04](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2604-Readme.md)
 - [ubuntu-24.04](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2404-Readme.md)
 - [ubuntu-22.04](https://github.com/actions/runner-images/blob/main/images/ubuntu/Ubuntu2204-Readme.md)
 - [windows-2025](https://github.com/actions/runner-images/blob/main/images/windows/Windows2025-Readme.md)
 - [windows-2022](https://github.com/actions/runner-images/blob/main/images/windows/Windows2022-Readme.md)
+- [macos-26](https://github.com/actions/runner-images/blob/main/images/macos/macos-26-Readme.md)
 - [macos-15](https://github.com/actions/runner-images/blob/main/images/macos/macos-15-Readme.md)
-- [macos-14](https://github.com/actions/runner-images/blob/main/images/macos/macos-14-Readme.md)
 
 As the project evolves, we will continue to expand the list of officially supported platforms to ensure broad compatibility and meet the needs of our users.
 
@@ -645,6 +677,82 @@ Please refer to ["vcpkg in MSBuild projects" on Microsoft Learn](https://learn.m
 
 For other building systems check your build system specific documentation for how to use prebuilt binaries.
 Please refer to ["Manual Integration" on Microsoft Learn](https://learn.microsoft.com/en-us/vcpkg/users/buildsystems/manual-integration) for more information.
+
+### Optional Features
+
+DocWire SDK can be built with additional features via vcpkg features. By default, the build scripts install the core SDK without optional features.
+
+#### Available features
+
+- **`local-ai-ct2`** – Enables local AI runtime based on CTranslate2, including Flan-t5-large (translation, summarization, text generation) and multilingual-e5-small (text embeddings).
+- **`local-ai-llama`** – Enables GGUF-based LLM inference using llama.cpp. Requires `local-ai-ct2`.
+- **`local-ai-model-granite`** – Installs the IBM Granite 4.0 1B Q8_0 GGUF model. Requires `local-ai-llama` and therefore also `local-ai-ct2`.
+- **`docs`** – Builds the Doxygen documentation.
+- **`tests`** – Enables automatic tests.
+- **`asan`**, **`tsan`**, **`memcheck`**, **`helgrind`**, **`callgrind`** – Enable various testing and debugging instruments.
+
+#### Enabling features with build scripts
+
+When using `build.sh` or `build.ps1`, set the `FEATURES` environment variable to a vcpkg feature list before running the script.
+
+Linux or macOS:
+
+```bash
+FEATURES="[local-ai-ct2]" ./build.sh
+```
+
+To enable multiple features:
+
+```bash
+FEATURES="[local-ai-ct2,tests]" ./build.sh
+```
+
+To enable the Granite model:
+
+```bash
+FEATURES="[local-ai-model-granite]" ./build.sh
+```
+
+Because `local-ai-model-granite` depends on `local-ai-llama`, vcpkg automatically enables the required local AI backends.
+
+PowerShell:
+
+```powershell
+$env:FEATURES = "[local-ai-ct2]"
+.\build.ps1
+```
+
+For multiple features:
+
+```powershell
+$env:FEATURES = "[local-ai-ct2,tests]"
+.\build.ps1
+```
+
+#### Enabling features with vcpkg manifest
+
+When DocWire is a dependency in another project, specify features in your `vcpkg.json` manifest:
+
+```json
+{
+  "dependencies": [
+    {
+      "name": "docwire",
+      "features": ["local-ai-ct2"]
+    }
+  ]
+}
+```
+
+#### Enabling features with CMake directly
+
+If you build DocWire with CMake directly, using a vcpkg toolchain, you can set the corresponding CMake options:
+
+```bash
+cmake -DDOCWIRE_CT2=ON -DDOCWIRE_LLAMA=ON ..
+```
+
+When building directly with CMake, responsibility for providing model resources and dependencies falls on the developer. The vcpkg feature pathway is recommended for easier setup.
 
 ### Installation in preexisting vcpkg instance
 You need to do the configuration, installation and integration manually. Please follow recommendations in vcpkg documentation and check content of build.sh or build.ps1 script for details.
@@ -729,17 +837,20 @@ To explore the possibilities of an LTS agreement or to discuss specific requirem
 <a name="logging"></a>
 ## Logging
 
-DocWire SDK features a powerful, modern, and highly configurable logging framework designed for both deep debugging and zero-overhead production use.
+DocWire SDK provides a structured logging framework designed for developer diagnostics and production audit trails. It is built around typed log records, configurable sinks, and runtime expression-based filters. Most debug log records are compiled out in release builds, while persistent audit records remain.
 
-### Key Features
+### Structured log records
 
-- **Structured JSON Output**: All log records are generated as structured JSON objects, making them easy to parse, query, and integrate with modern log analysis platforms (e.g., ELK stack, Splunk, Datadog).
-- **Zero-Cost in Release Builds**: By default, most logging calls are completely compiled out in release builds (`NDEBUG` is defined). This means they have zero performance impact on your production code. Only logs explicitly marked with a persistent tag (like `log::audit`) are retained.
-- **Rich Contextual Information**: Logs automatically capture source location (file, line, function), thread ID, and a precise timestamp. You can also add any serializable C++ object to the log context for deep insights.
-- **Sink and Filter Model**: The framework is silent by default. You can programmatically set a "sink" (a callback function that receives log records) and a "filter" (a string that specifies which logs to enable) to control the logging output.
-- **Powerful Filtering**: Filter logs based on source file, function name, or custom tags using a simple wildcard-based syntax.
+Every log record contains:
 
-### Example Log Record
+- source location (file, line, function),
+- thread ID,
+- precise timestamp,
+- optional typed C++ context values.
+
+Records are generated as structured JSON objects, making them easy to consume with common log analysis platforms.
+
+Example log record:
 
 ```json
 {
@@ -755,13 +866,32 @@ DocWire SDK features a powerful, modern, and highly configurable logging framewo
 }
 ```
 
-### Basic Usage
+### Sinks and filters
 
-The framework provides simple macros for logging:
+The logging framework is silent by default. Output is controlled by two independent mechanisms:
 
-- `log_entry(...)`: Creates a single log record.
-- `log_scope(...)`: Creates a log entry at the beginning of a scope and another at the end.
-- `log_forward(...)`: Logs the value of an expression and returns it, allowing you to log intermediate values in a chain of calls.
+- **Sink** – a callback that receives each enabled `docwire::log::record`.
+- **Filter** – a string expression that selects which records are enabled, based on source file, function name, or custom tags.
+
+This separation allows developers to route logs to files, stdout, custom collectors, or completely disable them for zero overhead.
+
+### Release-build zero cost
+
+Most logging records are completely compiled out in release builds when `NDEBUG` is defined. Only records explicitly marked as persistent audit records are retained. This gives production applications the ability to keep audit-worthy logs while eliminating normal debug logging.
+
+### Convenience macros
+
+The framework includes convenience macros such as:
+
+- `log_entry(...)` – emits a single log record,
+- `log_scope(...)` – emits a record at scope entry and exit,
+- `log_forward(...)` – logs a value and returns it, useful for logging intermediate values in expression chains.
+
+These macros wrap the structured logging system and are intended for developer-facing diagnostics. The underlying record, sink, and filter infrastructure remains the stable public interface.
+
+### Audit interface (architectural direction)
+
+DocWire’s longer-term design includes a dependency-injected `Audit` interface that receives raw C++ values without premature string serialization. This interface is planned to provide zero-cost, compile-time-optional audit output for semantic events, while keeping the current structured logging framework suitable for general developer logs. The existing persistent audit tag is an early step in that direction.
 
 <a name="api-documentation"></a>
 ## API Documentation
@@ -799,45 +929,80 @@ Explore the documentation, experiment with the library, and feel free to reach o
 <a name="error-handling"></a>
 ## Error handling: robust and secure
 
-The DocWire SDK provides a comprehensive error handling framework designed to handle errors in a clear and specific way. This framework offers several key features that facilitate error diagnosis and handling.
+DocWire SDK provides a comprehensive error handling framework with typed context, embedded source location, and secure messages. The SDK is being extended with an injectable error-policy abstraction that will allow compile-time selection between deterministic return-value errors and exception-based propagation. Today, the SDK ships a mature exception-based framework with chainable context, categorized errors, and fine-grained diagnostic control.
 
-### Chained exceptions
+### Current exception-based error handling
+
+#### Chained exceptions
 
 The framework supports building an exception chain, allowing the creation of a longer error context across different layers of the backtrace. This enables tracking of the sequence of events leading up to an error, making it easier to identify the root cause.
 
-In addition to std::nested_exception and std::exception_ptr and std::throw_with_nested, the framework also includes the [errors::make_nested](https://docwire.readthedocs.io/en/latest/namespacedocwire_1_1errors.html#afde521434d8ac75136d13bc9d42c17a2) and [errors::make_nested_ptr](https://docwire.readthedocs.io/en/latest/namespacedocwire_1_1errors.html#a7380b5b4f036f549a9c284261d9f31ac) function templates and [errors::nested](https://docwire.readthedocs.io/en/latest/classdocwire_1_1errors_1_1nested.html) class template for easy error chaining like: `docwire::errors::make_nested_ptr(error_object_1, error_object_2)`.
+In addition to `std::nested_exception`, `std::exception_ptr`, and `std::throw_with_nested`, the framework includes the [errors::make_nested](https://docwire.readthedocs.io/en/latest/namespacedocwire_1_1errors.html#afde521434d8ac75136d13bc9d42c17a2) and [errors::make_nested_ptr](https://docwire.readthedocs.io/en/latest/namespacedocwire_1_1errors.html#a7380b5b4f036f549a9c284261d9f31ac) function templates and the [errors::nested](https://docwire.readthedocs.io/en/latest/classdocwire_1_1errors_1_1nested.html) class template for easy error chaining like:  
+`docwire::errors::make_nested_ptr(error_object_1, error_object_2)`.
 
-### Type-safe context values
+#### Type-safe context values
 
 Context values are type-safe, meaning any type, including custom types, can be used in the context value. The context is built from original C++ types, and context objects can be accessed during the error handling process.
 
-[errors::impl](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1impl.html) structure template provides an implementation of the context value mechanism, including support for custom types. It is recommended to use the `make_error` macro for construction: `throw make_error(custom_type_value);`.
+The [errors::impl](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1impl.html) structure template provides an implementation of the context value mechanism, including support for custom types. It is recommended to use the `make_error` macro for construction:  
+`throw make_error(custom_type_value);`.
 
-[errors::base](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1base.html) structure provides a base class for all error types for easy error handling: `catch (const docwire::errors::base& e) { ... }`.
+The [errors::base](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1base.html) structure provides a base class for all error types for easy error handling:  
+`catch (const docwire::errors::base& e) { ... }`.
 
-### Embedded context variable names and triggering expressions
+#### Embedded context variable names and triggering expressions
 
-Error contexts include stringified context variable names and triggering C++ expressions, providing valuable information for diagnosing and handling errors via make_error and throw_if macros.
+Error contexts include stringified context variable names and triggering C++ expressions, providing valuable information for diagnosing and handling errors via `make_error` and `throw_if` macros.
 
-For example: `throw_if(x < 0 || y < 0, x, y)` gives, on failure, an exception chain with `std::make_pair("triggering_expression", "x < 0 || y < 0")`, `std::make_pair("x", x)` and `std::make_pair("y", y)`.
+For example:  
+`throw_if(x < 0 || y < 0, x, y)` gives, on failure, an exception chain with `std::make_pair("triggering_expression", "x < 0 || y < 0")`, `std::make_pair("x", x)`, and `std::make_pair("y", y)`.
 
-### Categorized and tagged errors
+#### Categorized and tagged errors
 
-Errors can be tagged with a custom type or multiple types like [errors::network_failure](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1network__failure.html) or [errors::file_encrypted](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1file__encrypted.html), providing fine-grained control over error handling. Decisions, such as retrying an operation or asking for password, can be made based on the presence of a specific tag type in error chain: `catch (const docwire::errors::base& e) if (docwire::errors::contains_type<docwire::errors::network_failure>(e)) { retry(); }`.
+Errors can be tagged with a custom type or multiple types like [errors::network_failure](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1network__failure.html) or [errors::file_encrypted](https://docwire.readthedocs.io/en/latest/structdocwire_1_1errors_1_1file__encrypted.html), providing fine-grained control over error handling. Decisions, such as retrying an operation or asking for a password, can be made based on the presence of a specific tag type in the error chain:
 
-### Embedded source location
+```cpp
+catch (const docwire::errors::base& e)
+{
+  if (docwire::errors::contains_type<docwire::errors::network_failure>(e))
+    retry();
+}
+```
+[Full example](https://docwire.readthedocs.io/en/latest/handling_errors_and_warnings_8cpp-example.html)
 
-Error objects include embedded source location information, providing essential context for debugging: `catch (const docwire::errors::base& e) { std::cerr << e.source_location.file_name() << ":" << e.source_location.line() << std::endl; }`.
+#### Embedded source location
 
-### Secure error messages
+Error objects include embedded source location information, providing essential context for debugging:
 
-To reduce the risk of security breaches, the framework avoids including sensitive information in formatted error messages. There is no implicit stringification of context values, and the standard what() method is secured to return only the exception type name. Sensitive information can be retrieved from the error object on-demand only: `std::cerr << e.content_type() << ": " << e.context_string()` or `if (docwire::errors::contains_type<std::filesystem::path>(e)) { auto fn = dynamic_cast<docwire::errors::impl<std::file_system::path>>(e).context; }`.
+```cpp
+catch (const docwire::errors::base& e)
+{
+  std::cerr << e.location.file_name() << ":" << e.location.line() << std::endl;
+}
+```
+[Full example](https://docwire.readthedocs.io/en/latest/handling_errors_and_warnings_8cpp-example.html)
 
-### Easy context data retrieval
+#### Secure error messages
+
+To reduce the risk of security breaches, the framework avoids including sensitive information in formatted error messages. There is no implicit stringification of context values, and the standard `what()` method is secured to return only the exception type name. Sensitive information can be retrieved from the error object on-demand only:
+
+```cpp
+std::cerr << docwire::errors::diagnostic_message(e) << std::endl;
+// or
+if (auto* impl_ptr = dynamic_cast<docwire::errors::impl<std::filesystem::path>*>(&e))
+{
+  auto fn = impl_ptr->context;
+  (void)fn; // avoid unused variable warning
+}
+```
+[Full example](https://docwire.readthedocs.io/en/latest/handling_errors_and_warnings_8cpp-example.html)
+
+#### Easy context data retrieval
 
 Functions like [errors::diagnostic_message](https://docwire.readthedocs.io/en/latest/namespacedocwire_1_1errors.html#a2446f6c81b6a5b338dea00cb29c40263) and [errors::contains_type](https://docwire.readthedocs.io/en/latest/namespacedocwire_1_1errors.html#aa2af5b81a3e66772f19506d8e8a93184) allow access to context data in a controlled manner, facilitating effective error handling.
 
-For example `std::cerr << docwire::errors::diagnostic_message(e) << std::endl;` can give the following results:
+For example, `std::cerr << docwire::errors::diagnostic_message(e) << std::endl;` can give the following result:
+
 ```
 Error: "triggering_condition: impl().ArchiveFile == NULL"
 in void docwire::zip_reader::open()
@@ -849,17 +1014,31 @@ with context "file encrypted error tag"
 with context "Microsoft Office Document Cryptography"
 ```
 
-### Non-fatal errors and warnings
+#### Non-fatal errors and warnings
 
-Errors that are not fatal are represented with the same chained error objects, but instead of using C++ throw/catch mechanism, they are pushed to the parsing chain or returned via callbacks like other results.
+Errors that are not fatal are represented with the same chained error objects, but instead of using C++ `throw`/`catch`, they are pushed to the parsing chain or returned via callbacks like other results.
 
-This assumption gives them similar security and debugging capabilities to fatal errors and allows easy conversion between fatal and non-fatal errors on different backtrace levels (it usually cannot be decided in a point of failure) without breaking of the error chain.
+This gives them similar security and debugging capabilities to fatal errors and allows easy conversion between fatal and non-fatal errors on different backtrace levels (it usually cannot be decided at the point of failure) without breaking the error chain.
 
-[You can find example of handling non-fatal errors here](https://docwire.readthedocs.io/en/latest/handling_errors_and_warnings_8cpp-example.html)
+[You can find an example of handling non-fatal errors here](https://docwire.readthedocs.io/en/latest/handling_errors_and_warnings_8cpp-example.html)
+
+### Policy-based error handling (in progress)
+
+DocWire is evolving its error handling from a single exception-based model to an **injectable error-policy abstraction**. This will allow the same parsing/processing algorithm to be compiled with different error propagation strategies:
+
+- **Deterministic mode (`docwire::expected`)** – fallible operations return a value or a coarse-grained error category. Control flow is explicit and predictable, with no stack unwinding. This mode is suitable for real-time, embedded, and safety-critical workloads.
+
+- **Exception mode** – fallible operations throw typed exceptions when an error occurs. Happy-path code avoids explicit checks, giving zero-cost success paths and familiar C++ exception ergonomics.
+
+- **Custom policies** – host applications can provide their own error propagation policy, such as an error policy that logs to `Audit` and returns an exceptional value, or one that uses a platform-specific error handling strategy.
+
+The error-policy parameter is planned to work naturally with existing allocator and audit-policy templates, so all orthogonal execution policies are chosen consistently by the pipeline.
+
+Core algorithms are being refactored to support both modes without duplicating business logic. Until that migration is complete, the current exception-based framework remains the supported default.
 
 ### Modern C++ features used
 
-The framework is designed to take advantage of modern C++ features, such as std::nested_exception and std::exception_ptr, to build an exception chain instead of adding multiple values to a single exception object. This approach ensures alignment with the latest C++ standards and best practices. Although the design shares similarities with Boost Exception, the DocWire SDK's error handling framework is more closely aligned with modern C++ standards.
+The current framework is designed to take advantage of modern C++ features, such as `std::nested_exception` and `std::exception_ptr`, to build an exception chain instead of adding multiple values to a single exception object. This approach ensures alignment with the latest C++ standards and best practices. Although the design shares similarities with Boost Exception, the DocWire SDK error handling framework is more closely aligned with modern C++ standards.
 
 <a name="console-application"></a>
 ## Console Application (CLI)
@@ -886,8 +1065,8 @@ docwire [options] file_name
 Process data securely using offline AI models with the following options:
 
 - **&ndash;&ndash;local-ai-prompt <prompt>**: prompt to process text via local AI model
-- **&ndash;&ndash;local-ai-embed <prefix>**: generate embedding of text via local AI model. Optional argument is a prefix (e.g. "passage: " or "query: ")
-- **&ndash;&ndash;local-ai-model <path>**: path to local AI model data (build-in default model is used if not specified)
+- **&ndash;&ndash;local-ai-embed [passage|query|none]**: generate an embedding of text via a local AI model. `passage` selects passage/document embeddings and `query` selects query embeddings. `none` is accepted and currently uses the same local embedding path as `passage`. If the option is provided without a value, `none` is used, which currently maps to the passage embedder.
+- **&ndash;&ndash;local-ai-model <path>**: path to local AI model data (built-in default model is used if not specified)
 
 ### OpenAI Integration
 
@@ -899,7 +1078,7 @@ Unlock the power of OpenAI with the following options:
 - **&ndash;&ndash;openai-summarize**: Summarize text and images via OpenAI.
 - **&ndash;&ndash;openai-detect-sentiment**: Detect sentiment of text and images via OpenAI.
 - **&ndash;&ndash;openai-analyze-data**: Analyze text and images for important insights and generate conclusions via OpenAI.
-- **&ndash;&ndash;openai-classify <category>**: Classify text and images via OpenAI to one of the specified categories.
+- **&ndash;&ndash;openai-classify <category> [<category> ...]**: Classify text and images via OpenAI to one of the specified categories. Multiple categories can be provided.
 - **&ndash;&ndash;openai-translate-to <language>**: Language to translate text and images to via OpenAI.
 - **&ndash;&ndash;openai-find <what>**: Find specified phrase, object or event in text and images via OpenAI.
 - **&ndash;&ndash;openai-text-to-speech**: Convert text to speech via OpenAI
@@ -917,17 +1096,28 @@ Unlock the power of OpenAI with the following options:
 ### Additional Options
 
 - **&ndash;&ndash;language <lang> (default: eng)**: Set the document language(s) for OCR as ISO 639-3 identifiers like: spa, fra, deu, rus, chi_sim, chi_tra etc. More than 100 languages are supported. Multiple languages can be enabled.
-- **&ndash;&ndash;ocr-confidence-threshold <value> (default: 75)**: Set the OCR confidence threshold (0-100). Words with confidence below this will be excluded.
-- **&ndash;&ndash;use-stream <yes|no> (default: 0)**: Pass the file stream to the SDK instead of the filename.
-- **&ndash;&ndash;min_creation_time <timestamp>**: Filter emails by minimum creation time (currently applicable only to emails in PST/OST files).
-- **&ndash;&ndash;max_creation_time <timestamp>**: Filter emails by maximum creation time (currently applicable only to emails in PST/OST files).
+
+- **&ndash;&ndash;ocr-confidence-threshold <value>**: Set the OCR confidence threshold (0-100). Words with confidence below this will be excluded. The CLI passes this value to the OCR parser when provided; if omitted, the parser’s own default behavior applies.
+
+- **&ndash;&ndash;local-processing <yes|no> (default: yes)**: Process documents locally, including local OCR. When set to `no`, local parsers are skipped; this is useful when combining DocWire with OpenAI processing for image/PDF data.
+
+- **&ndash;&ndash;use-stream <yes|no> (default: no)**: Pass the file stream to the SDK instead of the filename.
+
+- **&ndash;&ndash;http-post <url>**: Send processed data to an HTTP endpoint via HTTP POST.
+
+- **&ndash;&ndash;min_creation_time <timestamp>**: Filter emails by minimum creation time. Currently applies only to emails in PST/OST files.
+
+- **&ndash;&ndash;max_creation_time <timestamp>**: Filter emails by maximum creation time. Currently applies only to emails in PST/OST files.
+
 - **&ndash;&ndash;max_nodes_number <number>**: Filter by the maximum number of nodes.
+
 - **&ndash;&ndash;folder_name <name>**: Filter emails by folder name.
+
 - **&ndash;&ndash;attachment_extension <type>**: Filter by attachment type.
-- **&ndash;&ndash;table-style <style> (default: table_look, deprecated)**: Set the table style. Available styles include table_look, one_row, and one_col.
-- **&ndash;&ndash;url-style <style> (default: extended, deprecated)**: Set the URL style. Available styles include text_only, extended, and underscored.
-- **&ndash;&ndash;list-style-prefix <prefix> (default: " * ", deprecated)**: Set the output list prefix.
+
 - **&ndash;&ndash;log_file <file_path>**: Set the path to the log file.
+
+- **&ndash;&ndash;log-filter <filter>**: Set a custom log filter. Filters are comma-separated and can include tags such as `audit`, function names such as `@func:my_func`, and file names such as `@file:*_parser.cpp`. Prepend `-` to exclude entries.
 
 Note: The "min_creation_time" and "max_creation_time" options currently work only for emails within PST/OST files.
 
@@ -950,7 +1140,7 @@ docwire --local-ai-prompt "What is the conclusion of the following document?" da
 ### Secure offline AI embedding generation
 
 ```bash
-docwire --local-ai-embed "passage: " data_processing_definition.doc
+docwire --local-ai-embed passage data_processing_definition.doc
 ```
 
 #### Leveraging OpenAI for Intelligent Document Analysis

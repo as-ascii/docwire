@@ -20,7 +20,7 @@ set(DOXYGEN_GENERATE_HTML YES)
 
 set(DOXYGEN_PROJECT_NAME "DocWire SDK")
 set(DOXYGEN_PROJECT_NUMBER ${DOCWIRE_VERSION})
-set(DOXYGEN_PROJECT_BRIEF "DocWire SDK: Award-winning modern data processing in C++20. SourceForge Community Choice & Microsoft support. AI-driven processing. Supports nearly 100 data formats, including email boxes and OCR. Boost efficiency in text extraction, web data extraction, data mining, document analysis. Offline processing possible for security and confidentiality")
+set(DOXYGEN_PROJECT_BRIEF "DocWire SDK: Deterministic, auditable, and secure data processing in C++20. On-premise by default. No compromises on computational speed.")
 set(DOXYGEN_STRIP_FROM_PATH ../src/)
 set(DOXYGEN_GENERATE_LATEX NO) # Added for consistency. It is set to NO by default by the CMake module.
 set(DOXYGEN_EXAMPLE_PATH ../tests/)
@@ -30,6 +30,22 @@ set(DOXYGEN_REFERENCES_LINK_SOURCE YES)
 set(DOXYGEN_IMAGE_PATH images)
 set(DOXYGEN_GENERATE_TREEVIEW YES)
 set(DOXYGEN_USE_MDFILE_AS_MAINPAGE ${CMAKE_CURRENT_BINARY_DIR}/readme.md)
+
+# -----------------------------------------------------
+# Create Doxygen pages for Manifesto and Coding Guidelines
+# -----------------------------------------------------
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/manifesto.md
+     DOXYGEN_MANIFESTO_MD)
+string(PREPEND DOXYGEN_MANIFESTO_MD "\\page manifesto Manifesto\n\n")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/manifesto.md
+     "${DOXYGEN_MANIFESTO_MD}")
+
+file(READ ${CMAKE_CURRENT_SOURCE_DIR}/coding_guidelines.md
+     DOXYGEN_CODING_GUIDELINES_MD)
+string(PREPEND DOXYGEN_CODING_GUIDELINES_MD
+       "\\page coding_guidelines Coding Guidelines\n\n")
+file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/coding_guidelines.md
+     "${DOXYGEN_CODING_GUIDELINES_MD}")
 
 # -----------------------------------------------------
 # Generate 'doxygen' target
@@ -46,6 +62,8 @@ file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/readme.md ${readme_contents})
 doxygen_add_docs(
     doxygen
     ${CMAKE_CURRENT_BINARY_DIR}/readme.md
+    ${CMAKE_CURRENT_BINARY_DIR}/manifesto.md
+    ${CMAKE_CURRENT_BINARY_DIR}/coding_guidelines.md
     ${HEADERS}
     ${CMAKE_CURRENT_BINARY_DIR}/3rdparty_components.md
     COMMENT "Generate html documentation of DocWire SDK"
