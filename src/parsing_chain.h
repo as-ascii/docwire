@@ -28,100 +28,63 @@ namespace pipeline
 struct start_processing {};
 } // namespace pipeline
 
-class parsing_chain : public chain_element
+template <typename L, typename R>
+class parsing_chain : public chain_element<parsing_chain<L, R>>
 {
   public:
-    parsing_chain(ref_or_owned<chain_element> lhs_element, ref_or_owned<chain_element> rhs_element);
+    static constexpr bool is_generator = L::is_generator;
+    static constexpr bool is_leaf = R::is_leaf;
+    static constexpr bool is_complete = is_generator && is_leaf;
+
+    parsing_chain(ref_or_owned<L> lhs_element, ref_or_owned<R> rhs_element)
+      : m_lhs_element{std::move(lhs_element)}, m_rhs_element{std::move(rhs_element)}
+    {}
+
     parsing_chain(parsing_chain&& chain) = default;
     parsing_chain& operator=(parsing_chain&& chain) = default;
 
-    void operator()(message_ptr msg);
-
-    bool is_leaf() const override;
-    bool is_generator() const override;
-
-    bool is_complete() const;
-
-  protected:
-    virtual continuation operator()(message_ptr msg, const message_callbacks& emit_message) override;
-
-  private:
-    ref_or_owned<chain_element> m_lhs_element;
-    ref_or_owned<chain_element> m_rhs_element;
-};
-
-inline parsing_chain::parsing_chain(ref_or_owned<chain_element> lhs_element, ref_or_owned<chain_element> rhs_element)
-  : m_lhs_element{std::move(lhs_element)}, m_rhs_element{std::move(rhs_element)}
-{}
-
-inline void parsing_chain::operator()(message_ptr msg)
-{
-  DOCWIRE_LOG_SCOPE(msg);
-  operator()(std::move(msg),
-  {
-    [](message_ptr msg)
+    void operator()(message_ptr msg)
     {
       DOCWIRE_LOG_SCOPE(msg);
-      return continuation::proceed;
-    },
-    [this](message_ptr msg)
-    {
-      DOCWIRE_LOG_SCOPE(msg);
-      operator()(std::move(msg));
-      return continuation::proceed;
+      operator()(std::move(msg),
+      {
+        [](message_ptr msg)
+        {
+          DOCWIRE_LOG_SCOPE(msg);
+          return continuation::proceed;
+        },
+        [this](message_ptr msg)
+        {
+          DOCWIRE_LOG_SCOPE(msg);
+          operator()(std::move(msg));
+          return continuation::proceed;
+        }
+      });
     }
-  });
-}
 
-inline continuation parsing_chain::operator()(message_ptr msg, const message_callbacks& emit_message)
-{
-  DOCWIRE_LOG_SCOPE(msg);
-  auto lhs_callback = [this, &rhs_callbacks = emit_message](message_ptr msg)
-  {
-    DOCWIRE_LOG_SCOPE(msg);
-    return m_rhs_element.get()(std::move(msg), rhs_callbacks);
-  };
-  return m_lhs_element.get()(std::move(msg),
+    continuation operator()(message_ptr msg, const message_callbacks& emit_message)
     {
-      lhs_callback,
-      [emit_message](message_ptr msg)
+      DOCWIRE_LOG_SCOPE(msg);
+      auto lhs_callback = [this, &rhs_callbacks = emit_message](message_ptr msg)
       {
         DOCWIRE_LOG_SCOPE(msg);
-        return emit_message.back(std::move(msg));
-      }
-    });
-}
+        return m_rhs_element.get()(std::move(msg), rhs_callbacks);
+      };
+      return m_lhs_element.get()(std::move(msg),
+        {
+          lhs_callback,
+          [emit_message](message_ptr msg)
+          {
+            DOCWIRE_LOG_SCOPE(msg);
+            return emit_message.back(std::move(msg));
+          }
+        });
+    }
 
-inline bool parsing_chain::is_leaf() const
-{
-  return m_rhs_element.get().is_leaf();
-}
-
-inline bool parsing_chain::is_generator() const
-{
-  return m_lhs_element.get().is_generator();
-}
-
-inline bool parsing_chain::is_complete() const
-{
-  return is_generator() && is_leaf();
-}
-
-inline parsing_chain operator|(ref_or_owned<chain_element> lhs, ref_or_owned<chain_element> rhs)
-{
-  parsing_chain chain{std::move(lhs), std::move(rhs)};
-  if (chain.is_complete())
-  {
-    chain(std::make_shared<message<pipeline::start_processing>>(pipeline::start_processing{}));
-  }
-  return chain;
-}
-
-inline parsing_chain& operator|=(parsing_chain& lhs, ref_or_owned<chain_element> rhs)
-{
-  lhs = std::move(lhs) | rhs;
-  return lhs;
-}
+  private:
+    ref_or_owned<L> m_lhs_element;
+    ref_or_owned<R> m_rhs_element;
+};
 
 } // namespace docwire
 

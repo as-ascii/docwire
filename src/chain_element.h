@@ -14,30 +14,68 @@
 
 #include "core_export.h"
 #include "message.h"
-#include "pimpl.h"
+#include "ref_or_owned.h"
+
+#include <concepts>
+#include <memory>
+#include <type_traits>
+#include <utility>
 
 namespace docwire
 {
 
+namespace pipeline
+{
+struct start_processing;
+} // namespace pipeline
+
+template <typename L, typename R>
 class parsing_chain;
 
+template <typename Derived>
 class chain_element
 {
 public:
-  chain_element() = default;
-  chain_element(chain_element&&) = default;
-  virtual ~chain_element() = default;
-  chain_element& operator=(chain_element&&) = default;
+    static constexpr bool is_generator = false;
+    static constexpr bool is_leaf = false;
 
-  virtual continuation operator()(message_ptr msg, const message_callbacks& emit_message) = 0;
+    chain_element() = default;
+    chain_element(chain_element&&) = default;
+    chain_element& operator=(chain_element&&) = default;
+    ~chain_element() = default;
 
-  /**
-   * @brief Check if chain element is a leaf (last element which doesn't produce any messages). At this moment only exporters are leafs.
-   * @return true if leaf
-   */
-  virtual bool is_leaf() const = 0;
+    Derived& derived() noexcept
+    {
+        return static_cast<Derived&>(*this);
+    }
 
-  virtual bool is_generator() const { return false; }
+    const Derived& derived() const noexcept
+    {
+        return static_cast<const Derived&>(*this);
+    }
+
+    template <typename Self, typename Other>
+        requires std::same_as<std::remove_cvref_t<Self>, Derived>
+              && std::derived_from<std::remove_cvref_t<Other>,
+                                  chain_element<std::remove_cvref_t<Other>>>
+    friend auto operator|(Self&& lhs, Other&& rhs)
+    {
+        using L = std::remove_cvref_t<Self>;
+        using R = std::remove_cvref_t<Other>;
+
+        parsing_chain<L, R> chain{
+            ref_or_owned<L>{std::forward<Self>(lhs)},
+            ref_or_owned<R>{std::forward<Other>(rhs)}
+        };
+
+        if constexpr (parsing_chain<L, R>::is_complete)
+        {
+            chain(std::make_shared<message<pipeline::start_processing>>(
+                pipeline::start_processing{}));
+        }
+
+        return chain;
+    }
 };
 
 }

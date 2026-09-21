@@ -22,7 +22,7 @@ namespace docwire
 namespace openai
 {
 
-class DOCWIRE_OPENAI_EXPORT embed : public chain_element, public with_pimpl<embed>
+class DOCWIRE_OPENAI_EXPORT embed : public chain_element<embed>, public with_pimpl<embed>
 {
 public:
 	enum class model
@@ -43,12 +43,7 @@ public:
 	* @param tag
 	* @param callback
 	*/
-	continuation operator()(message_ptr msg, const message_callbacks& emit_message) override;
-
-	bool is_leaf() const override
-	{
-		return false;
-	}
+	continuation operator()(message_ptr msg, const message_callbacks& emit_message);
 
 private:
 	using with_pimpl<embed>::impl;

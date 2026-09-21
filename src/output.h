@@ -83,24 +83,18 @@ inline continuation output_chain_element::operator()(message_ptr msg, const mess
   return continuation::proceed;
 }
 
-inline parsing_chain operator|(ref_or_owned<chain_element> element, ref_or_owned<std::ostream> stream)
+template <typename ChainElement>
+    requires std::derived_from<std::remove_cvref_t<ChainElement>, chain_element<std::remove_cvref_t<ChainElement>>>
+auto operator|(ChainElement&& element, ref_or_owned<std::ostream> stream)
 {
-  return element | output_chain_element(stream);
+  return std::forward<ChainElement>(element) | output_chain_element(stream);
 }
 
-inline parsing_chain& operator|=(parsing_chain& chain, ref_or_owned<std::ostream> stream)
+template <typename ChainElement>
+    requires std::derived_from<std::remove_cvref_t<ChainElement>, chain_element<std::remove_cvref_t<ChainElement>>>
+auto operator|(ChainElement&& element, ref_or_owned<std::vector<message_ptr>> vector)
 {
-  return chain |= output_chain_element(stream);
-}
-
-inline parsing_chain operator|(ref_or_owned<chain_element> element, ref_or_owned<std::vector<message_ptr>> vector)
-{
-  return element | output_chain_element(vector);
-}
-
-inline parsing_chain& operator|=(parsing_chain& chain, ref_or_owned<std::vector<message_ptr>> vector)
-{
-  return chain |= output_chain_element(vector);
+  return std::forward<ChainElement>(element) | output_chain_element(vector);
 }
 
 } // namespace docwire

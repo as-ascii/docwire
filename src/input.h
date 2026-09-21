@@ -12,7 +12,9 @@
 #ifndef DOCWIRE_INPUT_H
 #define DOCWIRE_INPUT_H
 
+#include <concepts>
 #include <iostream>
+#include <type_traits>
 #include "chain_element.h"
 #include "data_source.h"
 #include "serialization_data_source.h" // IWYU pragma: keep
@@ -29,16 +31,16 @@ concept IStreamDerived = std::derived_from<T, std::istream>;
 template<typename T>
 concept istream_derived_ref_qualified = IStreamDerived<std::remove_reference_t<T>>;
 
-class input_chain_element : public chain_element
+class input_chain_element : public chain_element<input_chain_element>
 {
 public:
+  static constexpr bool is_generator = true;
+
   explicit input_chain_element(ref_or_owned<data_source> data)
     : m_data{data}
   {}
 
-  virtual continuation operator()(message_ptr msg, const message_callbacks& emit_message) override;
-  bool is_leaf() const override { return false; }
-  bool is_generator() const override { return true; }
+  continuation operator()(message_ptr msg, const message_callbacks& emit_message);
 
 private:
   ref_or_owned<data_source> m_data;
@@ -55,20 +57,25 @@ inline continuation input_chain_element::operator()(message_ptr msg, const messa
   return emit_message(std::move(msg));
 }
 
-inline parsing_chain operator|(ref_or_owned<data_source> data, ref_or_owned<chain_element> chain_element)
+template <typename ChainElement>
+    requires std::derived_from<std::remove_cvref_t<ChainElement>, chain_element<std::remove_cvref_t<ChainElement>>>
+auto operator|(ref_or_owned<data_source> data, ChainElement&& chain_element)
 {
-  return input_chain_element{data} | chain_element;
+  return input_chain_element{data} | std::forward<ChainElement>(chain_element);
 }
 
-inline parsing_chain operator|(ref_or_owned<std::istream> stream, ref_or_owned<chain_element> chain_element)
+template <typename ChainElement>
+    requires std::derived_from<std::remove_cvref_t<ChainElement>, chain_element<std::remove_cvref_t<ChainElement>>>
+auto operator|(ref_or_owned<std::istream> stream, ChainElement&& chain_element)
 {
-  return input_chain_element{data_source{seekable_stream_ptr{stream.to_shared_ptr()}}} | chain_element.to_shared_ptr();
+  return input_chain_element{data_source{seekable_stream_ptr{stream.to_shared_ptr()}}} | std::forward<ChainElement>(chain_element);
 }
 
-template<data_source_compatible_type_ref_qualified T>
-parsing_chain operator|(T&& v, ref_or_owned<chain_element> chain_element)
+template<data_source_compatible_type_ref_qualified T, typename ChainElement>
+    requires std::derived_from<std::remove_cvref_t<ChainElement>, chain_element<std::remove_cvref_t<ChainElement>>>
+auto operator|(T&& v, ChainElement&& chain_element)
 {
-  return data_source{std::forward<T>(v)} | chain_element;
+  return input_chain_element{data_source{std::forward<T>(v)}} | std::forward<ChainElement>(chain_element);
 }
 
 }

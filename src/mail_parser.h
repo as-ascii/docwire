@@ -19,12 +19,16 @@
 namespace docwire
 {
 
-class mail_parser : public parsing_chain
+class mail_parser : public chain_element<mail_parser>
 {
     public:
-        mail_parser()
-            : parsing_chain{eml_parser{} | pst_parser{}}
-        {}
+        continuation operator()(message_ptr msg, const message_callbacks& emit_message)
+        {
+            return m_chain(msg, emit_message);
+        }
+
+    private:
+        parsing_chain<eml_parser, pst_parser> m_chain{eml_parser{}, pst_parser{}};
 };
 
 } // namespace docwire

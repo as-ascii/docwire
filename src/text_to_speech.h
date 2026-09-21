@@ -22,7 +22,7 @@ namespace docwire
 namespace openai
 {
 
-class DOCWIRE_OPENAI_EXPORT text_to_speech : public chain_element, public with_pimpl<text_to_speech>
+class DOCWIRE_OPENAI_EXPORT text_to_speech : public chain_element<text_to_speech>, public with_pimpl<text_to_speech>
 {
 public:
 	enum class model
@@ -43,12 +43,7 @@ public:
 	* @param msg
 	* @param emit_message
 	**/
-	continuation operator()(message_ptr msg, const message_callbacks& emit_message) override;
-
-	bool is_leaf() const override
-	{
-		return false;
-	}
+	continuation operator()(message_ptr msg, const message_callbacks& emit_message);
 
 private:
 	using with_pimpl<text_to_speech>::impl;
