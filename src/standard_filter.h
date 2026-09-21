@@ -35,7 +35,7 @@ public:
     : m_names{std::move(names)}
   {}
 
-  continuation operator()(message_ptr msg, const message_callbacks& emit_message)
+  continuation operator()(message_ptr msg, const message_callbacks& emit_message) const
   {
     if (!msg->is<mail::folder>())
       return emit_message(std::move(msg));
@@ -64,7 +64,7 @@ public:
     : m_types{std::move(types)}
   {}
 
-  continuation operator()(message_ptr msg, const message_callbacks& emit_message)
+  continuation operator()(message_ptr msg, const message_callbacks& emit_message) const
   {
     if (!msg->is<mail::attachment>())
       return emit_message(std::move(msg));
@@ -93,7 +93,7 @@ public:
     : m_min_time{min_time}
   {}
 
-  continuation operator()(message_ptr msg, const message_callbacks& emit_message)
+  continuation operator()(message_ptr msg, const message_callbacks& emit_message) const
   {
     if (!msg->is<mail::mail>())
       return emit_message(std::move(msg));
@@ -121,7 +121,7 @@ public:
     : m_max_time{max_time}
   {}
 
-  continuation operator()(message_ptr msg, const message_callbacks& emit_message)
+  continuation operator()(message_ptr msg, const message_callbacks& emit_message) const
   {
     if (!msg->is<mail::mail>())
       return emit_message(std::move(msg));
