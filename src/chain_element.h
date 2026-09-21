@@ -40,6 +40,8 @@ public:
     static constexpr bool is_leaf = false;
 
     chain_element() = default;
+    chain_element(const chain_element&) = default;
+    chain_element& operator=(const chain_element&) = default;
     chain_element(chain_element&&) = default;
     chain_element& operator=(chain_element&&) = default;
     ~chain_element() = default;
