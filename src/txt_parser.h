@@ -14,6 +14,7 @@
 
 #include "chain_element.h"
 #include "plain_text_export.h"
+#include "pimpl.h"
 
 namespace docwire
 {
