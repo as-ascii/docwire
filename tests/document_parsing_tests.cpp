@@ -231,14 +231,16 @@ INSTANTIATE_TEST_SUITE_P(
       return name;
     });
 
-class callback_test : public ::testing::TestWithParam<std::tuple<const char*, const char*, message_transform_func>>
+class callback_test : public ::testing::TestWithParam<
+    std::tuple<const char*, const char*, docwire::filter_by_mail_min_creation_time>>
 {
 };
 
 
 TEST_P(callback_test, ParseFromPathTest)
 {
-    const auto [name, out_name, callback] = GetParam();
+    const auto [name, out_name, callback_param] = GetParam();
+    auto callback = callback_param;
 
     // GIVEN
     std::string file_name{ name };

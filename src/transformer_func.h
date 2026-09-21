@@ -14,41 +14,53 @@
 
 #include "chain_element.h"
 #include "core_export.h"
-#include <functional>
+
+#include <concepts>
+#include <type_traits>
 #include <utility>
 
 namespace docwire
 {
 
-using message_transform_func = std::function<continuation(message_ptr, const message_callbacks& emit_message)>;
-
 /**
- * @brief Wraps single function (message_transform_func) into chain_element object
+ * @brief Wraps a callable into a static chain element.
+ *
+ * The callable type is preserved by value. No `std::function` is used.
  */
-class transformer_func : public chain_element<transformer_func>
+template <typename Func>
+class transformer_func : public chain_element<transformer_func<Func>>
 {
 public:
-  /**
-   * @param transformer_function callback function, which will be called in transform().
-   */
-  transformer_func(message_transform_func transformer_function)
-    : m_transformer_function{std::move(transformer_function)}
-  {}
+    transformer_func(Func func)
+        : m_func{std::move(func)}
+    {
+    }
 
-	/**
-	 * @brief Executes transform on the given message.
-	 * @see docwire::message_ptr
-	 * @param msg Incoming message.
-	 * @param emit_message Callback to emit downstream messages.
-	 */
-	continuation operator()(message_ptr msg, const message_callbacks& emit_message)
-	{
-		return m_transformer_function(std::move(msg), emit_message);
-	}
+    continuation operator()(message_ptr msg,
+                            const message_callbacks& emit_message)
+    {
+        return m_func(std::move(msg), emit_message);
+    }
 
 private:
-  message_transform_func m_transformer_function;
+    Func m_func;
 };
+
+template <typename Func>
+transformer_func(Func) -> transformer_func<Func>;
+
+template <typename Chain, typename Func>
+    requires chain_element_type<Chain>
+          && std::invocable<std::remove_cvref_t<Func>&,
+                            message_ptr,
+                            const message_callbacks&>
+auto operator|(Chain&& chain, Func&& func)
+{
+    using callable_type = std::remove_cvref_t<Func>;
+
+    return std::forward<Chain>(chain)
+         | transformer_func<callable_type>{std::forward<Func>(func)};
+}
 
 } // namespace docwire
 
