@@ -51,6 +51,7 @@ transformer_func(Func) -> transformer_func<Func>;
 
 template <typename Chain, typename Func>
     requires chain_element_type<Chain>
+          && (!chain_element_type<Func>)
           && std::invocable<std::remove_cvref_t<Func>&,
                             message_ptr,
                             const message_callbacks&>
