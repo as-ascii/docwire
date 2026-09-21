@@ -26,7 +26,7 @@ namespace docwire
 
 namespace pipeline
 {
-struct start_processing;
+struct start_processing {};
 } // namespace pipeline
 
 template <typename L, typename R>

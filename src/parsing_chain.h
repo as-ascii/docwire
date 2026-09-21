@@ -23,11 +23,6 @@
 namespace docwire
 {
 
-namespace pipeline
-{
-struct start_processing {};
-} // namespace pipeline
-
 template <typename L, typename R>
 class parsing_chain : public chain_element<parsing_chain<L, R>>
 {
