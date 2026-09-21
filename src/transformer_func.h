@@ -15,8 +15,6 @@
 #include "chain_element.h"
 #include "core_export.h"
 #include <functional>
-#include "parsing_chain.h"
-#include "ref_or_owned.h"
 #include <utility>
 
 namespace docwire
@@ -25,9 +23,9 @@ namespace docwire
 using message_transform_func = std::function<continuation(message_ptr, const message_callbacks& emit_message)>;
 
 /**
- * @brief Wraps single function (tag_transform_func) into chain_element object
+ * @brief Wraps single function (message_transform_func) into chain_element object
  */
-class transformer_func : public chain_element
+class transformer_func : public chain_element<transformer_func>
 {
 public:
   /**
@@ -43,39 +41,14 @@ public:
 	 * @param msg Incoming message.
 	 * @param emit_message Callback to emit downstream messages.
 	 */
-	continuation operator()(message_ptr msg, const message_callbacks& emit_message) override
+	continuation operator()(message_ptr msg, const message_callbacks& emit_message)
 	{
 		return m_transformer_function(std::move(msg), emit_message);
 	}
 
-  bool is_leaf() const override
-  {
-    return false;
-  }
-
 private:
   message_transform_func m_transformer_function;
 };
-
-template <typename T>
-requires (
-  std::is_convertible_v<T, message_transform_func> &&
-  !std::is_base_of_v<chain_element, std::remove_cvref_t<T>>
-)
-parsing_chain operator|(ref_or_owned<chain_element> element, T func)
-{
-  return element | transformer_func{func};
-}
-
-template <typename T>
-requires (
-  std::is_convertible_v<T, message_transform_func> &&
-  !std::is_base_of_v<chain_element, std::remove_cvref_t<T>>
-)
-parsing_chain& operator|=(parsing_chain& chain, T func)
-{
-  return chain |= transformer_func{func};
-}
 
 } // namespace docwire
 

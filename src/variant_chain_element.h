@@ -22,6 +22,22 @@ namespace docwire
 {
 
 /**
+ * @brief A chain element that does nothing and only forwards.
+ *
+ * Used as one alternative in `std::variant` pipelines to represent an absent
+ * optional step while keeping the pipeline type stable.
+ */
+class noop_transformer : public chain_element<noop_transformer>
+{
+public:
+    continuation operator()(message_ptr msg,
+                            const message_callbacks& emit_message)
+    {
+        return emit_message(std::move(msg));
+    }
+};
+
+/**
  * @brief A pipeline element wrapping a `std::variant` of alternative chain elements.
  *
  * `variant_chain_element` allows a single, statically typed pipeline to select

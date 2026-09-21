@@ -41,8 +41,6 @@ struct link_formatter
 class plain_text_exporter : public chain_element<plain_text_exporter>
 {
 public:
-	static constexpr bool is_leaf = true;
-
 	plain_text_exporter(eol_sequence eol = eol_sequence{"\n"},
 	                   link_formatter formatter = default_link_formatter,
 	                   output_width max_output_width = output_width{80})

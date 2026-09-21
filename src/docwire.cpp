@@ -24,6 +24,7 @@
 #endif
 #include "ai_elements.h"
 #include <boost/program_options.hpp>
+#include <functional>
 #include <memory>
 #include <fstream>
 #include "analyze_data.h"
@@ -60,7 +61,10 @@
 #include "version.h"
 #include "parsing_chain.h"
 #include "input.h"
+#include "transformer_func.h"
+#include "variant_chain_element.h"
 #include <set>
+#include <variant>
 
 using namespace docwire;
 
@@ -143,6 +147,41 @@ create_local_runner(const boost::program_options::variables_map& vm,
     #endif
 }
 #endif
+
+namespace
+{
+
+/**
+ * @brief Builds a variant of an optional pipeline step and an inert noop step.
+ *
+ * Returns a `std::variant` holding either the produced step (when `condition`
+ * is true) or a `noop_transformer` otherwise, keeping the pipeline type stable.
+ */
+template <typename Factory>
+auto maybe(bool condition, Factory&& factory)
+{
+    using T = std::decay_t<std::invoke_result_t<Factory>>;
+    using V = std::variant<noop_transformer, T>;
+
+    if (condition)
+        return V{std::invoke(std::forward<Factory>(factory))};
+
+    return V{noop_transformer{}};
+}
+
+/**
+ * @brief Feeds the given data source into a statically typed pipeline and
+ *        routes its final output to std::cout.
+ */
+template <typename Pipeline>
+void run_pipeline(data_source&& data, Pipeline&& pipeline)
+{
+    input_chain_element{std::move(data)}
+        | std::forward<Pipeline>(pipeline)
+        | output_chain_element{std::cout};
+}
+
+} // namespace
 
 int main(int argc, char* argv[])
 {
@@ -262,216 +301,122 @@ int main(int argc, char* argv[])
 	std::string file_name = vm["input-file"].as<std::string>();
 
 	log_entry(use_stream, file_name);
-	auto chain = use_stream ?
-		(std::ifstream{file_name, std::ios_base::binary} | content_type::detector{}) :
-		(std::filesystem::path{file_name} | content_type::detector{});
+
+	data_source data = [&]() -> data_source
+	{
+		if (use_stream)
+			return data_source{seekable_stream_ptr{
+				std::make_shared<std::ifstream>(file_name, std::ios_base::binary)}};
+		return data_source{std::filesystem::path{file_name}};
+	}();
 
 	if (vm.count("openai-transcribe"))
 	{
-		std::string api_key = vm["openai-key"].as<std::string>();
-		openai::transcribe::model model = vm["openai-transcribe-model"].as<openai::transcribe::model>();
-		chain |= openai::transcribe(api_key, model) | plain_text_exporter();
+		auto pipeline =
+			content_type::detector{}
+			| openai::transcribe(
+				vm["openai-key"].as<std::string>(),
+				vm["openai-transcribe-model"].as<openai::transcribe::model>())
+			| plain_text_exporter{};
+
+		try
+		{
+			run_pipeline(std::move(data), pipeline);
+		}
+		catch (const std::exception& e)
+		{
+			std::cerr << "[ERROR] " << errors::diagnostic_message(e)
+				<< "processing file " + file_name << std::endl;
+			return 2;
+		}
+		catch (...)
+		{
+			std::cerr << "[ERROR] Unknown error\nprocessing file " + file_name << std::endl;
+			return 2;
+		}
+		return 0;
 	}
-	else if (local_processing)
+
+	if (local_processing)
 	{
 		ocr_confidence_threshold threshold_arg{};
 		if (vm.count("ocr-confidence-threshold"))
-		{
 			threshold_arg.v = vm["ocr-confidence-threshold"].as<float>();
-		}
-		chain |=
-			archives_parser{} |
-			office_formats_parser{} | mail_parser{} | ocr_parser{vm["language"].as<std::vector<language>>(), threshold_arg};
-		if (vm.count("max_nodes_number"))
-		{
-			chain |= standard_filter::filterByMaxNodeNumber(vm["max_nodes_number"].as<unsigned int>());
-		}
-		if (vm.count("min_creation_time"))
-		{
-			chain |= standard_filter::filterByMailMinCreationTime(vm["min_creation_time"].as<unsigned int>());
-		}
-		if (vm.count("max_creation_time"))
-		{
-			chain |= standard_filter::filterByMailMaxCreationTime(vm["max_creation_time"].as<unsigned int>());
-		}
-		if (vm.count("folder_name"))
-		{
-			chain |= standard_filter::filterByFolderName({vm["folder_name"].as<std::string>()});
-		}
-		if (vm.count("attachment_extension"))
-		{
-			chain |= standard_filter::filterByAttachmentType({file_extension{vm["attachment_extension"].as<std::string>()}});
-		}
+
+		using exporter_variant =
+			std::variant<plain_text_exporter,
+			             html_exporter,
+			             csv_exporter,
+			             metadata_exporter>;
+
+		exporter_variant formatter = plain_text_exporter{};
 
 		switch (vm["output_type"].as<output_type>())
 		{
 			case output_type::plain_text:
-				chain |= plain_text_exporter();
+				formatter = plain_text_exporter{};
 				break;
 			case output_type::html:
-				chain |= html_exporter();
+				formatter = html_exporter{};
 				break;
 			case output_type::csv:
-				chain |= csv_exporter();
+				formatter = csv_exporter{};
 				break;
 			case output_type::metadata:
-				chain |= metadata_exporter();
+				formatter = metadata_exporter{};
 				break;
 		}
-	}
 
-	if (vm.count("http-post"))
-	{
-		chain |= http::post(vm["http-post"].as<std::string>());
-	}
+		auto pipeline =
+			content_type::detector{}
+			| archives_parser{}
+			| office_formats_parser{}
+			| mail_parser{}
+			| ocr_parser{
+				vm["language"].as<std::vector<language>>(),
+				threshold_arg}
+			| maybe(vm.count("max_nodes_number"), [&] {
+				  return standard_filter::filterByMaxNodeNumber(
+					  vm["max_nodes_number"].as<unsigned int>());
+			  })
+			| maybe(vm.count("min_creation_time"), [&] {
+				  return standard_filter::filterByMailMinCreationTime(
+					  vm["min_creation_time"].as<unsigned int>());
+			  })
+			| maybe(vm.count("max_creation_time"), [&] {
+				  return standard_filter::filterByMailMaxCreationTime(
+					  vm["max_creation_time"].as<unsigned int>());
+			  })
+			| maybe(vm.count("folder_name"), [&] {
+				  return standard_filter::filterByFolderName(
+					  {vm["folder_name"].as<std::string>()});
+			  })
+			| maybe(vm.count("attachment_extension"), [&] {
+				  return standard_filter::filterByAttachmentType(
+					  {file_extension{
+						  vm["attachment_extension"].as<std::string>()}});
+			  })
+			| formatter;
 
-	if (vm.count("openai-chat"))
-	{
-		std::string prompt = vm["openai-chat"].as<std::string>();
-		std::string api_key = vm["openai-key"].as<std::string>();
-		openai::model model = vm["openai-model"].as<openai::model>();
-		openai::image_detail image_detail = vm["openai-image-detail"].as<openai::image_detail>();
-		chain |=
-			openai::chat(prompt, api_key, model,
-				vm.count("openai-temperature") ? vm["openai-temperature"].as<float>() : 0,
-				image_detail);
-	}
-
-	if (vm.count("openai-extract-entities"))
-	{
-		std::string api_key = vm["openai-key"].as<std::string>();
-		openai::model model = vm["openai-model"].as<openai::model>();
-		openai::image_detail image_detail = vm["openai-image-detail"].as<openai::image_detail>();
-		chain |=
-			openai::extract_entities(api_key, model,
-				vm.count("openai-temperature") ? vm["openai-temperature"].as<float>() : 0,
-				image_detail);
-	}
-
-	if (vm.count("openai-extract-keywords"))
-	{
-		unsigned int max_keywords = vm["openai-extract-keywords"].as<unsigned int>();
-		std::string api_key = vm["openai-key"].as<std::string>();
-		openai::model model = vm["openai-model"].as<openai::model>();
-		openai::image_detail image_detail = vm["openai-image-detail"].as<openai::image_detail>();
-		chain |=
-			openai::extract_keywords(max_keywords, api_key, model,
-				vm.count("openai-temperature") ? vm["openai-temperature"].as<float>() : 0,
-				image_detail);
-	}
-
-	if (vm.count("openai-summarize"))
-	{
-		std::string api_key = vm["openai-key"].as<std::string>();
-		openai::model model = vm["openai-model"].as<openai::model>();
-		openai::image_detail image_detail = vm["openai-image-detail"].as<openai::image_detail>();
-		chain |=
-			openai::summarize(api_key, model,
-				vm.count("openai-temperature") ? vm["openai-temperature"].as<float>() : 0,
-				image_detail);
-	}
-
-	if (vm.count("openai-detect-sentiment"))
-	{
-		std::string api_key = vm["openai-key"].as<std::string>();
-		openai::model model = vm["openai-model"].as<openai::model>();
-		openai::image_detail image_detail = vm["openai-image-detail"].as<openai::image_detail>();
-		chain |=
-			openai::detect_sentiment(api_key, model,
-				vm.count("openai-temperature") ? vm["openai-temperature"].as<float>() : 0,
-				image_detail);
-	}
-
-	if (vm.count("openai-analyze-data"))
-	{
-		std::string api_key = vm["openai-key"].as<std::string>();
-		openai::model model = vm["openai-model"].as<openai::model>();
-		openai::image_detail image_detail = vm["openai-image-detail"].as<openai::image_detail>();
-		chain |=
-			openai::analyze_data(api_key, model,
-				vm.count("openai-temperature") ? vm["openai-temperature"].as<float>() : 0,
-				image_detail);
-	}
-
-	if (vm.count("openai-classify"))
-	{
-		const std::vector<std::string>& categories = vm["openai-classify"].as<std::vector<std::string>>();
-		std::set<std::string> categories_set(categories.begin(), categories.end());
-		std::string api_key = vm["openai-key"].as<std::string>();
-		openai::model model = vm["openai-model"].as<openai::model>();
-		openai::image_detail image_detail = vm["openai-image-detail"].as<openai::image_detail>();
-		chain |=
-			openai::classify(categories_set, api_key, model,
-				vm.count("openai-temperature") ? vm["openai-temperature"].as<float>() : 0,
-				image_detail);
-	}
-
-	if (vm.count("openai-translate-to"))
-	{
-		std::string target_language = vm["openai-translate-to"].as<std::string>();
-		std::string api_key = vm["openai-key"].as<std::string>();
-		openai::model model = vm["openai-model"].as<openai::model>();
-		openai::image_detail image_detail = vm["openai-image-detail"].as<openai::image_detail>();
-		chain |=
-			openai::translate_to(target_language, api_key, model,
-				vm.count("openai-temperature") ? vm["openai-temperature"].as<float>() : 0,
-				image_detail);
-	}
-	#ifdef DOCWIRE_CT2
-	if (vm.count("local-ai-prompt"))
-	{
 		try
 		{
-			std::string prompt = vm["local-ai-prompt"].as<std::string>();
-
-			auto runner = create_local_runner(vm, "flan-t5-large-ct2-int8");
-			chain |=
-				ai::local::task(prompt, runner);
+			run_pipeline(std::move(data), pipeline);
 		}
-		catch(const std::exception& e)
+		catch (const std::exception& e)
 		{
-			std::cerr << "Error: " << errors::diagnostic_message(e) << std::endl;
-			return 1;
+			std::cerr << "[ERROR] " << errors::diagnostic_message(e)
+				<< "processing file " + file_name << std::endl;
+			return 2;
 		}
+		catch (...)
+		{
+			std::cerr << "[ERROR] Unknown error\nprocessing file " + file_name << std::endl;
+			return 2;
+		}
+		return 0;
 	}
 
-	if (vm.count("local-ai-embed"))
-	{
-		try
-		{
-			embed_prefix_type prefix_type = vm["local-ai-embed"].as<embed_prefix_type>();
-			if (prefix_type == embed_prefix_type::query)
-			{
-				chain |= ai::local::query::embedder();
-			} else if (prefix_type == embed_prefix_type::passage) {
-          		chain |= ai::local::passage::embedder();
-	        } else {
-           		chain |= ai::local::passage::embedder();
-           	}
-			chain |= [](message_ptr msg, const message_callbacks& emit_message) -> continuation {
-				if (msg->is<ai::embedding>())
-				{
-					const auto& embedding_vec = msg->get<ai::embedding>().values;
-					std::string embedding_str = "[";
-					for (size_t i = 0; i < embedding_vec.size(); ++i)
-					{
-						embedding_str += std::to_string(embedding_vec[i]);
-						if (i < embedding_vec.size() - 1)
-							embedding_str += ", ";
-					}
-					embedding_str += "]";
-					return emit_message(data_source{embedding_str});
-				}
-				return emit_message(std::move(msg));
-			};
-		}
-		catch(const std::exception& e)
-		{
-			std::cerr << "Error: " << errors::diagnostic_message(e) << std::endl;
-			return 1;
-		}
-	}
-	#else
+#ifndef DOCWIRE_CT2
 	if (vm.count("local-ai-prompt") || vm.count("local-ai-embed"))
 	{
 		std::cerr << "Error: Local AI features requested, but this build does not include "
@@ -480,74 +425,148 @@ int main(int argc, char* argv[])
 		             "--local-ai-embed." << std::endl;
 		return 1;
 	}
-	#endif
+#endif
 
-	if (vm.count("openai-find"))
-	{
-		std::string what = vm["openai-find"].as<std::string>();
-		std::string api_key = vm["openai-key"].as<std::string>();
-		openai::model model = vm["openai-model"].as<openai::model>();
-		openai::image_detail image_detail = vm["openai-image-detail"].as<openai::image_detail>();
-		chain |=
-			openai::find(what, api_key, model,
-				vm.count("openai-temperature") ? vm["openai-temperature"].as<float>() : 0,
-				image_detail);
-	}
-
-	if (vm.count("openai-text-to-speech"))
-	{
-		std::string api_key = vm["openai-key"].as<std::string>();
-		openai::text_to_speech::model model = vm["openai-tts-model"].as<openai::text_to_speech::model>();
-		openai::text_to_speech::voice voice = vm["openai-voice"].as<openai::text_to_speech::voice>();
-		chain |= openai::text_to_speech(api_key, model, voice);
-	}
-
-	if (vm.count("openai-embed"))
-	{
-		std::string api_key = vm["openai-key"].as<std::string>();
-		openai::embed::model model = vm["openai-embed-model"].as<openai::embed::model>();
-		chain |= openai::embed(api_key, model);
-		chain |= [](message_ptr msg, const message_callbacks& emit_message) -> continuation {
-			if (msg->is<ai::embedding>())
-			{
-				const auto& embedding_vec = msg->get<ai::embedding>().values;
-				std::string embedding_str = "[";
-				for (size_t i = 0; i < embedding_vec.size(); ++i)
-				{
-					embedding_str += std::to_string(embedding_vec[i]);
-					if (i < embedding_vec.size() - 1)
-						embedding_str += ", ";
-				}
-				embedding_str += "]";
-				return emit_message(data_source{embedding_str});
-			}
-			return emit_message(std::move(msg));
-		};
-	}
-
-	chain |= [](message_ptr msg, const message_callbacks& emit_message) -> continuation {
-		if (msg->is<std::exception_ptr>())
-			std::clog << "[WARNING] " <<
-				errors::diagnostic_message(msg->get<std::exception_ptr>()) << std::endl;
-		return emit_message(std::move(msg));
-	};
+	auto pipeline =
+		content_type::detector{}
+		| maybe(vm.count("http-post"), [&] {
+			  return http::post(vm["http-post"].as<std::string>());
+		  })
+		| maybe(vm.count("openai-chat"), [&] {
+			  return openai::chat(
+				  vm["openai-chat"].as<std::string>(),
+				  vm["openai-key"].as<std::string>(),
+				  vm["openai-model"].as<openai::model>(),
+				  vm.count("openai-temperature")
+					  ? vm["openai-temperature"].as<float>()
+					  : 0.0f,
+				  vm["openai-image-detail"].as<openai::image_detail>());
+		  })
+		| maybe(vm.count("openai-extract-entities"), [&] {
+			  return openai::extract_entities(
+				  vm["openai-key"].as<std::string>(),
+				  vm["openai-model"].as<openai::model>(),
+				  vm.count("openai-temperature")
+					  ? vm["openai-temperature"].as<float>()
+					  : 0.0f,
+				  vm["openai-image-detail"].as<openai::image_detail>());
+		  })
+		| maybe(vm.count("openai-extract-keywords"), [&] {
+			  return openai::extract_keywords(
+				  vm["openai-extract-keywords"].as<unsigned int>(),
+				  vm["openai-key"].as<std::string>(),
+				  vm["openai-model"].as<openai::model>(),
+				  vm.count("openai-temperature")
+					  ? vm["openai-temperature"].as<float>()
+					  : 0.0f,
+				  vm["openai-image-detail"].as<openai::image_detail>());
+		  })
+		| maybe(vm.count("openai-summarize"), [&] {
+			  return openai::summarize(
+				  vm["openai-key"].as<std::string>(),
+				  vm["openai-model"].as<openai::model>(),
+				  vm.count("openai-temperature")
+					  ? vm["openai-temperature"].as<float>()
+					  : 0.0f,
+				  vm["openai-image-detail"].as<openai::image_detail>());
+		  })
+		| maybe(vm.count("openai-detect-sentiment"), [&] {
+			  return openai::detect_sentiment(
+				  vm["openai-key"].as<std::string>(),
+				  vm["openai-model"].as<openai::model>(),
+				  vm.count("openai-temperature")
+					  ? vm["openai-temperature"].as<float>()
+					  : 0.0f,
+				  vm["openai-image-detail"].as<openai::image_detail>());
+		  })
+		| maybe(vm.count("openai-analyze-data"), [&] {
+			  return openai::analyze_data(
+				  vm["openai-key"].as<std::string>(),
+				  vm["openai-model"].as<openai::model>(),
+				  vm.count("openai-temperature")
+					  ? vm["openai-temperature"].as<float>()
+					  : 0.0f,
+				  vm["openai-image-detail"].as<openai::image_detail>());
+		  })
+		| maybe(vm.count("openai-classify"), [&] {
+			  const std::vector<std::string>& categories =
+				  vm["openai-classify"].as<std::vector<std::string>>();
+			  std::set<std::string> categories_set(categories.begin(), categories.end());
+			  return openai::classify(
+				  categories_set,
+				  vm["openai-key"].as<std::string>(),
+				  vm["openai-model"].as<openai::model>(),
+				  vm.count("openai-temperature")
+					  ? vm["openai-temperature"].as<float>()
+					  : 0.0f,
+				  vm["openai-image-detail"].as<openai::image_detail>());
+		  })
+		| maybe(vm.count("openai-translate-to"), [&] {
+			  return openai::translate_to(
+				  vm["openai-translate-to"].as<std::string>(),
+				  vm["openai-key"].as<std::string>(),
+				  vm["openai-model"].as<openai::model>(),
+				  vm.count("openai-temperature")
+					  ? vm["openai-temperature"].as<float>()
+					  : 0.0f,
+				  vm["openai-image-detail"].as<openai::image_detail>());
+		  })
+#ifdef DOCWIRE_CT2
+		| maybe(vm.count("local-ai-prompt"), [&] {
+			  auto runner = create_local_runner(
+				  vm, "flan-t5-large-ct2-int8");
+			  return ai::local::task(
+				  vm["local-ai-prompt"].as<std::string>(), runner);
+		  })
+#endif
+		| maybe(vm.count("openai-find"), [&] {
+			  return openai::find(
+				  vm["openai-find"].as<std::string>(),
+				  vm["openai-key"].as<std::string>(),
+				  vm["openai-model"].as<openai::model>(),
+				  vm.count("openai-temperature")
+					  ? vm["openai-temperature"].as<float>()
+					  : 0.0f,
+				  vm["openai-image-detail"].as<openai::image_detail>());
+		  })
+		| maybe(vm.count("openai-text-to-speech"), [&] {
+			  return openai::text_to_speech(
+				  vm["openai-key"].as<std::string>(),
+				  vm["openai-tts-model"].as<openai::text_to_speech::model>(),
+				  vm["openai-voice"].as<openai::text_to_speech::voice>());
+		  })
+		| maybe(vm.count("openai-embed"), [&] {
+			  return openai::embed(
+				  vm["openai-key"].as<std::string>(),
+				  vm["openai-embed-model"].as<openai::embed::model>());
+		  })
+		| transformer_func{
+			  [](message_ptr msg,
+				 const message_callbacks& emit_message) -> continuation
+			  {
+				  if (msg->is<std::exception_ptr>())
+					  std::clog << "[WARNING] "
+						  << errors::diagnostic_message(
+								 msg->get<std::exception_ptr>())
+						  << std::endl;
+				  return emit_message(std::move(msg));
+			  }};
 
 	try
 	{
-		chain |= std::cout;
+		run_pipeline(std::move(data), pipeline);
 	}
 	catch (const std::exception& e)
 	{
-		std::cerr << "[ERROR] " <<
-			errors::diagnostic_message(e) <<
-			"processing file " + file_name << std::endl;
+		std::cerr << "[ERROR] " << errors::diagnostic_message(e)
+			<< "processing file " + file_name << std::endl;
 		return 2;
 	}
-  catch (...)
-  {
+	catch (...)
+	{
 		std::cerr << "[ERROR] Unknown error\nprocessing file " + file_name << std::endl;
 		return 2;
-  }
+	}
 
-  return 0;
+	return 0;
 }
