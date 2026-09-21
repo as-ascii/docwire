@@ -18,7 +18,7 @@
 namespace docwire
 {
 
-class DOCWIRE_ARCHIVES_EXPORT archives_parser : public chain_element
+class DOCWIRE_ARCHIVES_EXPORT archives_parser : public chain_element<archives_parser>
 {
 public:
 
@@ -28,12 +28,7 @@ public:
 	* @param msg incoming message
 	* @param emit_message callback to emit messages
 	*/
-	virtual continuation operator()(message_ptr msg, const message_callbacks& emit_message) override;
-
-	bool is_leaf() const override
-	{
-		return false;
-	}
+	continuation operator()(message_ptr msg, const message_callbacks& emit_message);
 };
 
 } // namespace docwire

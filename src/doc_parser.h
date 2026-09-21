@@ -19,12 +19,11 @@
 namespace docwire
 {
 
-class DOCWIRE_OLE_OFFICE_FORMATS_EXPORT doc_parser : public chain_element, public with_pimpl<doc_parser>
+class DOCWIRE_OLE_OFFICE_FORMATS_EXPORT doc_parser : public chain_element<doc_parser>, public with_pimpl<doc_parser>
 {
 public:
     doc_parser();
-    continuation operator()(message_ptr msg, const message_callbacks& emit_message) override;
-    bool is_leaf() const override { return false; }
+    continuation operator()(message_ptr msg, const message_callbacks& emit_message);
 private:
     using with_pimpl<doc_parser>::impl;
 };

@@ -21,18 +21,13 @@ namespace docwire
 /**
  * @brief Exports data to HTML format.
  */
-class DOCWIRE_HTML_EXPORT html_exporter: public chain_element, public with_pimpl<html_exporter>
+class DOCWIRE_HTML_EXPORT html_exporter: public chain_element<html_exporter>, public with_pimpl<html_exporter>
 {
 public:
 
   html_exporter();
 
-	virtual continuation operator()(message_ptr msg, const message_callbacks& emit_message) override;
-
-	bool is_leaf() const override
-	{
-		return false;
-	}
+	continuation operator()(message_ptr msg, const message_callbacks& emit_message);
 
 private:
 	using with_pimpl<html_exporter>::impl;

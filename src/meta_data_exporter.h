@@ -28,17 +28,12 @@ namespace docwire
 /**
  * @brief Exports meta data only to plain text format.
  */
-class metadata_exporter : public chain_element
+class metadata_exporter : public chain_element<metadata_exporter>
 {
 public:
   metadata_exporter() = default;
 
-	virtual continuation operator()(message_ptr msg, const message_callbacks& emit_message) override;
-
-	bool is_leaf() const override
-	{
-		return false;
-	}
+	continuation operator()(message_ptr msg, const message_callbacks& emit_message);
 
 private:
   std::shared_ptr<std::stringstream> m_stream;

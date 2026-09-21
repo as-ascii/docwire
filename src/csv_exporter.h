@@ -25,12 +25,12 @@ namespace docwire
 /**
  * @brief Exports data to CSV format.
  */
-class csv_exporter : public chain_element
+class csv_exporter : public chain_element<csv_exporter>
 {
 public:
     csv_exporter() = default;
 
-    continuation operator()(message_ptr msg, const message_callbacks& emit_message) override
+    continuation operator()(message_ptr msg, const message_callbacks& emit_message)
     {
         if (msg->is<std::exception_ptr>())
             return emit_message(std::move(msg));
@@ -43,11 +43,6 @@ public:
             m_stream.reset();
         }
         return continuation::proceed;
-    }
-
-    bool is_leaf() const override
-    {
-        return false;
     }
 
 private:
