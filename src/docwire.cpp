@@ -396,7 +396,7 @@ int main(int argc, char* argv[])
 					  {file_extension{
 						  vm["attachment_extension"].as<std::string>()}});
 			  })
-			| formatter;
+			| std::move(formatter);
 
 		try
 		{

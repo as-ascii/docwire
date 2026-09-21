@@ -13,6 +13,7 @@
 #define DOCWIRE_VARIANT_CHAIN_ELEMENT_H
 
 #include "chain_element.h"
+#include "ref_or_owned.h"
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -20,6 +21,36 @@
 
 namespace docwire
 {
+
+template <typename T>
+struct is_std_variant : std::false_type {};
+
+template <typename... Ts>
+struct is_std_variant<std::variant<Ts...>> : std::true_type {};
+
+template <typename T>
+concept std_variant = is_std_variant<std::remove_cvref_t<T>>::value;
+
+template <typename T>
+concept variant_alternative_invocable =
+    requires(T& element, message_ptr msg, const message_callbacks& cb) {
+        { element(std::move(msg), cb) } -> std::convertible_to<continuation>;
+    };
+
+template <typename T>
+struct pipeline_category
+{
+    static constexpr bool is_generator = false;
+    static constexpr bool is_leaf = false;
+};
+
+template <typename T>
+    requires chain_element_type<T>
+struct pipeline_category<T>
+{
+    static constexpr bool is_generator = std::remove_cvref_t<T>::is_generator;
+    static constexpr bool is_leaf = std::remove_cvref_t<T>::is_leaf;
+};
 
 /**
  * @brief A chain element that does nothing and only forwards.
@@ -71,16 +102,21 @@ private:
     static_assert(sizeof...(Ts) > 0,
                   "variant_chain_element requires at least one alternative");
 
+    static_assert((variant_alternative_invocable<Ts> && ...),
+                  "All variant alternatives must accept (message_ptr, const message_callbacks&)");
+
+    using first_alternative = std::tuple_element_t<0, std::tuple<Ts...>>;
+
     static constexpr bool first_is_generator =
-        std::tuple_element_t<0, std::tuple<Ts...>>::is_generator;
+        pipeline_category<first_alternative>::is_generator;
 
     static constexpr bool first_is_leaf =
-        std::tuple_element_t<0, std::tuple<Ts...>>::is_leaf;
+        pipeline_category<first_alternative>::is_leaf;
 
-    static_assert(((Ts::is_generator == first_is_generator) && ...),
+    static_assert(((pipeline_category<Ts>::is_generator == first_is_generator) && ...),
                   "All variant chain elements must share the same generator category");
 
-    static_assert(((Ts::is_leaf == first_is_leaf) && ...),
+    static_assert(((pipeline_category<Ts>::is_leaf == first_is_leaf) && ...),
                   "All variant chain elements must share the same leaf category");
 
 public:
@@ -89,23 +125,13 @@ public:
 
     variant_chain_element() = default;
 
-    /**
-     * @brief Constructs the element from a populated `std::variant`.
-     *
-     * @param value The variant holding the active alternative.
-     */
-    variant_chain_element(std::variant<Ts...> value)
-        : m_value{std::move(value)}
+    template <typename V>
+        requires std::same_as<std::remove_cvref_t<V>, std::variant<Ts...>>
+    variant_chain_element(V&& value)
+        : m_value{ref_or_owned<std::variant<Ts...>>{std::forward<V>(value)}}
     {
     }
 
-    /**
-     * @brief Dispatches the message to the currently active alternative.
-     *
-     * @param msg The message to process.
-     * @param emit_message The downstream emission callbacks.
-     * @return The continuation status reported by the active alternative.
-     */
     continuation operator()(message_ptr msg, const message_callbacks& emit_message)
     {
         return std::visit(
@@ -113,48 +139,36 @@ public:
             {
                 return element(std::move(msg), emit_message);
             },
-            m_value);
+            m_value.get());
     }
 
 private:
-    std::variant<Ts...> m_value;
+    ref_or_owned<std::variant<Ts...>> m_value;
 };
 
 template <typename... Ts>
 variant_chain_element(std::variant<Ts...>)
     -> variant_chain_element<std::variant<Ts...>>;
 
-/**
- * @brief Pipes a chain element into a raw `std::variant` of chain elements.
- *
- * Allows spelling variant alternatives directly, without explicitly naming
- * `variant_chain_element`.
- *
- * @see variant_chain_element
- */
-template <typename L, typename... Ts>
-    requires chain_element_type<L> && (chain_element_type<Ts> && ...)
-auto operator|(L&& lhs, std::variant<Ts...> rhs)
+template <typename L, typename Variant>
+    requires chain_element_type<L> && std_variant<Variant>
+auto operator|(L&& lhs, Variant&& rhs)
 {
-    using variant_type = std::variant<Ts...>;
+    using variant_type = std::remove_cvref_t<Variant>;
     return std::forward<L>(lhs)
-         | variant_chain_element<variant_type>{std::move(rhs)};
+         | variant_chain_element<variant_type>{
+                ref_or_owned<variant_type>{std::forward<Variant>(rhs)}
+            };
 }
 
-/**
- * @brief Pipes a raw `std::variant` of chain elements into a chain element.
- *
- * Allows spelling variant alternatives directly, without explicitly naming
- * `variant_chain_element`.
- *
- * @see variant_chain_element
- */
-template <typename... Ts, typename R>
-    requires (chain_element_type<Ts> && ...) && chain_element_type<R>
-auto operator|(std::variant<Ts...> lhs, R&& rhs)
+template <typename Variant, typename R>
+    requires std_variant<Variant> && chain_element_type<R>
+auto operator|(Variant&& lhs, R&& rhs)
 {
-    using variant_type = std::variant<Ts...>;
-    return variant_chain_element<variant_type>{std::move(lhs)}
+    using variant_type = std::remove_cvref_t<Variant>;
+    return variant_chain_element<variant_type>{
+                ref_or_owned<variant_type>{std::forward<Variant>(lhs)}
+            }
          | std::forward<R>(rhs);
 }
 

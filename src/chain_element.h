@@ -55,7 +55,7 @@ public:
     }
 
     template <typename Self, typename Other>
-        requires std::same_as<std::remove_cvref_t<Self>, Derived>
+        requires std::derived_from<std::remove_cvref_t<Self>, Derived>
               && std::derived_from<std::remove_cvref_t<Other>,
                                   chain_element<std::remove_cvref_t<Other>>>
     friend auto operator|(Self&& lhs, Other&& rhs)
