@@ -14,6 +14,7 @@
 
 #include "iwork_export.h"
 #include "chain_element.h"
+#include "pimpl.h"
 
 namespace docwire
 {

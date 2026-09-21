@@ -14,6 +14,7 @@
 
 #include "chain_element.h"
 #include "message.h"
+#include "pimpl.h"
 #include "xlsb_export.h"
 
 namespace docwire

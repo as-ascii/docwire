@@ -14,6 +14,7 @@
 
 #include "chain_element.h"
 #include "http_export.h"
+#include "pimpl.h"
 #include <filesystem>
 #include <map>
 

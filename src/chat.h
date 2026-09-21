@@ -14,6 +14,7 @@
 
 #include "chain_element.h"
 #include "openai_export.h"
+#include "pimpl.h"
 #include <string>
 
 namespace docwire
