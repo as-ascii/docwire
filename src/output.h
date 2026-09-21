@@ -40,9 +40,11 @@ concept ostream_derived_ref_qualified = OStreamDerived<std::remove_reference_t<T
  *  std::ifstream("file.pdf", std::ios_base::in|std::ios_base::binary) | office_formats_parser{} | plain_text_exporter() | std::cout; // Imports file.pdf and saves it to std::cout as plain text
  *  @endcode
  */
-class output_chain_element : public chain_element
+class output_chain_element : public chain_element<output_chain_element>
 {
 public:
+  static constexpr bool is_leaf = true;
+
   /**
    * @param out_stream output_chain_element stream. Parsing chain will be writing to this stream.
    */
@@ -54,12 +56,7 @@ public:
     : m_out_obj{out_vector}
   {}
 
-  bool is_leaf() const override
-  {
-    return true;
-  }
-
-  virtual continuation operator()(message_ptr msg, const message_callbacks& emit_message) override;
+  continuation operator()(message_ptr msg, const message_callbacks& emit_message);
 
 private:
   std::variant<ref_or_owned<std::ostream>, ref_or_owned<std::vector<message_ptr>>> m_out_obj;
