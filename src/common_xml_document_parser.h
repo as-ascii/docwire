@@ -38,7 +38,7 @@ enum xml_parse_mode { PARSE_XML, FIX_XML, STRIP_XML };
  * @sa @ref xml_parsing_example.cpp "XML parsing example"
  */
 template <safety_policy safety_level = default_safety_level>
-class common_xml_document_parser: public chain_element, public with_pimpl<common_xml_document_parser<safety_level>>
+class common_xml_document_parser: public with_pimpl<common_xml_document_parser<safety_level>>
 {
 	private:
 		friend pimpl_impl<common_xml_document_parser<safety_level>>;
