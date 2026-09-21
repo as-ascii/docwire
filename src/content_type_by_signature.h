@@ -15,6 +15,7 @@
 #include "chain_element.h"
 #include "content_type_export.h"
 #include "data_source.h"
+#include "pimpl.h"
 #include "document_elements.h"
 #include "make_error.h"
 #include "nested_exception.h"
