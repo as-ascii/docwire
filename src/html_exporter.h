@@ -14,6 +14,7 @@
 
 #include "chain_element.h"
 #include "html_export.h"
+#include "pimpl.h"
 
 namespace docwire
 {
