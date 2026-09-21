@@ -89,7 +89,7 @@ DOCWIRE_CONTENT_TYPE_EXPORT void detect(data_source& data, const database& datab
 * @see content_type::detector
 * @see content_type::by_signature::detect
 */
-class detector : public chain_element
+class detector : public chain_element<detector>
 {
 public:
 
@@ -109,7 +109,7 @@ public:
     explicit detector(ref_or_owned<database> database_to_use = database{}, allow_multiple allow_multiple = {false})
         : m_database_to_use(database_to_use), m_allow_multiple{allow_multiple} {}
 
-    continuation operator()(message_ptr msg, const message_callbacks& emit_message) override
+    continuation operator()(message_ptr msg, const message_callbacks& emit_message)
     {
         try
         {
@@ -130,11 +130,6 @@ public:
         }
         return emit_message(std::move(msg));
     }
-
-    bool is_leaf() const override
-	{
-		return false;
-	}
 
 private:
     ref_or_owned<database> m_database_to_use;

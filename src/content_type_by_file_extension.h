@@ -54,10 +54,10 @@ DOCWIRE_CONTENT_TYPE_EXPORT std::optional<file_extension> to_extension(const mim
 * @see content_type::detector
 * @see content_type::by_file_extension::detect
 */
-class detector : public chain_element
+class detector : public chain_element<detector>
 {
 public:
-    continuation operator()(message_ptr msg, const message_callbacks& emit_message) override
+    continuation operator()(message_ptr msg, const message_callbacks& emit_message)
     {
         if (msg->is<data_source>())
         {
@@ -71,11 +71,6 @@ public:
         }
 	    return emit_message(std::move(msg));
     }
-
-    bool is_leaf() const override
-	{
-		return false;
-	}
 };
 
 } // namespace docwire::content_type::by_file_extension

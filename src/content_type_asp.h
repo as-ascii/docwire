@@ -32,10 +32,10 @@ DOCWIRE_CONTENT_TYPE_EXPORT void detect(data_source& data);
  * @see content_type::detector
  * @see content_type::asp::detect
  */
-class detector : public chain_element
+class detector : public chain_element<detector>
 {
 public:
-    continuation operator()(message_ptr msg, const message_callbacks& emit_message) override
+    continuation operator()(message_ptr msg, const message_callbacks& emit_message)
     {
         if (!msg->is<data_source>())
 	        return emit_message(std::move(msg));
@@ -43,11 +43,6 @@ public:
         detect(data);
         return emit_message(std::move(msg));
     }
-
-    bool is_leaf() const override
-	{
-		return false;
-	}
 };
 
 } // namespace docwire::content_type::asp

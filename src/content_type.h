@@ -103,7 +103,7 @@ DOCWIRE_CONTENT_TYPE_EXPORT void detect(data_source& data, const by_signature::d
  * @see content_type::outlook::detector
  * @see content_type::xlsb::detector
  */
-class detector : public chain_element
+class detector : public chain_element<detector>
 {
 public:
 
@@ -120,7 +120,7 @@ public:
     detector(ref_or_owned<by_signature::database> signatures_db_to_use = by_signature::database{})
         : m_signatures_db_to_use(signatures_db_to_use) {}
 
-    continuation operator()(message_ptr msg, const message_callbacks& emit_message) override
+    continuation operator()(message_ptr msg, const message_callbacks& emit_message)
     {
         try
         {
@@ -141,11 +141,6 @@ public:
         }
 	    return emit_message(std::move(msg));
     }
-
-    bool is_leaf() const override
-	{
-		return false;
-	}
 
 private:
     ref_or_owned<by_signature::database> m_signatures_db_to_use;
