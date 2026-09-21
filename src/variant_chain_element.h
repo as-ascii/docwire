@@ -156,9 +156,7 @@ auto operator|(L&& lhs, Variant&& rhs)
 {
     using variant_type = std::remove_cvref_t<Variant>;
     return std::forward<L>(lhs)
-         | variant_chain_element<variant_type>{
-                ref_or_owned<variant_type>{std::forward<Variant>(rhs)}
-            };
+         | variant_chain_element<variant_type>{std::forward<Variant>(rhs)};
 }
 
 template <typename Variant, typename R>
@@ -166,9 +164,7 @@ template <typename Variant, typename R>
 auto operator|(Variant&& lhs, R&& rhs)
 {
     using variant_type = std::remove_cvref_t<Variant>;
-    return variant_chain_element<variant_type>{
-                ref_or_owned<variant_type>{std::forward<Variant>(lhs)}
-            }
+    return variant_chain_element<variant_type>{std::forward<Variant>(lhs)}
          | std::forward<R>(rhs);
 }
 
