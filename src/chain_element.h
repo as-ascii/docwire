@@ -78,5 +78,25 @@ public:
     }
 };
 
+/**
+ * @brief Checks whether a type models the pipeline chain element protocol.
+ *
+ * A type models `chain_element_type` when it derives from
+ * `chain_element<Derived>` using itself as the derived type, which is required
+ * for the pipeline composition operator (`operator|`) to participate.
+ *
+ * @tparam T The type to test.
+ *
+ * @see chain_element
+ * @see variant_chain_element
+ * @see noop_transformer
+ * @note This concept is the canonical way to constrain overloads that accept
+ * arbitrary pipeline elements without knowing their concrete category.
+ */
+template <typename T>
+concept chain_element_type =
+    std::derived_from<std::remove_cvref_t<T>,
+                      chain_element<std::remove_cvref_t<T>>>;
+
 }
 #endif //DOCWIRE_CHAIN_ELEMENT_H
