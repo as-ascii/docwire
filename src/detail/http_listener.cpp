@@ -100,7 +100,6 @@ struct http_listener::impl
             }
         });
 
-        throw_if(!server->bind_to_port(address.c_str(), port), "Failed to bind HTTP server", address, port);
     }
 
     void add_route(const std::string& path_pattern, http_route_handler handler)
@@ -144,6 +143,10 @@ struct http_listener::impl
     void listen_after_bind()
     {
         log_scope();
+
+        throw_if(!server->bind_to_port(address.c_str(), port),
+                 "Failed to bind HTTP server", address, port);
+
         server->listen_after_bind();
     }
 
