@@ -52,13 +52,17 @@ struct http_listener::impl
     std::size_t thread_num = 0;
 
     explicit impl(http_listener::options input_options)
-        : certificate{std::move(input_options.certificate)}
-        , error_handler{std::move(input_options.error_handler)}
+        : error_handler{std::move(input_options.error_handler)}
         , address{std::move(input_options.address)}
         , port{input_options.port}
         , thread_num{input_options.thread_num}
     {
         log_scope(address, port, thread_num);
+
+        if (input_options.certificate)
+        {
+            certificate.emplace(std::move(*input_options.certificate));
+        }
 
         if (certificate)
         {

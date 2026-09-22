@@ -74,7 +74,7 @@ public:
         std::uint16_t port = 0;
         std::size_t thread_num = 0;
         std::uint64_t body_limit = 1024ULL * 1024 * 1024;
-        std::optional<ssl_certificate> certificate;
+        std::optional<ssl_certificate::pem> certificate;
         std::function<void(std::exception_ptr)> error_handler = [](std::exception_ptr) {};
     };
 
