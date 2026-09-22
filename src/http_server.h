@@ -29,6 +29,7 @@
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -218,14 +219,27 @@ private:
     {
         using pipeline_type = std::decay_t<std::invoke_result_t<Factory>>;
 
-        return [factory = std::move(factory)](
+        struct route_cache_state
+        {
+            Factory factory;
+        };
+
+        auto state = std::make_shared<route_cache_state>(std::move(factory));
+
+        return [state](
             const ::docwire::detail::http_request& request,
             ::docwire::detail::http_response& response)
         {
-            // One cached pipeline instance per thread, per route factory type.
-            static thread_local std::optional<pipeline_type> cached_pipeline;
-            if (!cached_pipeline)
-                cached_pipeline.emplace(factory());
+            // Each route registration owns a distinct `route_cache_state`.
+            // The thread-local cache is keyed by that object, not by the
+            // Factory type, so two routes with the same factory closure type
+            // receive independent pipelines.
+            using cache_key = std::shared_ptr<route_cache_state>;
+
+            static thread_local std::unordered_map<cache_key, pipeline_type> pipelines;
+
+            auto it = pipelines.try_emplace(state, state->factory()).first;
+            pipeline_type& pipeline = it->second;
 
             auto response_messages = std::make_shared<std::vector<message_ptr>>();
 
@@ -237,7 +251,7 @@ private:
             // input generator is piped in, so that the intermediate chain is
             // not considered "complete" and does not run prematurely. Only the
             // fully assembled chain runs, exactly once.
-            auto pipeline_with_output = *cached_pipeline | output_chain_element{response_messages};
+            auto pipeline_with_output = pipeline | output_chain_element{response_messages};
             input_chain_element{std::move(request_data_source)} | pipeline_with_output;
 
             if (response_messages->empty())
