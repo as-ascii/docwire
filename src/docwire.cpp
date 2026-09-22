@@ -310,6 +310,17 @@ int main(int argc, char* argv[])
 		return data_source{std::filesystem::path{file_name}};
 	}();
 
+#ifndef DOCWIRE_CT2
+	if (vm.count("local-ai-prompt") || vm.count("local-ai-embed"))
+	{
+		std::cerr << "Error: Local AI features requested, but this build does not include "
+		             "DOCWIRE_CT2 support.\n"
+		             "Rebuild with DOCWIRE_CT2 enabled to use --local-ai-prompt or "
+		             "--local-ai-embed." << std::endl;
+		return 1;
+	}
+#endif
+
 	auto optional_suffix =
 		maybe(vm.count("http-post"), [&] {
 			return http::post(vm["http-post"].as<std::string>());
@@ -585,17 +596,6 @@ int main(int argc, char* argv[])
 		}
 		return 0;
 	}
-
-#ifndef DOCWIRE_CT2
-	if (vm.count("local-ai-prompt") || vm.count("local-ai-embed"))
-	{
-		std::cerr << "Error: Local AI features requested, but this build does not include "
-		             "DOCWIRE_CT2 support.\n"
-		             "Rebuild with DOCWIRE_CT2 enabled to use --local-ai-prompt or "
-		             "--local-ai-embed." << std::endl;
-		return 1;
-	}
-#endif
 
 	auto pipeline =
 		content_type::detector{}
