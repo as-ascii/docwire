@@ -407,7 +407,7 @@ int main(int argc, char* argv[])
 			switch (embed_type)
 			{
 				case embed_prefix_type::none:
-					prefix = "";
+					prefix = "passage: ";
 					break;
 				case embed_prefix_type::query:
 					prefix = "query: ";
@@ -444,6 +444,25 @@ int main(int argc, char* argv[])
 				vm["openai-key"].as<std::string>(),
 				vm["openai-embed-model"].as<openai::embed::model>());
 		})
+		| transformer_func{
+			[](message_ptr msg,
+			   const message_callbacks& emit_message) -> continuation
+			{
+				if (msg->is<ai::embedding>())
+				{
+					const auto& embedding_vec = msg->get<ai::embedding>().values;
+					std::string embedding_str = "[";
+					for (size_t i = 0; i < embedding_vec.size(); ++i)
+					{
+						embedding_str += std::to_string(embedding_vec[i]);
+						if (i < embedding_vec.size() - 1)
+							embedding_str += ", ";
+					}
+					embedding_str += "]";
+					return emit_message(data_source{embedding_str});
+				}
+				return emit_message(std::move(msg));
+			}}
 		| transformer_func{
 			[](message_ptr msg,
 			   const message_callbacks& emit_message) -> continuation
