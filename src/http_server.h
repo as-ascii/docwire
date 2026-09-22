@@ -143,7 +143,7 @@ public:
         }
         catch (const std::exception&)
         {
-            std::throw_with_nested(make_error("HTTP server failed to start"));
+            std::throw_with_nested(DOCWIRE_MAKE_ERROR("HTTP server failed to start"));
         }
     }
 
