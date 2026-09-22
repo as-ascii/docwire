@@ -13,8 +13,8 @@
 #define DOCWIRE_HTTP_SERVER_H
 
 #include "data_source.h"
-#include "detail/http_listener.h"
-#include "detail/ssl_certificate.h"
+#include "http_listener.h"
+#include "ssl_certificate.h"
 #include "http_export.h"
 #include "input.h"
 #include "log_scope.h"

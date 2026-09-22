@@ -11,7 +11,7 @@
 
 #include "http_server.h"
 
-#include "detail/ssl_certificate.h"
+#include "ssl_certificate.h"
 #include "log_scope.h"
 #include <utility>
 
