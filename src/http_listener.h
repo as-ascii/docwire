@@ -12,7 +12,7 @@
 #ifndef DOCWIRE_DETAIL_HTTP_LISTENER_H
 #define DOCWIRE_DETAIL_HTTP_LISTENER_H
 
-#include "core_export.h"
+#include "http_export.h"
 #include "ssl_certificate.h"
 #include <cstddef>
 #include <cstdint>
@@ -65,7 +65,7 @@ using http_route_handler = std::function<void(const http_request&, http_response
  * quarantined inside a dedicated translation unit so that no third-party
  * header leaks into `docwire::http`.
  */
-class DOCWIRE_CORE_EXPORT http_listener
+class DOCWIRE_HTTP_EXPORT http_listener
 {
 public:
     struct options
