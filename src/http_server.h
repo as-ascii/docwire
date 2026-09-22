@@ -198,7 +198,7 @@ private:
     void register_route(route<Factory>& entry)
     {
         const std::string path = path_string(entry);
-        m_listener.post(path, make_handler(entry.factory));
+        m_listener.post(path, make_handler(std::move(entry.factory)));
     }
 
     template <typename Factory>
