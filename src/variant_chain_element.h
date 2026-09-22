@@ -153,6 +153,16 @@ auto operator|(Variant&& lhs, R&& rhs)
          | std::forward<R>(rhs);
 }
 
+template <typename LeftVariant, typename RightVariant>
+    requires std_variant<LeftVariant> && std_variant<RightVariant>
+auto operator|(LeftVariant&& lhs, RightVariant&& rhs)
+{
+    using lhs_variant_type = std::remove_cvref_t<LeftVariant>;
+    using rhs_variant_type = std::remove_cvref_t<RightVariant>;
+    return variant_chain_element<lhs_variant_type>{std::forward<LeftVariant>(lhs)}
+         | variant_chain_element<rhs_variant_type>{std::forward<RightVariant>(rhs)};
+}
+
 } // namespace docwire
 
 #endif // DOCWIRE_VARIANT_CHAIN_ELEMENT_H
