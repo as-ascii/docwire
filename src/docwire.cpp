@@ -337,132 +337,129 @@ int main(int argc, char* argv[])
 		return 0;
 	}
 
-	auto make_optional_suffix = [&](auto&& prefix_pipeline)
-	{
-		return std::forward<decltype(prefix_pipeline)>(prefix_pipeline)
-			| maybe(vm.count("http-post"), [&] {
-				  return http::post(vm["http-post"].as<std::string>());
-			  })
-			| maybe(vm.count("openai-chat"), [&] {
-				  return openai::chat(
-					  vm["openai-chat"].as<std::string>(),
-					  vm["openai-key"].as<std::string>(),
-					  vm["openai-model"].as<openai::model>(),
-					  vm.count("openai-temperature")
-						  ? vm["openai-temperature"].as<float>()
-						  : 0.0f,
-					  vm["openai-image-detail"].as<openai::image_detail>());
-			  })
-			| maybe(vm.count("openai-extract-entities"), [&] {
-				  return openai::extract_entities(
-					  vm["openai-key"].as<std::string>(),
-					  vm["openai-model"].as<openai::model>(),
-					  vm.count("openai-temperature")
-						  ? vm["openai-temperature"].as<float>()
-						  : 0.0f,
-					  vm["openai-image-detail"].as<openai::image_detail>());
-			  })
-			| maybe(vm.count("openai-extract-keywords"), [&] {
-				  return openai::extract_keywords(
-					  vm["openai-extract-keywords"].as<unsigned int>(),
-					  vm["openai-key"].as<std::string>(),
-					  vm["openai-model"].as<openai::model>(),
-					  vm.count("openai-temperature")
-						  ? vm["openai-temperature"].as<float>()
-						  : 0.0f,
-					  vm["openai-image-detail"].as<openai::image_detail>());
-			  })
-			| maybe(vm.count("openai-summarize"), [&] {
-				  return openai::summarize(
-					  vm["openai-key"].as<std::string>(),
-					  vm["openai-model"].as<openai::model>(),
-					  vm.count("openai-temperature")
-						  ? vm["openai-temperature"].as<float>()
-						  : 0.0f,
-					  vm["openai-image-detail"].as<openai::image_detail>());
-			  })
-			| maybe(vm.count("openai-detect-sentiment"), [&] {
-				  return openai::detect_sentiment(
-					  vm["openai-key"].as<std::string>(),
-					  vm["openai-model"].as<openai::model>(),
-					  vm.count("openai-temperature")
-						  ? vm["openai-temperature"].as<float>()
-						  : 0.0f,
-					  vm["openai-image-detail"].as<openai::image_detail>());
-			  })
-			| maybe(vm.count("openai-analyze-data"), [&] {
-				  return openai::analyze_data(
-					  vm["openai-key"].as<std::string>(),
-					  vm["openai-model"].as<openai::model>(),
-					  vm.count("openai-temperature")
-						  ? vm["openai-temperature"].as<float>()
-						  : 0.0f,
-					  vm["openai-image-detail"].as<openai::image_detail>());
-			  })
-			| maybe(vm.count("openai-classify"), [&] {
-				  const std::vector<std::string>& categories =
-					  vm["openai-classify"].as<std::vector<std::string>>();
-				  std::set<std::string> categories_set(categories.begin(), categories.end());
-				  return openai::classify(
-					  categories_set,
-					  vm["openai-key"].as<std::string>(),
-					  vm["openai-model"].as<openai::model>(),
-					  vm.count("openai-temperature")
-						  ? vm["openai-temperature"].as<float>()
-						  : 0.0f,
-					  vm["openai-image-detail"].as<openai::image_detail>());
-			  })
-			| maybe(vm.count("openai-translate-to"), [&] {
-				  return openai::translate_to(
-					  vm["openai-translate-to"].as<std::string>(),
-					  vm["openai-key"].as<std::string>(),
-					  vm["openai-model"].as<openai::model>(),
-					  vm.count("openai-temperature")
-						  ? vm["openai-temperature"].as<float>()
-						  : 0.0f,
-					  vm["openai-image-detail"].as<openai::image_detail>());
-			  })
+	auto optional_suffix =
+		maybe(vm.count("http-post"), [&] {
+			return http::post(vm["http-post"].as<std::string>());
+		})
+		| maybe(vm.count("openai-chat"), [&] {
+			return openai::chat(
+				vm["openai-chat"].as<std::string>(),
+				vm["openai-key"].as<std::string>(),
+				vm["openai-model"].as<openai::model>(),
+				vm.count("openai-temperature")
+					? vm["openai-temperature"].as<float>()
+					: 0.0f,
+				vm["openai-image-detail"].as<openai::image_detail>());
+		})
+		| maybe(vm.count("openai-extract-entities"), [&] {
+			return openai::extract_entities(
+				vm["openai-key"].as<std::string>(),
+				vm["openai-model"].as<openai::model>(),
+				vm.count("openai-temperature")
+					? vm["openai-temperature"].as<float>()
+					: 0.0f,
+				vm["openai-image-detail"].as<openai::image_detail>());
+		})
+		| maybe(vm.count("openai-extract-keywords"), [&] {
+			return openai::extract_keywords(
+				vm["openai-extract-keywords"].as<unsigned int>(),
+				vm["openai-key"].as<std::string>(),
+				vm["openai-model"].as<openai::model>(),
+				vm.count("openai-temperature")
+					? vm["openai-temperature"].as<float>()
+					: 0.0f,
+				vm["openai-image-detail"].as<openai::image_detail>());
+		})
+		| maybe(vm.count("openai-summarize"), [&] {
+			return openai::summarize(
+				vm["openai-key"].as<std::string>(),
+				vm["openai-model"].as<openai::model>(),
+				vm.count("openai-temperature")
+					? vm["openai-temperature"].as<float>()
+					: 0.0f,
+				vm["openai-image-detail"].as<openai::image_detail>());
+		})
+		| maybe(vm.count("openai-detect-sentiment"), [&] {
+			return openai::detect_sentiment(
+				vm["openai-key"].as<std::string>(),
+				vm["openai-model"].as<openai::model>(),
+				vm.count("openai-temperature")
+					? vm["openai-temperature"].as<float>()
+					: 0.0f,
+				vm["openai-image-detail"].as<openai::image_detail>());
+		})
+		| maybe(vm.count("openai-analyze-data"), [&] {
+			return openai::analyze_data(
+				vm["openai-key"].as<std::string>(),
+				vm["openai-model"].as<openai::model>(),
+				vm.count("openai-temperature")
+					? vm["openai-temperature"].as<float>()
+					: 0.0f,
+				vm["openai-image-detail"].as<openai::image_detail>());
+		})
+		| maybe(vm.count("openai-classify"), [&] {
+			const std::vector<std::string>& categories =
+				vm["openai-classify"].as<std::vector<std::string>>();
+			std::set<std::string> categories_set(categories.begin(), categories.end());
+			return openai::classify(
+				categories_set,
+				vm["openai-key"].as<std::string>(),
+				vm["openai-model"].as<openai::model>(),
+				vm.count("openai-temperature")
+					? vm["openai-temperature"].as<float>()
+					: 0.0f,
+				vm["openai-image-detail"].as<openai::image_detail>());
+		})
+		| maybe(vm.count("openai-translate-to"), [&] {
+			return openai::translate_to(
+				vm["openai-translate-to"].as<std::string>(),
+				vm["openai-key"].as<std::string>(),
+				vm["openai-model"].as<openai::model>(),
+				vm.count("openai-temperature")
+					? vm["openai-temperature"].as<float>()
+					: 0.0f,
+				vm["openai-image-detail"].as<openai::image_detail>());
+		})
 #ifdef DOCWIRE_CT2
-			| maybe(vm.count("local-ai-prompt"), [&] {
-				  auto runner = create_local_runner(
-					  vm, "flan-t5-large-ct2-int8");
-				  return ai::local::task(
-					  vm["local-ai-prompt"].as<std::string>(), runner);
-			  })
+		| maybe(vm.count("local-ai-prompt"), [&] {
+			auto runner = create_local_runner(
+				vm, "flan-t5-large-ct2-int8");
+			return ai::local::task(
+				vm["local-ai-prompt"].as<std::string>(), runner);
+		})
 #endif
-			| maybe(vm.count("openai-find"), [&] {
-				  return openai::find(
-					  vm["openai-find"].as<std::string>(),
-					  vm["openai-key"].as<std::string>(),
-					  vm["openai-model"].as<openai::model>(),
-					  vm.count("openai-temperature")
-						  ? vm["openai-temperature"].as<float>()
-						  : 0.0f,
-					  vm["openai-image-detail"].as<openai::image_detail>());
-			  })
-			| maybe(vm.count("openai-text-to-speech"), [&] {
-				  return openai::text_to_speech(
-					  vm["openai-key"].as<std::string>(),
-					  vm["openai-tts-model"].as<openai::text_to_speech::model>(),
-					  vm["openai-voice"].as<openai::text_to_speech::voice>());
-			  })
-			| maybe(vm.count("openai-embed"), [&] {
-				  return openai::embed(
-					  vm["openai-key"].as<std::string>(),
-					  vm["openai-embed-model"].as<openai::embed::model>());
-			  })
-			| transformer_func{
-				  [](message_ptr msg,
-					 const message_callbacks& emit_message) -> continuation
-				  {
-					  if (msg->is<std::exception_ptr>())
-						  std::clog << "[WARNING] "
-							  << errors::diagnostic_message(
-									 msg->get<std::exception_ptr>())
-							  << std::endl;
-					  return emit_message(std::move(msg));
-				  }};
-	};
+		| maybe(vm.count("openai-find"), [&] {
+			return openai::find(
+				vm["openai-find"].as<std::string>(),
+				vm["openai-key"].as<std::string>(),
+				vm["openai-model"].as<openai::model>(),
+				vm.count("openai-temperature")
+					? vm["openai-temperature"].as<float>()
+					: 0.0f,
+				vm["openai-image-detail"].as<openai::image_detail>());
+		})
+		| maybe(vm.count("openai-text-to-speech"), [&] {
+			return openai::text_to_speech(
+				vm["openai-key"].as<std::string>(),
+				vm["openai-tts-model"].as<openai::text_to_speech::model>(),
+				vm["openai-voice"].as<openai::text_to_speech::voice>());
+		})
+		| maybe(vm.count("openai-embed"), [&] {
+			return openai::embed(
+				vm["openai-key"].as<std::string>(),
+				vm["openai-embed-model"].as<openai::embed::model>());
+		})
+		| transformer_func{
+			[](message_ptr msg,
+			   const message_callbacks& emit_message) -> continuation
+			{
+				if (msg->is<std::exception_ptr>())
+					std::clog << "[WARNING] "
+						<< errors::diagnostic_message(
+							   msg->get<std::exception_ptr>())
+						<< std::endl;
+				return emit_message(std::move(msg));
+			}};
 
 	if (local_processing)
 	{
@@ -524,7 +521,9 @@ int main(int argc, char* argv[])
 						  vm["attachment_extension"].as<std::string>()}});
 			  });
 
-		auto pipeline = make_optional_suffix(std::move(local_prefix))
+		auto pipeline =
+			std::move(local_prefix)
+			| std::move(optional_suffix)
 			| std::move(formatter);
 
 		try
@@ -558,128 +557,7 @@ int main(int argc, char* argv[])
 
 	auto pipeline =
 		content_type::detector{}
-		| maybe(vm.count("http-post"), [&] {
-			  return http::post(vm["http-post"].as<std::string>());
-		  })
-		| maybe(vm.count("openai-chat"), [&] {
-			  return openai::chat(
-				  vm["openai-chat"].as<std::string>(),
-				  vm["openai-key"].as<std::string>(),
-				  vm["openai-model"].as<openai::model>(),
-				  vm.count("openai-temperature")
-					  ? vm["openai-temperature"].as<float>()
-					  : 0.0f,
-				  vm["openai-image-detail"].as<openai::image_detail>());
-		  })
-		| maybe(vm.count("openai-extract-entities"), [&] {
-			  return openai::extract_entities(
-				  vm["openai-key"].as<std::string>(),
-				  vm["openai-model"].as<openai::model>(),
-				  vm.count("openai-temperature")
-					  ? vm["openai-temperature"].as<float>()
-					  : 0.0f,
-				  vm["openai-image-detail"].as<openai::image_detail>());
-		  })
-		| maybe(vm.count("openai-extract-keywords"), [&] {
-			  return openai::extract_keywords(
-				  vm["openai-extract-keywords"].as<unsigned int>(),
-				  vm["openai-key"].as<std::string>(),
-				  vm["openai-model"].as<openai::model>(),
-				  vm.count("openai-temperature")
-					  ? vm["openai-temperature"].as<float>()
-					  : 0.0f,
-				  vm["openai-image-detail"].as<openai::image_detail>());
-		  })
-		| maybe(vm.count("openai-summarize"), [&] {
-			  return openai::summarize(
-				  vm["openai-key"].as<std::string>(),
-				  vm["openai-model"].as<openai::model>(),
-				  vm.count("openai-temperature")
-					  ? vm["openai-temperature"].as<float>()
-					  : 0.0f,
-				  vm["openai-image-detail"].as<openai::image_detail>());
-		  })
-		| maybe(vm.count("openai-detect-sentiment"), [&] {
-			  return openai::detect_sentiment(
-				  vm["openai-key"].as<std::string>(),
-				  vm["openai-model"].as<openai::model>(),
-				  vm.count("openai-temperature")
-					  ? vm["openai-temperature"].as<float>()
-					  : 0.0f,
-				  vm["openai-image-detail"].as<openai::image_detail>());
-		  })
-		| maybe(vm.count("openai-analyze-data"), [&] {
-			  return openai::analyze_data(
-				  vm["openai-key"].as<std::string>(),
-				  vm["openai-model"].as<openai::model>(),
-				  vm.count("openai-temperature")
-					  ? vm["openai-temperature"].as<float>()
-					  : 0.0f,
-				  vm["openai-image-detail"].as<openai::image_detail>());
-		  })
-		| maybe(vm.count("openai-classify"), [&] {
-			  const std::vector<std::string>& categories =
-				  vm["openai-classify"].as<std::vector<std::string>>();
-			  std::set<std::string> categories_set(categories.begin(), categories.end());
-			  return openai::classify(
-				  categories_set,
-				  vm["openai-key"].as<std::string>(),
-				  vm["openai-model"].as<openai::model>(),
-				  vm.count("openai-temperature")
-					  ? vm["openai-temperature"].as<float>()
-					  : 0.0f,
-				  vm["openai-image-detail"].as<openai::image_detail>());
-		  })
-		| maybe(vm.count("openai-translate-to"), [&] {
-			  return openai::translate_to(
-				  vm["openai-translate-to"].as<std::string>(),
-				  vm["openai-key"].as<std::string>(),
-				  vm["openai-model"].as<openai::model>(),
-				  vm.count("openai-temperature")
-					  ? vm["openai-temperature"].as<float>()
-					  : 0.0f,
-				  vm["openai-image-detail"].as<openai::image_detail>());
-		  })
-#ifdef DOCWIRE_CT2
-		| maybe(vm.count("local-ai-prompt"), [&] {
-			  auto runner = create_local_runner(
-				  vm, "flan-t5-large-ct2-int8");
-			  return ai::local::task(
-				  vm["local-ai-prompt"].as<std::string>(), runner);
-		  })
-#endif
-		| maybe(vm.count("openai-find"), [&] {
-			  return openai::find(
-				  vm["openai-find"].as<std::string>(),
-				  vm["openai-key"].as<std::string>(),
-				  vm["openai-model"].as<openai::model>(),
-				  vm.count("openai-temperature")
-					  ? vm["openai-temperature"].as<float>()
-					  : 0.0f,
-				  vm["openai-image-detail"].as<openai::image_detail>());
-		  })
-		| maybe(vm.count("openai-text-to-speech"), [&] {
-			  return openai::text_to_speech(
-				  vm["openai-key"].as<std::string>(),
-				  vm["openai-tts-model"].as<openai::text_to_speech::model>(),
-				  vm["openai-voice"].as<openai::text_to_speech::voice>());
-		  })
-		| maybe(vm.count("openai-embed"), [&] {
-			  return openai::embed(
-				  vm["openai-key"].as<std::string>(),
-				  vm["openai-embed-model"].as<openai::embed::model>());
-		  })
-		| transformer_func{
-			  [](message_ptr msg,
-				 const message_callbacks& emit_message) -> continuation
-			  {
-				  if (msg->is<std::exception_ptr>())
-					  std::clog << "[WARNING] "
-						  << errors::diagnostic_message(
-								 msg->get<std::exception_ptr>())
-						  << std::endl;
-				  return emit_message(std::move(msg));
-			  }};
+		| std::move(optional_suffix);
 
 	try
 	{
