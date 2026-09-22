@@ -565,8 +565,8 @@ int main(int argc, char* argv[])
 
 		auto pipeline =
 			std::move(local_prefix)
-			| std::move(optional_suffix)
-			| std::move(formatter);
+			| std::move(formatter)
+			| std::move(optional_suffix);
 
 		try
 		{
