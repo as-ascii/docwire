@@ -278,7 +278,7 @@ private:
             {
                 response.error = last_message->get<std::exception_ptr>();
                 response.status = ::docwire::detail::http_status_code::internal_server_error;
-                response.content = "Pipeline Error: " + errors::diagnostic_message(response.error);
+                response.content = "Internal Server Error";
             }
             else
             {

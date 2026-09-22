@@ -93,10 +93,10 @@ struct http_listener::impl
                 if (error)
                     std::rethrow_exception(error);
             }
-            catch (const std::exception& e)
+            catch (const std::exception&)
             {
                 response.status = httplib::StatusCode::InternalServerError_500;
-                response.set_content(std::string{"Internal Server Error: "} + errors::diagnostic_message(e), "text/plain");
+                response.set_content("Internal Server Error", "text/plain");
             }
         });
 
@@ -125,10 +125,10 @@ struct http_listener::impl
             {
                 handler(request, response);
             }
-            catch (const std::exception& e)
+            catch (const std::exception&)
             {
                 response.status = http_status_code::internal_server_error;
-                response.content = std::string{"Internal Server Error: "} + errors::diagnostic_message(e);
+                response.content = "Internal Server Error";
                 response.error = std::current_exception();
             }
 
