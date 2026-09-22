@@ -238,7 +238,11 @@ private:
 
             static thread_local std::unordered_map<cache_key, pipeline_type> pipelines;
 
-            auto it = pipelines.try_emplace(state, state->factory()).first;
+            auto it = pipelines.find(state);
+            if (it == pipelines.end())
+            {
+                it = pipelines.emplace(state, state->factory()).first;
+            }
             pipeline_type& pipeline = it->second;
 
             auto response_messages = std::make_shared<std::vector<message_ptr>>();
