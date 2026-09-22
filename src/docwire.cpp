@@ -427,6 +427,28 @@ int main(int argc, char* argv[])
 			return ai::local::task(
 				vm["local-ai-prompt"].as<std::string>(), runner);
 		})
+		| maybe(vm.count("local-ai-embed"), [&] {
+			const auto embed_type = vm["local-ai-embed"].as<embed_prefix_type>();
+			std::string prefix;
+
+			switch (embed_type)
+			{
+				case embed_prefix_type::none:
+					prefix = "";
+					break;
+				case embed_prefix_type::query:
+					prefix = "query: ";
+					break;
+				case embed_prefix_type::passage:
+					prefix = "passage: ";
+					break;
+			}
+
+			auto runner = create_local_runner(
+				vm, "multilingual-e5-small-ct2-int8");
+
+			return docwire::ai::embed{runner, prefix};
+		})
 #endif
 		| maybe(vm.count("openai-find"), [&] {
 			return openai::find(
