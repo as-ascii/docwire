@@ -310,33 +310,6 @@ int main(int argc, char* argv[])
 		return data_source{std::filesystem::path{file_name}};
 	}();
 
-	if (vm.count("openai-transcribe"))
-	{
-		auto pipeline =
-			content_type::detector{}
-			| openai::transcribe(
-				vm["openai-key"].as<std::string>(),
-				vm["openai-transcribe-model"].as<openai::transcribe::model>())
-			| plain_text_exporter{};
-
-		try
-		{
-			run_pipeline(std::move(data), pipeline);
-		}
-		catch (const std::exception& e)
-		{
-			std::cerr << "[ERROR] " << errors::diagnostic_message(e)
-				<< "processing file " + file_name << std::endl;
-			return 2;
-		}
-		catch (...)
-		{
-			std::cerr << "[ERROR] Unknown error\nprocessing file " + file_name << std::endl;
-			return 2;
-		}
-		return 0;
-	}
-
 	auto optional_suffix =
 		maybe(vm.count("http-post"), [&] {
 			return http::post(vm["http-post"].as<std::string>());
@@ -482,6 +455,34 @@ int main(int argc, char* argv[])
 						<< std::endl;
 				return emit_message(std::move(msg));
 			}};
+
+	if (vm.count("openai-transcribe"))
+	{
+		auto pipeline =
+			content_type::detector{}
+			| openai::transcribe(
+				vm["openai-key"].as<std::string>(),
+				vm["openai-transcribe-model"].as<openai::transcribe::model>())
+			| plain_text_exporter{}
+			| std::move(optional_suffix);
+
+		try
+		{
+			run_pipeline(std::move(data), pipeline);
+		}
+		catch (const std::exception& e)
+		{
+			std::cerr << "[ERROR] " << errors::diagnostic_message(e)
+				<< "processing file " + file_name << std::endl;
+			return 2;
+		}
+		catch (...)
+		{
+			std::cerr << "[ERROR] Unknown error\nprocessing file " + file_name << std::endl;
+			return 2;
+		}
+		return 0;
+	}
 
 	if (local_processing)
 	{
