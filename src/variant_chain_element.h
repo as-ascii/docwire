@@ -13,6 +13,7 @@
 #define DOCWIRE_VARIANT_CHAIN_ELEMENT_H
 
 #include "chain_element.h"
+#include "noop_transformer.h"
 #include "ref_or_owned.h"
 #include <tuple>
 #include <type_traits>
@@ -50,22 +51,6 @@ struct pipeline_category<T>
 {
     static constexpr bool is_generator = std::remove_cvref_t<T>::is_generator;
     static constexpr bool is_leaf = std::remove_cvref_t<T>::is_leaf;
-};
-
-/**
- * @brief A chain element that does nothing and only forwards.
- *
- * Used as one alternative in `std::variant` pipelines to represent an absent
- * optional step while keeping the pipeline type stable.
- */
-class noop_transformer : public chain_element<noop_transformer>
-{
-public:
-    continuation operator()(message_ptr msg,
-                            const message_callbacks& emit_message)
-    {
-        return emit_message(std::move(msg));
-    }
 };
 
 /**
